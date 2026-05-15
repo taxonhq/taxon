@@ -1,5 +1,7 @@
 # Taxon
 
+[中文](README.zh-CN.md) | **English**
+
 A standalone, reusable tagging microservice with a built-in management console.
 
 ## Features
