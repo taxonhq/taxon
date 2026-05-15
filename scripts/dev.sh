@@ -21,12 +21,10 @@ usage() {
   echo "Modes:"
   echo "  internal   Connect to LAN database (default)"
   echo "  external   Connect to remote cloud database"
-  echo "  docker     Start local PostgreSQL via Docker Compose"
   echo ""
   echo "Examples:"
   echo "  $0              # internal mode"
   echo "  $0 external"
-  echo "  $0 docker"
   exit 0
 }
 
@@ -61,27 +59,6 @@ case "$MODE" in
     success "Copied .env.external → packages/service/.env"
     ;;
 
-  docker)
-    command -v docker >/dev/null 2>&1 || error "docker is not installed"
-
-    info "Starting PostgreSQL container..."
-    docker compose -f "$REPO_ROOT/docker-compose.yml" up -d postgres
-
-    # Write a local .env pointing at Docker postgres
-    cat > "$SERVICE_DIR/.env" <<'EOF'
-DATABASE_URL="postgresql://taxon:taxon@localhost:5432/taxon?schema=public"
-PORT=3300
-EOF
-    success "Docker postgres started, wrote .env"
-
-    info "Waiting for PostgreSQL to be ready..."
-    until docker compose -f "$REPO_ROOT/docker-compose.yml" exec -T postgres \
-        pg_isready -U taxon -d taxon >/dev/null 2>&1; do
-      sleep 1
-    done
-    success "PostgreSQL is ready"
-    ;;
-
   *)
     error "Unknown mode '$MODE'. Run $0 --help for usage."
     ;;
@@ -95,13 +72,7 @@ pnpm install --frozen-lockfile
 info "Running database migrations..."
 cd "$SERVICE_DIR"
 
-if [[ "$MODE" == "docker" ]]; then
-  # Local DB: create/apply migrations interactively
-  npx prisma migrate dev
-else
-  # Shared DB: only apply existing migrations, never prompt
-  npx prisma migrate deploy
-fi
+npx prisma migrate deploy
 
 cd "$REPO_ROOT"
 
