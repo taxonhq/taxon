@@ -4,65 +4,40 @@ set -euo pipefail
 # ─── Colors ───────────────────────────────────────────────────────────────────
 RED='\033[0;31m'
 GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
 CYAN='\033[0;36m'
 BOLD='\033[1m'
 NC='\033[0m'
 
 info()    { echo -e "${CYAN}[taxon]${NC} $*"; }
 success() { echo -e "${GREEN}[taxon]${NC} $*"; }
-warn()    { echo -e "${YELLOW}[taxon]${NC} $*"; }
 error()   { echo -e "${RED}[taxon]${NC} $*" >&2; exit 1; }
 
-# ─── Usage ────────────────────────────────────────────────────────────────────
-usage() {
-  echo -e "${BOLD}Usage:${NC} $0 [mode]"
-  echo ""
-  echo "Modes:"
-  echo "  internal   Connect to LAN database (default)"
-  echo "  external   Connect to remote cloud database"
-  echo ""
-  echo "Examples:"
-  echo "  $0              # internal mode"
-  echo "  $0 external"
-  exit 0
-}
-
-[[ "${1:-}" == "-h" || "${1:-}" == "--help" ]] && usage
-
-MODE="${1:-internal}"
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 SERVICE_DIR="$REPO_ROOT/packages/service"
 
 # ─── Prerequisites ─────────────────────────────────────────────────────────────
-info "Checking prerequisites..."
-
-command -v node  >/dev/null 2>&1 || error "node is not installed (required: 20+)"
-command -v pnpm  >/dev/null 2>&1 || error "pnpm is not installed"
+command -v node >/dev/null 2>&1 || error "node is not installed (required: 20+)"
+command -v pnpm >/dev/null 2>&1 || error "pnpm is not installed"
 
 NODE_MAJOR=$(node -e "process.stdout.write(process.versions.node.split('.')[0])")
 [[ "$NODE_MAJOR" -lt 20 ]] && error "Node.js 20+ required (found: $(node -v))"
 
-# ─── Env setup ────────────────────────────────────────────────────────────────
-info "Mode: ${BOLD}$MODE${NC}"
+# ─── Auto-detect environment ───────────────────────────────────────────────────
+[[ -f "$SERVICE_DIR/.env.internal" ]] || error ".env.internal not found in packages/service/"
+[[ -f "$SERVICE_DIR/.env.external" ]] || error ".env.external not found in packages/service/"
 
-case "$MODE" in
-  internal)
-    [[ -f "$SERVICE_DIR/.env.internal" ]] || error ".env.internal not found in packages/service/"
-    cp "$SERVICE_DIR/.env.internal" "$SERVICE_DIR/.env"
-    success "Copied .env.internal → packages/service/.env"
-    ;;
+# Extract host from DATABASE_URL in .env.internal
+INTERNAL_HOST=$(grep -oE '@[^:/]+' "$SERVICE_DIR/.env.internal" | head -1 | tr -d '@')
 
-  external)
-    [[ -f "$SERVICE_DIR/.env.external" ]] || error ".env.external not found in packages/service/"
-    cp "$SERVICE_DIR/.env.external" "$SERVICE_DIR/.env"
-    success "Copied .env.external → packages/service/.env"
-    ;;
+info "Detecting network environment (pinging $INTERNAL_HOST)..."
 
-  *)
-    error "Unknown mode '$MODE'. Run $0 --help for usage."
-    ;;
-esac
+if ping -c 1 -W 1 "$INTERNAL_HOST" >/dev/null 2>&1; then
+  cp "$SERVICE_DIR/.env.internal" "$SERVICE_DIR/.env"
+  success "LAN reachable — using internal database"
+else
+  cp "$SERVICE_DIR/.env.external" "$SERVICE_DIR/.env"
+  success "LAN unreachable — using external database"
+fi
 
 # ─── Dependencies ─────────────────────────────────────────────────────────────
 info "Installing dependencies..."
@@ -71,9 +46,7 @@ pnpm install --frozen-lockfile
 # ─── Database migrations ───────────────────────────────────────────────────────
 info "Running database migrations..."
 cd "$SERVICE_DIR"
-
 npx prisma migrate deploy
-
 cd "$REPO_ROOT"
 
 # ─── Start dev servers ─────────────────────────────────────────────────────────
