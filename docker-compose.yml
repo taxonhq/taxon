@@ -1,0 +1,26 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: taxon
+      POSTGRES_PASSWORD: taxon
+      POSTGRES_DB: taxon
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  service:
+    build:
+      context: ./packages/service
+      dockerfile: Dockerfile
+    ports:
+      - "3300:3300"
+    environment:
+      DATABASE_URL: postgresql://taxon:taxon@postgres:5432/taxon?schema=public
+      PORT: 3300
+    depends_on:
+      - postgres
+
+volumes:
+  postgres_data:

@@ -1,0 +1,13 @@
+{
+  "name": "taxon",
+  "private": true,
+  "scripts": {
+    "dev:service": "pnpm --filter service dev",
+    "dev:console": "pnpm --filter console dev",
+    "dev": "concurrently \"pnpm dev:service\" \"pnpm dev:console\"",
+    "build": "pnpm -r build"
+  },
+  "devDependencies": {
+    "concurrently": "^9.0.0"
+  }
+}

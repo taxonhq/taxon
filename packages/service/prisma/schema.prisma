@@ -1,0 +1,118 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ── 实体注册表 ────────────────────────────────────────────────
+// tag-service 的实体生命周期登记簿。业务服务在创建实体时注册，删除时注销。
+// tag-service 对实体的了解仅限于 entityType + entityId，不存储业务字段。
+// 实体注销时通过 CASCADE 自动清除所有 EntityTag 关联。
+//
+// 字段说明：
+//   entityType   — 实体类型标识，如 "dish"、"dining"
+//   entityId     — 业务主键（cuid），字符串引用，无跨库 FK 约束
+//   registeredAt — 首次注册时间
+model RegisteredEntity {
+  entityType   String
+  entityId     String
+  registeredAt DateTime    @default(now())
+  entityTags   EntityTag[]
+
+  @@id([entityType, entityId])
+  @@index([entityType])
+}
+
+// ── 实体-标签关联表 ────────────────────────────────────────────
+// 记录"哪个实体被打了哪个标签"，是 tag-service 的核心关联表。
+// 双向 CASCADE：实体注销或标签删除时自动清除关联。
+//
+// 字段说明：
+//   source     — 打标来源：manual（人工）| ai（AI推断）| system（系统）| import（批量导入）
+//   confidence — AI 置信度 0~1，非 AI 来源时为 null
+//   status     — 关联状态：active（生效）| pending（待审核）| rejected（已拒绝）
+//                AI 打标默认 pending，人工打标默认 active
+//   createdAt  — 打标时间
+model EntityTag {
+  tagId      String
+  tag        Tag              @relation(fields: [tagId], references: [id], onDelete: Cascade)
+  entityType String
+  entityId   String
+  entity     RegisteredEntity @relation(fields: [entityType, entityId], references: [entityType, entityId], onDelete: Cascade)
+  source     String   @default("manual")
+  confidence Float?
+  status     String   @default("active")
+  createdAt  DateTime @default(now())
+
+  @@id([tagId, entityType, entityId])
+  @@index([entityType, entityId])
+  @@index([entityType, entityId, status])
+  @@index([tagId])
+}
+
+// ── 标签 ──────────────────────────────────────────────────────
+// 隶属于某个 TagGroup 的具体标签。
+// slug 和 name 在同一分组内唯一（含软删除记录，软删除时追加时间戳后缀以释放名称）。
+//
+// 字段说明：
+//   slug      — URL 友好标识符，同分组内唯一，最多 100 字符
+//   name      — 显示名称，同分组内唯一，最多 50 字符
+//   deletedAt — 软删除时间戳，null 表示未删除；软删除时 slug/name 追加时间戳后缀
+model Tag {
+  id          String    @id @default(cuid())
+  groupId     String
+  group       TagGroup  @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  slug        String
+  name        String
+  description String?
+  sortOrder   Int       @default(0)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+
+  entityTags  EntityTag[]
+
+  @@unique([groupId, slug])
+  @@unique([groupId, name])
+}
+
+// ── 标签分组（维度）──────────────────────────────────────────
+// 对标签进行维度划分，如"菜系"、"口味"。
+// allowMultiple 为默认规则，可通过 TagGroupEntityRule 按实体类型覆盖。
+//
+// 字段说明：
+//   entityScopes  — 允许使用本分组标签的实体类型；空数组=通用
+//   allowMultiple — 默认：单实体是否可持有本分组多个标签
+//   deletedAt     — 软删除时间戳；软删除时 slug/name 追加时间戳后缀
+model TagGroup {
+  id            String    @id @default(cuid())
+  slug          String    @unique
+  name          String    @unique
+  description   String?
+  entityScopes  String[]
+  allowMultiple Boolean   @default(true)
+  sortOrder     Int       @default(0)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  deletedAt     DateTime?
+
+  tags        Tag[]
+  entityRules TagGroupEntityRule[]
+}
+
+// ── 分组实体类型规则 ──────────────────────────────────────────
+// 覆盖 TagGroup.allowMultiple 的按实体类型独立配置。
+// 若存在匹配记录，优先于 TagGroup.allowMultiple。
+//
+// 示例：菜系分组对 "dish" allowMultiple=false，对 "dining" allowMultiple=true。
+model TagGroupEntityRule {
+  groupId       String
+  group         TagGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  entityType    String
+  allowMultiple Boolean
+
+  @@id([groupId, entityType])
+}

@@ -1,0 +1,37 @@
+@import "tailwindcss";
+
+/* ── Design tokens ───────────────────────────────────────────────────── */
+:root {
+  --bg: #F2F2F2;
+  --bg-secondary: #E8E8E8;
+  --card: #FFFFFF;
+  --text: #111111;
+  --text-secondary: #71717A;
+  --text-muted: #A1A1AA;
+  --primary: #111111;
+  --primary-hover: #333333;
+  --success: #2A7A45;
+  --warning: #8A5F00;
+  --danger: #C00000;
+  --border: #E2E2E2;
+}
+
+@theme inline {
+  --color-surface: var(--bg);
+  --color-surface-alt: var(--bg-secondary);
+  --color-card: var(--card);
+  --color-ink: var(--text);
+  --color-ink-dim: var(--text-secondary);
+  --color-ink-faint: var(--text-muted);
+  --color-brand: var(--primary);
+  --color-brand-hover: var(--primary-hover);
+  --color-ok: var(--success);
+  --color-warn: var(--warning);
+  --color-bad: var(--danger);
+  --color-edge: var(--border);
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+}
