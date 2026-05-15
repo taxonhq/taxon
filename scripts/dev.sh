@@ -41,7 +41,7 @@ fi
 
 # ─── Dependencies ─────────────────────────────────────────────────────────────
 info "Installing dependencies..."
-pnpm install --frozen-lockfile
+pnpm install
 
 # ─── Database migrations ───────────────────────────────────────────────────────
 info "Running database migrations..."
