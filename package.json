@@ -2,8 +2,8 @@
   "name": "taxon",
   "private": true,
   "scripts": {
-    "dev:service": "pnpm --filter service dev",
-    "dev:console": "pnpm --filter console dev",
+    "dev:service": "pnpm --filter tag-service dev",
+    "dev:console": "pnpm --filter tag-console dev",
     "dev": "concurrently \"pnpm dev:service\" \"pnpm dev:console\"",
     "build": "pnpm -r build"
   },
