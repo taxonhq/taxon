@@ -29,15 +29,20 @@ NODE_MAJOR=$(node -e "process.stdout.write(process.versions.node.split('.')[0])"
 # Extract host from DATABASE_URL in .env.internal
 INTERNAL_HOST=$(grep -oE '@[^:/]+' "$SERVICE_DIR/.env.internal" | head -1 | tr -d '@')
 
-info "Detecting network environment (pinging $INTERNAL_HOST)..."
+echo ""
+info "Detecting network environment..."
+echo -e "   ${BOLD}Target:${NC} $INTERNAL_HOST"
 
-if ping -c 1 -W 1 "$INTERNAL_HOST" >/dev/null 2>&1; then
+if ping -c 1 -W 2 "$INTERNAL_HOST" >/dev/null 2>&1; then
   cp "$SERVICE_DIR/.env.internal" "$SERVICE_DIR/.env"
-  success "LAN reachable — using internal database"
+  echo -e "   ${BOLD}Status:${NC} ${GREEN}● LAN reachable${NC}"
+  echo -e "   ${BOLD}Config:${NC}  .env.internal"
 else
   cp "$SERVICE_DIR/.env.external" "$SERVICE_DIR/.env"
-  success "LAN unreachable — using external database"
+  echo -e "   ${BOLD}Status:${NC} ${RED}○ LAN unreachable${NC}"
+  echo -e "   ${BOLD}Config:${NC}  .env.external"
 fi
+echo ""
 
 # ─── Dependencies ─────────────────────────────────────────────────────────────
 info "Installing dependencies..."
@@ -52,8 +57,8 @@ cd "$REPO_ROOT"
 # ─── Start dev servers ─────────────────────────────────────────────────────────
 echo ""
 success "Starting development servers..."
-info "  Service  → http://localhost:3300  (API + Docs)"
-info "  Console  → http://localhost:3400  (Management UI)"
+echo -e "   ${BOLD}Service${NC}  → http://localhost:3300  (API + Docs)"
+echo -e "   ${BOLD}Console${NC}  → http://localhost:3400  (Management UI)"
 echo ""
 
 pnpm dev
