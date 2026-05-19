@@ -107,6 +107,7 @@ export const openApiSpec = {
   },
   servers: [{ url: 'http://localhost:3300', description: '本地开发环境' }],
   tags: [
+    { name: '系统',     description: '服务健康检查' },
     { name: '实体',     description: '实体注册/注销及按类型查询' },
     { name: '实体标签', description: '为已注册实体打标/摘标' },
     { name: '标签分组', description: '标签维度管理（菜系/口味/工艺等）' },
@@ -115,6 +116,49 @@ export const openApiSpec = {
   ],
   components,
   paths: {
+
+    /* ── /health ────────────────────────────────────────────── */
+    '/health': {
+      get: {
+        tags: ['系统'],
+        operationId: 'healthCheck',
+        summary: '服务健康检查',
+        description: '检查服务本身及数据库连接是否正常，可用于负载均衡或 K8s readiness probe。',
+        security: [],
+        responses: {
+          '200': {
+            description: '服务正常',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    status:    { type: 'string', enum: ['ok'],       example: 'ok' },
+                    db:        { type: 'string', enum: ['ok'],       example: 'ok' },
+                    timestamp: { type: 'string', format: 'date-time', example: '2026-05-18T00:00:00.000Z' },
+                  },
+                },
+              },
+            },
+          },
+          '503': {
+            description: '数据库不可用',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    status:    { type: 'string', enum: ['degraded'], example: 'degraded' },
+                    db:        { type: 'string', enum: ['error'],    example: 'error' },
+                    timestamp: { type: 'string', format: 'date-time' },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
 
     /* ── /entity-types ──────────────────────────────────────── */
     '/entity-types': {

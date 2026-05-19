@@ -14,6 +14,7 @@ import { Card } from "@/components/ui/card";
 import { Field, Input, Select, Textarea } from "@/components/ui/field";
 import { ErrorBanner } from "@/components/ui/error-banner";
 import { Pagination } from "@/components/ui/pagination";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
 const PAGE_SIZE = 30;
 
@@ -48,6 +49,10 @@ export default function GroupDetailPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
   const [editSlug, setEditSlug] = useState("");
+
+  // confirm dialog state
+  type PendingDelete = { tag: Tag; force?: boolean; message?: string };
+  const [confirmDelete, setConfirmDelete] = useState<PendingDelete | null>(null);
 
   const setGF = (k: string, v: string) => setGroupForm(f => ({ ...f, [k]: v }));
 
@@ -177,48 +182,61 @@ export default function GroupDetailPage() {
     }
   };
 
-  const handleDelete = async (tag: Tag) => {
-    if (!confirm(`确定删除标签「${tag.name}」？`)) return;
-    const doDelete = async (force: boolean) => {
+  const handleDelete = (tag: Tag) => {
+    setConfirmDelete({ tag });
+  };
+
+  const executeDelete = async (tag: Tag, force: boolean) => {
+    setConfirmDelete(null);
+    setError("");
+    try {
       await deleteTag(tag.id, force);
       setTags(prev => prev.filter(t => t.id !== tag.id));
       setTotal(prev => prev - 1);
-    };
-    try {
-      await doDelete(false);
     } catch (err) {
       const msg = err instanceof Error ? err.message : "";
-      if (msg.includes("个实体使用")) {
+      if (!force && msg.includes("个实体使用")) {
         const hint = msg.replace("，如需强制删除请添加 ?force=true", "");
-        if (!confirm(`${hint}\n\n确认强制删除？关联关系将一并移除，操作不可逆。`)) return;
-        try { await doDelete(true); } catch { setError("强制删除失败"); }
+        setConfirmDelete({ tag, force: true, message: hint });
       } else {
         setError(msg || "删除失败");
       }
     }
   };
 
-  if (loading) return <p className="py-20 text-center text-ink-faint">加载中...</p>;
+  if (loading) {
+    return (
+      <div className="space-y-6 animate-pulse">
+        <div className="flex items-center gap-3 pb-6 border-b border-edge">
+          <div className="w-8 h-8 bg-edge-mid rounded-lg" />
+          <div className="space-y-1.5"><div className="h-5 w-32 bg-edge-mid rounded" /><div className="h-3 w-20 bg-edge rounded" /></div>
+        </div>
+        <div className="card-border overflow-hidden p-6 space-y-3">
+          {[1,2,3].map(i => <div key={i} className="h-10 bg-edge rounded-lg" />)}
+        </div>
+      </div>
+    );
+  }
 
   const availableEntityTypes = entityTypes.filter(et => !rules.some(r => r.entityType === et));
 
   return (
-    <div className="space-y-6 max-w-3xl">
+    <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center gap-3">
-        <Link href="/groups" className="p-2 rounded-lg hover:bg-surface-alt transition-colors text-ink-dim">
-          <ArrowLeft size={18} />
+      <div className="flex items-center gap-3 pb-6 border-b border-edge">
+        <Link href="/groups" className="p-2 rounded-lg hover:bg-[#1A1A1A] transition-colors text-ink-faint hover:text-ink">
+          <ArrowLeft size={15} />
         </Link>
-        <div className="flex-1">
-          <h1 className="text-xl font-semibold text-ink">{group?.name ?? "标签分组"}</h1>
-          <p className="text-xs text-ink-faint font-mono mt-0.5">{group?.slug}</p>
+        <div className="flex-1 min-w-0">
+          <h1 className="text-xl font-semibold text-ink leading-tight">{group?.name ?? "标签分组"}</h1>
+          <p className="text-[11px] text-ink-faint font-mono mt-0.5">{group?.slug}</p>
         </div>
-        <Button variant="outline" onClick={() => setShowGroupEdit(v => !v)}>
-          <Pencil size={14} />
+        <Button variant="outline" size="sm" onClick={() => setShowGroupEdit(v => !v)}>
+          <Pencil size={13} />
           编辑分组
         </Button>
-        <Button onClick={() => setShowForm(v => !v)}>
-          <Plus size={16} />
+        <Button size="sm" onClick={() => setShowForm(v => !v)}>
+          <Plus size={13} />
           新增标签
         </Button>
       </div>
@@ -287,10 +305,12 @@ export default function GroupDetailPage() {
         ) : (
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-edge text-xs text-ink-faint uppercase tracking-wide">
-                <th className="py-2 text-left font-medium">实体类型</th>
-                <th className="py-2 text-left font-medium">允许多选</th>
-                <th className="py-2 text-right font-medium">操作</th>
+              <tr className="border-b border-edge">
+                {["实体类型", "允许多选", ""].map((h, i) => (
+                  <th key={i} className={`py-2 text-[10px] font-medium text-ink-faint uppercase tracking-[0.08em] ${i === 2 ? "text-right" : "text-left"}`}>
+                    {h}
+                  </th>
+                ))}
               </tr>
             </thead>
             <tbody className="divide-y divide-edge">
@@ -377,6 +397,22 @@ export default function GroupDetailPage() {
         </Card>
       )}
 
+      {confirmDelete && (
+        <ConfirmDialog
+          open
+          title={confirmDelete.force ? "强制删除标签" : `删除标签「${confirmDelete.tag.name}」`}
+          description={
+            confirmDelete.force
+              ? `${confirmDelete.message}\n\n确认强制删除？关联关系将一并移除，操作不可逆。`
+              : undefined
+          }
+          confirmLabel={confirmDelete.force ? "强制删除" : "删除"}
+          danger
+          onConfirm={() => executeDelete(confirmDelete.tag, !!confirmDelete.force)}
+          onCancel={() => setConfirmDelete(null)}
+        />
+      )}
+
       {/* Tags Table */}
       <Card padding={false}>
         {!tags.length ? (
@@ -385,20 +421,21 @@ export default function GroupDetailPage() {
           <>
             <table className="w-full">
               <thead>
-                <tr className="border-b border-edge bg-surface-alt text-xs text-ink-faint uppercase tracking-wide">
-                  <th className="px-5 py-3 text-left font-medium">名称</th>
-                  <th className="px-5 py-3 text-left font-medium">Slug</th>
-                  <th className="px-5 py-3 text-left font-medium">使用量</th>
-                  <th className="px-5 py-3 text-right font-medium">操作</th>
+                <tr className="border-b border-edge bg-[#0D0D0D]">
+                  {["名称", "Slug", "使用量", ""].map((h, i) => (
+                    <th key={i} className={`py-3 text-[10px] font-medium text-ink-faint uppercase tracking-[0.08em] ${i === 3 ? "pr-5 text-right" : "px-5 text-left"}`}>
+                      {h}
+                    </th>
+                  ))}
                 </tr>
               </thead>
               <tbody className="divide-y divide-edge">
                 {tags.map(tag => (
-                  <tr key={tag.id} className="group hover:bg-surface-alt/50 transition-colors">
+                  <tr key={tag.id} className="group/tag hover:bg-[#0E0E0E] transition-colors">
                     <td className="px-5 py-3">
                       {editingId === tag.id ? (
                         <input
-                          className="w-full px-2 py-1 text-sm border border-edge bg-card text-ink focus:outline-none focus:border-ink-faint"
+                          className="w-full px-2 py-1.5 text-sm border border-edge-mid bg-[#1A1A1A] text-ink rounded-md focus:outline-none focus:border-edge-strong focus:ring-1 focus:ring-edge-strong/20"
                           value={editName}
                           onChange={e => setEditName(e.target.value)}
                           autoFocus
@@ -414,7 +451,7 @@ export default function GroupDetailPage() {
                     <td className="px-5 py-3">
                       {editingId === tag.id ? (
                         <input
-                          className="w-full px-2 py-1 text-xs font-mono border border-edge bg-card text-ink focus:outline-none focus:border-ink-faint"
+                          className="w-full px-2 py-1.5 text-xs font-mono border border-edge-mid bg-[#1A1A1A] text-ink rounded-md focus:outline-none focus:border-edge-strong"
                           value={editSlug}
                           onChange={e => setEditSlug(e.target.value)}
                           placeholder={tag.slug}
@@ -444,7 +481,7 @@ export default function GroupDetailPage() {
                             </button>
                           </>
                         ) : (
-                          <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1">
+                          <div className="opacity-0 group-hover/tag:opacity-100 transition-opacity flex items-center gap-1">
                             <button
                               onClick={() => { setEditingId(tag.id); setEditName(tag.name); setEditSlug(tag.slug); }}
                               className="p-1.5 rounded-md text-ink-dim hover:bg-surface-alt transition-colors"

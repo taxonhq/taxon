@@ -4,7 +4,7 @@
   "scripts": {
     "dev:service": "pnpm --filter tag-service dev",
     "dev:console": "pnpm --filter tag-console dev",
-    "dev": "concurrently \"pnpm dev:service\" \"pnpm dev:console\"",
+    "dev": "concurrently --names svc,ui --prefix-colors cyan,magenta --prefix '[{name}]' \"pnpm dev:service\" \"pnpm dev:console\"",
     "build": "pnpm -r build"
   },
   "devDependencies": {

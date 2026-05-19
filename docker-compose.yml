@@ -9,6 +9,12 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U taxon -d taxon"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
 
   service:
     build:
@@ -19,8 +25,11 @@ services:
     environment:
       DATABASE_URL: postgresql://taxon:taxon@postgres:5432/taxon?schema=public
       PORT: 3300
+      # Set API_TOKEN to require Bearer auth; leave unset for open access (dev)
+      # API_TOKEN: changeme
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
 
 volumes:
   postgres_data:

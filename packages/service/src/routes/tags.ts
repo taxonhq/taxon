@@ -3,6 +3,7 @@ import prisma from '../lib/db.js'
 import { parsePagination } from '../lib/pagination.js'
 import { generateSlug } from '../lib/slug.js'
 import { isPrismaError, deletedSuffix } from '../lib/errors.js'
+import logger from '../lib/logger.js'
 
 const tags = new Hono()
 
@@ -132,7 +133,7 @@ tags.post('/', async (c) => {
   } catch (error: unknown) {
     if (isPrismaError(error, 'P2002'))
       return c.json({ code: 409, message: '该分组内 slug 或 name 已存在' }, 409)
-    console.error('Create tag error:', error)
+    logger.error({ err: error }, 'Create tag error')
     return c.json({ code: 500, message: '创建失败' }, 500)
   }
 })
@@ -224,7 +225,7 @@ tags.patch('/:tagId', async (c) => {
   } catch (error: unknown) {
     if (isPrismaError(error, 'P2002'))
       return c.json({ code: 409, message: '该分组内 slug 或 name 已存在' }, 409)
-    console.error('Update tag error:', error)
+    logger.error({ err: error }, 'Update tag error')
     return c.json({ code: 500, message: '更新失败' }, 500)
   }
 })

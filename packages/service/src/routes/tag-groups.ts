@@ -2,6 +2,7 @@ import { Hono } from 'hono'
 import prisma from '../lib/db.js'
 import { parsePagination } from '../lib/pagination.js'
 import { isPrismaError, deletedSuffix } from '../lib/errors.js'
+import logger from '../lib/logger.js'
 
 const tagGroups = new Hono()
 
@@ -107,7 +108,7 @@ tagGroups.post('/', async (c) => {
   } catch (error: unknown) {
     if (isPrismaError(error, 'P2002'))
       return c.json({ code: 409, message: 'slug 或 name 已存在' }, 409)
-    console.error('Create tag group error:', error)
+    logger.error({ err: error }, 'Create tag group error')
     return c.json({ code: 500, message: '创建失败' }, 500)
   }
 })
@@ -212,7 +213,7 @@ tagGroups.patch('/:groupId', async (c) => {
   } catch (error: unknown) {
     if (isPrismaError(error, 'P2002'))
       return c.json({ code: 409, message: 'slug 或 name 已存在' }, 409)
-    console.error('Update tag group error:', error)
+    logger.error({ err: error }, 'Update tag group error')
     return c.json({ code: 500, message: '更新失败' }, 500)
   }
 })
