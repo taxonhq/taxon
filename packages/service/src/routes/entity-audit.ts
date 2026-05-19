@@ -64,60 +64,79 @@ auditRouter.get('/audit', async (c) => {
   })
 })
 
-// GET /:entityType — 按实体类型列出实体 ID（支持 tagId AND 过滤 + 名称模糊搜索）
+// GET /:entityType — 两种模式：
+//   • 带 ?tagId= 或 ?q= → 按标签过滤，返回 { entityIds: [] }（调用方查询用）
+//   • 其余情况          → 分页列出已注册实体，返回 { items, total, page, pageSize }
 auditRouter.get('/:entityType', async (c) => {
   const { entityType } = c.req.param()
   const tagIds = c.req.queries('tagId') ?? []
   const q      = c.req.query('q')
 
-  let entityIds: string[] | undefined
+  // ── 标签过滤模式 ──────────────────────────────────────────────
+  if (tagIds.length > 0 || q) {
+    let entityIds: string[] | undefined
 
-  if (tagIds.length > 0) {
-    type Row = { entityId: string }
-    const rows = await prisma.$queryRaw<Row[]>`
-      SELECT "entityId"
-      FROM "EntityTag"
-      WHERE "entityType" = ${entityType}
-        AND "tagId" = ANY(${tagIds}::text[])
-        AND "status" = 'active'
-      GROUP BY "entityId"
-      HAVING COUNT(DISTINCT "tagId") = ${tagIds.length}
-    `
-    entityIds = rows.map((r: Row) => r.entityId)
-    if (entityIds.length === 0) return c.json({ code: 0, data: { entityIds: [] } })
-  }
+    if (tagIds.length > 0) {
+      type Row = { entityId: string }
+      const rows = await prisma.$queryRaw<Row[]>`
+        SELECT "entityId"
+        FROM "EntityTag"
+        WHERE "entityType" = ${entityType}
+          AND "tagId" = ANY(${tagIds}::text[])
+          AND "status" = 'active'
+        GROUP BY "entityId"
+        HAVING COUNT(DISTINCT "tagId") = ${tagIds.length}
+      `
+      entityIds = rows.map((r: Row) => r.entityId)
+      if (entityIds.length === 0) return c.json({ code: 0, data: { entityIds: [] } })
+    }
 
-  if (q) {
-    const matchedTags = await prisma.tag.findMany({
-      where: { name: { contains: q }, deletedAt: null },
-      select: { id: true },
-    })
-    if (matchedTags.length === 0) return c.json({ code: 0, data: { entityIds: [] } })
+    if (q) {
+      const matchedTags = await prisma.tag.findMany({
+        where: { name: { contains: q }, deletedAt: null },
+        select: { id: true },
+      })
+      if (matchedTags.length === 0) return c.json({ code: 0, data: { entityIds: [] } })
 
-    const matchedTagIds = matchedTags.map((t: { id: string }) => t.id)
-    const rows = await prisma.entityTag.findMany({
-      where: {
-        entityType,
-        tagId: { in: matchedTagIds },
-        status: 'active',
-        ...(entityIds ? { entityId: { in: entityIds } } : {}),
-      },
-      select:   { entityId: true },
-      distinct: ['entityId'],
-    })
-    entityIds = rows.map((r: { entityId: string }) => r.entityId)
-    if (entityIds.length === 0) return c.json({ code: 0, data: { entityIds: [] } })
-  }
+      const matchedTagIds = matchedTags.map((t: { id: string }) => t.id)
+      const rows = await prisma.entityTag.findMany({
+        where: {
+          entityType,
+          tagId: { in: matchedTagIds },
+          status: 'active',
+          ...(entityIds ? { entityId: { in: entityIds } } : {}),
+        },
+        select:   { entityId: true },
+        distinct: ['entityId'],
+      })
+      entityIds = rows.map((r: { entityId: string }) => r.entityId)
+      if (entityIds.length === 0) return c.json({ code: 0, data: { entityIds: [] } })
+    }
 
-  if (entityIds !== undefined) {
     return c.json({ code: 0, data: { entityIds } })
   }
 
-  const rows = await prisma.registeredEntity.findMany({
-    where:   { entityType },
-    select:  { entityId: true },
-    orderBy: { registeredAt: 'asc' },
-    take:    1000,
-  })
-  return c.json({ code: 0, data: { entityIds: rows.map((r: { entityId: string }) => r.entityId) } })
+  // ── 分页列表模式 ──────────────────────────────────────────────
+  const search   = c.req.query('search')?.trim() || undefined
+  const page     = Math.max(1, parseInt(c.req.query('page') || '1'))
+  const pageSize = Math.min(100, Math.max(1, parseInt(c.req.query('pageSize') || '20')))
+  const skip     = (page - 1) * pageSize
+
+  const where = {
+    entityType,
+    ...(search ? { entityId: { contains: search } } : {}),
+  }
+
+  const [items, total] = await Promise.all([
+    prisma.registeredEntity.findMany({
+      where,
+      select:  { entityType: true, entityId: true, registeredAt: true },
+      orderBy: { registeredAt: 'desc' },
+      skip,
+      take:    pageSize,
+    }),
+    prisma.registeredEntity.count({ where }),
+  ])
+
+  return c.json({ code: 0, data: { items, total, page, pageSize } })
 })
