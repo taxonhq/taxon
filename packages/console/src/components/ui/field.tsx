@@ -1,8 +1,12 @@
 import { cn } from "@/lib/utils";
 
-const inputBase =
-  "w-full px-3 py-2 border border-edge bg-surface text-ink text-sm " +
-  "placeholder:text-ink-faint focus:outline-none focus:border-ink-faint transition";
+const inputBase = [
+  "w-full px-3 py-2 text-sm text-ink bg-[#0A0A0A] border border-edge-mid rounded-lg",
+  "placeholder:text-ink-faint",
+  "focus:outline-none focus:border-edge-strong focus:ring-2 focus:ring-white/[.04]",
+  "hover:border-edge-strong/60",
+  "transition-all duration-150",
+].join(" ");
 
 interface FieldProps {
   label: string;
@@ -15,12 +19,12 @@ interface FieldProps {
 export function Field({ label, required, hint, children, className }: FieldProps) {
   return (
     <div className={cn("flex flex-col gap-1.5", className)}>
-      <label className="text-xs font-medium text-ink-dim uppercase tracking-wide">
+      <label className="text-[11px] font-medium text-ink-sub uppercase tracking-[0.08em]">
         {label}
         {required && <span className="text-bad ml-0.5 normal-case">*</span>}
       </label>
       {children}
-      {hint && <p className="text-[11px] text-ink-faint">{hint}</p>}
+      {hint && <p className="text-[11px] text-ink-faint leading-relaxed">{hint}</p>}
     </div>
   );
 }
@@ -35,12 +39,12 @@ interface SelectProps extends React.SelectHTMLAttributes<HTMLSelectElement> {
 
 export function Select({ children, ...props }: SelectProps) {
   return (
-    <select className={inputBase} {...props}>
+    <select className={cn(inputBase, "cursor-pointer")} {...props}>
       {children}
     </select>
   );
 }
 
 export function Textarea(props: React.TextareaHTMLAttributes<HTMLTextAreaElement>) {
-  return <textarea className={cn(inputBase, "resize-none")} {...props} />;
+  return <textarea className={cn(inputBase, "resize-none leading-relaxed")} {...props} />;
 }

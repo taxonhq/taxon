@@ -7,21 +7,30 @@ import { cn } from "@/lib/utils";
 interface NavLinkProps {
   href: string;
   children: React.ReactNode;
+  collapsed?: boolean;
+  title?: string;
 }
 
-export function NavLink({ href, children }: NavLinkProps) {
+export function NavLink({ href, children, collapsed, title }: NavLinkProps) {
   const pathname = usePathname();
   const active = pathname === href || (href !== "/" && pathname.startsWith(href));
+
   return (
     <Link
       href={href}
+      title={title}
       className={cn(
-        "flex items-center gap-2.5 px-2 py-2 text-sm transition-colors rounded-sm",
+        "relative flex items-center py-2 text-[13px] rounded-lg transition-all duration-150",
+        collapsed ? "justify-center px-2" : "gap-3 px-3",
         active
-          ? "text-ink font-medium bg-surface-alt"
-          : "text-ink-faint hover:text-ink-dim hover:bg-surface-alt",
+          ? "bg-[#1C1C1C] text-ink font-medium"
+          : "text-ink-faint hover:text-ink-dim hover:bg-[#111111]",
       )}
     >
+      {/* left accent — visible only in expanded mode */}
+      {active && !collapsed && (
+        <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[2px] h-5 bg-ink rounded-r-full" />
+      )}
       {children}
     </Link>
   );

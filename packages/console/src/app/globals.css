@@ -1,37 +1,144 @@
 @import "tailwindcss";
 
-/* ── Design tokens ───────────────────────────────────────────────────── */
+/* ── Fonts ────────────────────────────────────────────────────────────── */
+@theme inline {
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, "SF Mono", monospace;
+}
+
+/* ── Design tokens ────────────────────────────────────────────────────── */
 :root {
-  --bg: #F2F2F2;
-  --bg-secondary: #E8E8E8;
-  --card: #FFFFFF;
-  --text: #111111;
-  --text-secondary: #71717A;
-  --text-muted: #A1A1AA;
-  --primary: #111111;
-  --primary-hover: #333333;
-  --success: #2A7A45;
-  --warning: #8A5F00;
-  --danger: #C00000;
-  --border: #E2E2E2;
+  /* Surfaces */
+  --bg:          #000000;
+  --sidebar-bg:  #080808;
+  --card-bg:     #0F0F0F;
+
+  /* Text — four-tier hierarchy */
+  --text-primary:  #F2F2F2;   /* headings, values */
+  --text-body:     #A1A1AA;   /* body copy */
+  --text-subtle:   #71717A;   /* secondary info */
+  --text-ghost:    #3F3F46;   /* labels, placeholders */
+
+  /* Borders */
+  --border-faint:  #161616;
+  --border-base:   #27272A;
+  --border-strong: #3F3F46;
+
+  /* Semantic */
+  --ok:    #22C55E;
+  --warn:  #EAB308;
+  --bad:   #EF4444;
 }
 
 @theme inline {
-  --color-surface: var(--bg);
-  --color-surface-alt: var(--bg-secondary);
-  --color-card: var(--card);
-  --color-ink: var(--text);
-  --color-ink-dim: var(--text-secondary);
-  --color-ink-faint: var(--text-muted);
-  --color-brand: var(--primary);
-  --color-brand-hover: var(--primary-hover);
-  --color-ok: var(--success);
-  --color-warn: var(--warning);
-  --color-bad: var(--danger);
-  --color-edge: var(--border);
+  --color-surface:      var(--bg);
+  --color-surface-alt:  #111111;
+  --color-card:         var(--card-bg);
+
+  --color-ink:          var(--text-primary);
+  --color-ink-dim:      var(--text-body);
+  --color-ink-sub:      var(--text-subtle);
+  --color-ink-faint:    var(--text-ghost);
+
+  --color-edge:         var(--border-faint);
+  --color-edge-mid:     var(--border-base);
+  --color-edge-strong:  var(--border-strong);
+
+  --color-ok:    var(--ok);
+  --color-warn:  var(--warn);
+  --color-bad:   var(--bad);
+}
+
+/* ── Base ─────────────────────────────────────────────────────────────── */
+html {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  font-feature-settings: "rlig" 1, "calt" 1, "tnum" 0;
 }
 
 body {
   background: var(--bg);
-  color: var(--text);
+  color: var(--text-primary);
+  /* Very subtle warm center glow — like Vercel dashboard */
+  background-image: radial-gradient(
+    ellipse 60% 40% at 65% 0%,
+    rgba(255,255,255,0.024) 0%,
+    transparent 100%
+  );
+  background-attachment: fixed;
+}
+
+/* ── Animations ───────────────────────────────────────────────────────── */
+@keyframes fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes slide-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes scale-in {
+  from { opacity: 0; transform: scale(.96); }
+  to   { opacity: 1; transform: scale(1); }
+}
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.animate-fade-in  { animation: fade-in  .18s ease both; }
+.animate-slide-up { animation: slide-up .22s ease both; }
+.animate-scale-in { animation: scale-in .18s ease both; }
+.animate-spin     { animation: spin     .65s linear infinite; }
+
+/* ── Scrollbar ────────────────────────────────────────────────────────── */
+::-webkit-scrollbar         { width: 4px; height: 4px; }
+::-webkit-scrollbar-track   { background: transparent; }
+::-webkit-scrollbar-thumb   { background: var(--border-base); border-radius: 99px; }
+::-webkit-scrollbar-thumb:hover { background: var(--border-strong); }
+
+/* ── Selection ────────────────────────────────────────────────────────── */
+::selection { background: rgba(255,255,255,.1); }
+
+/* ── Focus ────────────────────────────────────────────────────────────── */
+:focus-visible {
+  outline: 2px solid var(--border-strong);
+  outline-offset: 2px;
+}
+
+/* ─────────────────────────────────────────────────────────────────────── */
+/* Card with gradient border (top brighter → bottom dimmer)               */
+/* ─────────────────────────────────────────────────────────────────────── */
+.card-border {
+  position: relative;
+  background: var(--card-bg);
+  border-radius: 12px;
+  /* Subtle inner shadow for depth */
+  box-shadow: 0 1px 2px rgba(0,0,0,.4), inset 0 1px 0 rgba(255,255,255,.02);
+  transition: box-shadow .2s ease;
+}
+.card-border:hover {
+  box-shadow: 0 2px 8px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.03);
+}
+.card-border::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 12px;
+  padding: 1px;
+  background: linear-gradient(165deg,
+    var(--border-base)  0%,
+    var(--border-faint) 50%,
+    transparent         100%);
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+  transition: background .2s ease;
+}
+.card-border:hover::before {
+  background: linear-gradient(165deg,
+    var(--border-strong) 0%,
+    var(--border-base)   50%,
+    var(--border-faint)  100%);
 }
