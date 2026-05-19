@@ -20,7 +20,7 @@ export function NavLink({ href, children, collapsed, title }: NavLinkProps) {
       href={href}
       title={title}
       className={cn(
-        "relative flex items-center py-2 text-[13px] rounded-lg transition-all duration-150",
+        "relative flex items-center py-2 text-[12.5px] rounded-lg transition-all duration-150",
         collapsed ? "justify-center px-2" : "gap-3 px-3",
         active
           ? "bg-[#1C1C1C] text-ink font-medium"

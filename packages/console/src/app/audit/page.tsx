@@ -302,7 +302,7 @@ export default function AuditPage() {
                       />
                     </td>
                     <td className="px-3 py-3">
-                      <p className="text-[13px] font-semibold text-ink">{item.tag.name}</p>
+                      <p className="text-[13px] font-semibold text-ink" style={{ letterSpacing: "-0.01em" }}>{item.tag.name}</p>
                       <p className="text-[11px] text-ink-sub mt-0.5">{item.tag.group.name}</p>
                     </td>
                     <td className="px-3 py-3">

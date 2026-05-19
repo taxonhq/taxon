@@ -76,10 +76,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               <Tag size={14} className="text-surface" strokeWidth={2.5} />
             </div>
             {open && (
-              <div className="leading-none overflow-hidden">
-                <p className="text-[14px] font-semibold text-ink tracking-tight whitespace-nowrap">Taxcon</p>
-                <p className="text-[11px] text-ink-faint mt-0.5 whitespace-nowrap">标签平台</p>
-              </div>
+              <p className="text-[17px] font-bold text-ink whitespace-nowrap" style={{ letterSpacing: "-0.03em" }}>Taxcon</p>
             )}
           </Link>
         </div>
@@ -87,7 +84,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         {/* Nav */}
         <nav className="flex-1 px-2 pt-4 pb-2 space-y-0.5 overflow-hidden">
           {open && (
-            <p className="px-3 pb-2 text-[10px] font-medium text-ink-faint uppercase tracking-[0.12em] whitespace-nowrap">
+            <p className="px-3 pb-2 text-[9px] font-semibold text-ink-faint uppercase whitespace-nowrap" style={{ letterSpacing: "0.16em" }}>
               管理
             </p>
           )}

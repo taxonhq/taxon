@@ -264,7 +264,8 @@ function GroupCard({
         <div className="flex-1 min-w-0 space-y-2">
           <Link
             href={`/groups/${group.id}`}
-            className="block text-[15px] font-semibold text-ink hover:text-ink-dim transition-colors truncate"
+            className="block text-[14px] font-semibold text-ink hover:text-ink-dim transition-colors truncate"
+            style={{ letterSpacing: "-0.01em" }}
           >
             {group.name}
           </Link>
@@ -297,11 +298,11 @@ function GroupCard({
         </div>
 
         {/* Tag count — numeric anchor */}
-        <div className="shrink-0 text-right leading-none pt-0.5 min-w-[40px]">
-          <p className="text-[22px] font-bold text-ink tabular-nums tracking-normal">
+        <div className="shrink-0 text-right leading-none pt-0.5 min-w-[44px]">
+          <p className="text-[24px] font-bold text-ink tabular-nums" style={{ letterSpacing: "-0.04em" }}>
             {group.tagTotal}
           </p>
-          <p className="text-[10px] text-ink-faint uppercase tracking-widest mt-1.5">标签</p>
+          <p className="text-[9px] text-ink-faint uppercase mt-2" style={{ letterSpacing: "0.18em" }}>标签</p>
         </div>
 
         {/* Actions — appear on hover */}
