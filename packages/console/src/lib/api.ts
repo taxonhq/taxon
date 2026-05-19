@@ -9,6 +9,24 @@ async function req<T>(path: string, init?: RequestInit): Promise<T> {
 
 // ── 公共类型 ──────────────────────────────────────────────────────
 
+export interface RegisteredEntity {
+  entityType: string;
+  entityId: string;
+  registeredAt: string;
+}
+
+export interface EntityTagItem {
+  id: string;
+  slug: string;
+  name: string;
+  groupId: string;
+  group: { id: string; slug: string; name: string };
+  source: string;
+  confidence: number | null;
+  status: string;
+  taggedAt: string;
+}
+
 export interface TagGroupEntityRule {
   groupId: string;
   entityType: string;
@@ -188,6 +206,71 @@ export async function getEntityTypes(): Promise<{ entityType: string; count: num
   const res = await fetch(`${BASE}/entity-types`);
   const data = await res.json();
   return data.data ?? [];
+}
+
+// ── Entity Registration ───────────────────────────────────────────
+
+export async function getEntitiesByType(
+  entityType: string,
+  params?: { page?: number; pageSize?: number; search?: string }
+): Promise<Paginated<RegisteredEntity>> {
+  const q = new URLSearchParams();
+  if (params?.page)     q.set("page",     String(params.page));
+  if (params?.pageSize) q.set("pageSize", String(params.pageSize));
+  if (params?.search)   q.set("search",   params.search);
+  return req<Paginated<RegisteredEntity>>(
+    `/entities/${encodeURIComponent(entityType)}${q.size ? `?${q}` : ""}`
+  );
+}
+
+export async function registerEntity(entityType: string, entityId: string): Promise<void> {
+  const res = await fetch(
+    `${BASE}/entities/${encodeURIComponent(entityType)}/${encodeURIComponent(entityId)}`,
+    { method: "POST" }
+  );
+  const data = await res.json();
+  if (data.code !== 0) throw new Error(data.message || "注册失败");
+}
+
+export async function unregisterEntity(entityType: string, entityId: string): Promise<void> {
+  const res = await fetch(
+    `${BASE}/entities/${encodeURIComponent(entityType)}/${encodeURIComponent(entityId)}`,
+    { method: "DELETE" }
+  );
+  const data = await res.json();
+  if (data.code !== 0) throw new Error(data.message || "注销失败");
+}
+
+// ── Entity Tags ───────────────────────────────────────────────────
+
+export async function getEntityTags(
+  entityType: string,
+  entityId: string
+): Promise<EntityTagItem[]> {
+  const res = await fetch(
+    `${BASE}/entities/${encodeURIComponent(entityType)}/${encodeURIComponent(entityId)}/tags?status=all`
+  );
+  const data = await res.json();
+  if (data.code !== 0) throw new Error(data.message || "获取标签失败");
+  return data.data ?? [];
+}
+
+export async function addEntityTag(
+  entityType: string,
+  entityId: string,
+  tagId: string,
+  source = "manual"
+): Promise<void> {
+  const res = await fetch(
+    `${BASE}/entities/${encodeURIComponent(entityType)}/${encodeURIComponent(entityId)}/tags/${tagId}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ source }),
+    }
+  );
+  const data = await res.json();
+  if (data.code !== 0) throw new Error(data.message || "打标失败");
 }
 
 // ── Audit ─────────────────────────────────────────────────────────

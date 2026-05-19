@@ -1,9 +1,35 @@
 import { Hono } from 'hono'
 import prisma from '../lib/db.js'
 import { isPrismaError } from '../lib/errors.js'
+import { parsePagination } from '../lib/pagination.js'
 import logger from '../lib/logger.js'
 
 export const registrationRouter = new Hono()
+
+// GET /:entityType — 列出某类型下所有已注册实体（分页 + 可选 search）
+registrationRouter.get('/:entityType', async (c) => {
+  const { entityType } = c.req.param()
+  const search = c.req.query('search')?.trim() || undefined
+  const { page, pageSize } = parsePagination(c.req.query())
+
+  const where = {
+    entityType,
+    ...(search ? { entityId: { contains: search } } : {}),
+  }
+
+  const [items, total] = await Promise.all([
+    prisma.registeredEntity.findMany({
+      where,
+      select: { entityType: true, entityId: true, registeredAt: true },
+      orderBy: { registeredAt: 'desc' },
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+    }),
+    prisma.registeredEntity.count({ where }),
+  ])
+
+  return c.json({ code: 0, data: { items, total, page, pageSize } })
+})
 
 registrationRouter.post('/:entityType/:entityId', async (c) => {
   const { entityType, entityId } = c.req.param()

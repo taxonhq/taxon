@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import {
-  Tag, Layers, ClipboardCheck,
+  Tag, Layers, ClipboardCheck, Box,
   ChevronLeft, ChevronRight,
 } from "lucide-react";
 import { NavLink } from "@/components/nav-link";
@@ -12,8 +12,9 @@ const W_OPEN   = 216;
 const W_CLOSED = 56;
 
 const NAV = [
-  { href: "/groups", icon: Layers,        label: "分组管理" },
-  { href: "/audit",  icon: ClipboardCheck, label: "审核队列" },
+  { href: "/groups",   icon: Layers,        label: "分组管理" },
+  { href: "/entities", icon: Box,           label: "实体管理" },
+  { href: "/audit",    icon: ClipboardCheck, label: "审核队列" },
 ] as const;
 
 type HealthStatus = "ok" | "degraded" | "checking";
