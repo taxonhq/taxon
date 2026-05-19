@@ -14,7 +14,7 @@ import { ErrorBanner } from "@/components/ui/error-banner";
 import { Pagination } from "@/components/ui/pagination";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
-const PAGE_SIZE = 30;
+const PAGE_SIZE = 20;
 
 function formatTime(iso: string) {
   return new Date(iso).toLocaleString("zh-CN", {

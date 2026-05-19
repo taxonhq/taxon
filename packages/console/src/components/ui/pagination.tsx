@@ -7,7 +7,14 @@ interface Props {
 
 export function Pagination({ page, pageSize, total, onChange }: Props) {
   const totalPages = Math.ceil(total / pageSize);
-  if (totalPages <= 1) return null;
+
+  if (totalPages <= 1) {
+    return (
+      <div className="flex items-center justify-between px-4 py-3 border-t border-edge">
+        <span className="text-xs text-ink-faint">共 {total} 条</span>
+      </div>
+    );
+  }
 
   // Build page number window: up to 5 pages centred on current
   const window = 2;
