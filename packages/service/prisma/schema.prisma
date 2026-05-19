@@ -7,6 +7,20 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// ── 枚举类型 ──────────────────────────────────────────────────
+enum TagSource {
+  manual
+  ai
+  system
+  import
+}
+
+enum TagStatus {
+  active
+  pending
+  rejected
+}
+
 // ── 实体注册表 ────────────────────────────────────────────────
 // tag-service 的实体生命周期登记簿。业务服务在创建实体时注册，删除时注销。
 // tag-service 对实体的了解仅限于 entityType + entityId，不存储业务字段。
@@ -42,10 +56,11 @@ model EntityTag {
   entityType String
   entityId   String
   entity     RegisteredEntity @relation(fields: [entityType, entityId], references: [entityType, entityId], onDelete: Cascade)
-  source     String   @default("manual")
+  source     TagSource @default(manual)
   confidence Float?
-  status     String   @default("active")
-  createdAt  DateTime @default(now())
+  status     TagStatus @default(active)
+  createdAt  DateTime  @default(now())
+  reviewedAt DateTime?                   // 审核操作时间（PATCH status 时设置）
 
   @@id([tagId, entityType, entityId])
   @@index([entityType, entityId])

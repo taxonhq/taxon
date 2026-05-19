@@ -3,6 +3,7 @@ import { serve } from '@hono/node-server'
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import { bearerAuth } from './middleware/auth.js'
+import { validateEntityParams } from './middleware/validate-params.js'
 import prisma from './lib/db.js'
 import logger from './lib/logger.js'
 import { entities } from './routes/entities.js'
@@ -79,6 +80,11 @@ app.use('/tag-groups/*', bearerAuth)
 app.use('/tags/*', bearerAuth)
 app.use('/entity-types', bearerAuth)
 
+// ── 实体路径参数格式校验 ──────────────────────────────────────
+app.use('/entities/:entityType', validateEntityParams)
+app.use('/entities/:entityType/:entityId', validateEntityParams)
+app.use('/entities/:entityType/:entityId/*', validateEntityParams)
+
 // ── 业务路由 ──────────────────────────────────────────────────────
 app.get('/entity-types', async (c) => {
   const rows = await prisma.registeredEntity.groupBy({
@@ -105,13 +111,20 @@ app.onError((err, c) => {
   return c.json({ code: 500, message: '服务内部错误' }, 500)
 })
 
+// ── 启动前安全检查 ────────────────────────────────────────────────
+if (process.env.NODE_ENV === 'production' && !process.env.API_TOKEN) {
+  logger.error('API_TOKEN is required in production. Set API_TOKEN env var and restart.')
+  process.exit(1)
+}
+
+if (!process.env.API_TOKEN) {
+  logger.warn('API_TOKEN not set — authentication is DISABLED (development mode only)')
+}
+
 // ── 启动 ──────────────────────────────────────────────────────────
 const PORT = Number(process.env.PORT) || 3300
 
 serve({ fetch: app.fetch, port: PORT }, (info) => {
   logger.info(`Taxcon running on http://localhost:${info.port}`)
   logger.info(`  docs: http://localhost:${info.port}/docs`)
-  if (!process.env.API_TOKEN) {
-    logger.warn('API_TOKEN not set — all requests are unauthenticated (dev mode)')
-  }
 })

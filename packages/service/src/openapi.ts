@@ -144,6 +144,7 @@ const components = {
         confidence: { type: 'number',  nullable: true, minimum: 0, maximum: 1, description: 'AI 置信度（仅 source=ai 时有值，其余为 null）', example: 0.95 },
         status:     { type: 'string',  enum: ['active', 'pending', 'rejected'], description: '审核状态；AI 打标默认为 pending，人工打标默认为 active', example: 'active' },
         taggedAt:   { type: 'string',  format: 'date-time', description: '打标时间', example: '2026-05-10T00:00:00.000Z' },
+        reviewedAt: { type: 'string',  format: 'date-time', nullable: true, description: '最后一次审核操作时间（status 变更时设置）', example: '2026-05-19T10:00:00.000Z' },
       },
     },
     AuditItem: {
@@ -157,6 +158,7 @@ const components = {
         confidence: { type: 'number',  nullable: true, minimum: 0, maximum: 1, description: 'AI 置信度', example: 0.92 },
         status:     { type: 'string',  enum: ['active', 'pending', 'rejected'], description: '当前审核状态', example: 'pending' },
         taggedAt:   { type: 'string',  format: 'date-time', description: '打标时间', example: '2026-05-10T00:00:00.000Z' },
+        reviewedAt: { type: 'string',  format: 'date-time', nullable: true, description: '最后一次审核操作时间', example: null },
         tag: {
           type: 'object',
           description: '关联的标签及其分组信息',
@@ -731,8 +733,8 @@ export const openApiSpec = {
                 type: 'object',
                 required: ['slug', 'name'],
                 properties: {
-                  slug:          { type: 'string', maxLength: 100, pattern: '^[a-z0-9][a-z0-9_-]*$', example: 'cuisine' },
-                  name:          { type: 'string', maxLength: 100, example: '菜系' },
+                  slug:          { type: 'string', maxLength: 50, pattern: '^[a-z0-9][a-z0-9_-]*$', example: 'cuisine' },
+                  name:          { type: 'string', maxLength: 50, example: '菜系' },
                   description:   { type: 'string', maxLength: 200, example: '菜品所属烹饪流派' },
                   entityScopes:  { type: 'array', items: { type: 'string' }, description: '适用实体类型白名单，空数组=通用', example: ['dish'] },
                   allowMultiple: { type: 'boolean', default: true,  description: '默认是否允许多选，可被 entityRules 覆盖', example: false },
@@ -783,7 +785,7 @@ export const openApiSpec = {
         tags: ['标签分组'],
         operationId: 'updateTagGroup',
         summary: '更新标签分组',
-        description: '`slug` 为只读字段，创建后不可修改。\n\n将 `allowMultiple` 从 `true` 改为 `false` 时，若已有实体在该分组下打了多个标签，接口返回 409。',
+        description: '`slug` 字段支持修改，但须符合格式约束且不与其他分组冲突。\n\n将 `allowMultiple` 从 `true` 改为 `false` 时，若已有实体在该分组下打了多个标签，接口返回 409。',
         parameters: [{ $ref: '#/components/parameters/GroupId' }],
         requestBody: {
           required: true,
@@ -794,7 +796,8 @@ export const openApiSpec = {
                 minProperties: 1,
                 description: '至少传一个字段',
                 properties: {
-                  name:          { type: 'string', maxLength: 100 },
+                  slug:          { type: 'string', maxLength: 50, pattern: '^[a-z0-9][a-z0-9_-]*$' },
+                  name:          { type: 'string', maxLength: 50 },
                   description:   { type: 'string', maxLength: 200 },
                   entityScopes:  { type: 'array', items: { type: 'string' } },
                   allowMultiple: { type: 'boolean' },
@@ -932,8 +935,8 @@ export const openApiSpec = {
                 required: ['groupId', 'name'],
                 properties: {
                   groupId:     { type: 'string', example: 'clx1234567890abcdef' },
-                  name:        { type: 'string', maxLength: 100, example: '川菜' },
-                  slug:        { type: 'string', maxLength: 100, pattern: '^[a-z0-9][a-z0-9_-]*$', example: 'sichuan' },
+                  name:        { type: 'string', maxLength: 50, example: '川菜' },
+                  slug:        { type: 'string', maxLength: 50, pattern: '^[a-z0-9][a-z0-9_-]*$', example: 'sichuan' },
                   description: { type: 'string', maxLength: 200 },
                   sortOrder:   { type: 'integer', default: 0 },
                 },
@@ -979,8 +982,8 @@ export const openApiSpec = {
                 minProperties: 1,
                 description: '至少传一个字段',
                 properties: {
-                  name:        { type: 'string',           maxLength: 100 },
-                  slug:        { type: 'string',           maxLength: 100, pattern: '^[a-z0-9][a-z0-9_-]*$' },
+                  name:        { type: 'string',           maxLength: 50 },
+                  slug:        { type: 'string',           maxLength: 50, pattern: '^[a-z0-9][a-z0-9_-]*$' },
                   description: { type: ['string', 'null'], maxLength: 200 },
                   sortOrder:   { type: 'integer' },
                 },

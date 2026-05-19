@@ -1,7 +1,8 @@
 import { Hono } from 'hono'
+import { TagStatus } from '@prisma/client'
 import prisma from '../lib/db.js'
 
-const VALID_STATUSES = new Set(['active', 'pending', 'rejected'])
+const VALID_STATUSES = new Set<string>(Object.values(TagStatus))
 
 export const auditRouter = new Hono()
 
@@ -17,7 +18,7 @@ auditRouter.get('/audit', async (c) => {
     return c.json({ code: 400, message: `status 无效，可选值：${[...VALID_STATUSES].join(', ')}` }, 400)
 
   const where = {
-    status: statusParam,
+    status: statusParam as TagStatus,
     ...(entityType ? { entityType } : {}),
     tag: { deletedAt: null },
   }

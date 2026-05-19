@@ -22,10 +22,16 @@ tagGroups.get('/', async (c) => {
   const { page, pageSize, skip, take } = parsePagination(c.req.query())
   const scopes = c.req.queries('scope') ?? []
 
+  // scope 过滤：返回 entityScopes 包含任一指定类型（OR）或为通用（空数组）的分组
   const where = {
     deletedAt: null,
     ...(scopes.length > 0
-      ? { entityScopes: scopes.length === 1 ? { has: scopes[0] } : { hasSome: scopes } }
+      ? {
+          OR: [
+            { entityScopes: scopes.length === 1 ? { has: scopes[0] } : { hasSome: scopes } },
+            { entityScopes: { isEmpty: true } },
+          ],
+        }
       : {}),
   }
 

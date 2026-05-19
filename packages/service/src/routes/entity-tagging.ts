@@ -1,12 +1,13 @@
 import { Hono } from 'hono'
 import type { Prisma } from '@prisma/client'
+import { TagSource, TagStatus } from '@prisma/client'
 import prisma from '../lib/db.js'
 import { isPrismaError, ValidationError } from '../lib/errors.js'
 import { validateTags } from '../lib/validate-tags.js'
 import logger from '../lib/logger.js'
 
-const VALID_SOURCES  = new Set(['manual', 'ai', 'system', 'import'])
-const VALID_STATUSES = new Set(['active', 'pending', 'rejected'])
+const VALID_SOURCES  = new Set<string>(Object.values(TagSource))
+const VALID_STATUSES = new Set<string>(Object.values(TagStatus))
 
 export const taggingRouter = new Hono()
 
@@ -16,32 +17,31 @@ taggingRouter.get('/:entityType/:entityId/tags', async (c) => {
   const { entityType, entityId } = c.req.param()
   const statusParam = c.req.query('status')
 
-  const [entity, rows] = await Promise.all([
-    prisma.registeredEntity.findUnique({
-      where:  { entityType_entityId: { entityType, entityId } },
-      select: { entityType: true },
-    }),
-    prisma.entityTag.findMany({
-      where: {
-        entityType,
-        entityId,
-        ...(statusParam && statusParam !== 'all'
-          ? { status: statusParam }
-          : statusParam !== 'all'
-            ? { status: 'active' }
-            : {}),
-      },
-      include: { tag: { include: { group: { select: { id: true, slug: true, name: true } } } } },
-      orderBy: { createdAt: 'asc' },
-    }),
-  ])
-
+  // 先确认实体存在，再查标签，避免并发注销时返回孤儿数据
+  const entity = await prisma.registeredEntity.findUnique({
+    where:  { entityType_entityId: { entityType, entityId } },
+    select: { entityType: true },
+  })
   if (!entity) return c.json({ code: 404, message: '实体未注册' }, 404)
+
+  const rows = await prisma.entityTag.findMany({
+    where: {
+      entityType,
+      entityId,
+      ...(statusParam && statusParam !== 'all'
+        ? { status: statusParam as TagStatus }
+        : statusParam !== 'all'
+          ? { status: TagStatus.active }
+          : {}),
+    },
+    include: { tag: { include: { group: { select: { id: true, slug: true, name: true } } } } },
+    orderBy: { createdAt: 'asc' },
+  })
 
   return c.json({
     code: 0,
     data: rows.map((r: {
-      source: string; confidence: number | null; status: string; createdAt: Date
+      source: TagSource; confidence: number | null; status: TagStatus; createdAt: Date
       tag: { id: string; slug: string; name: string; groupId: string; group: object }
     }) => ({
       id:         r.tag.id,
@@ -74,18 +74,21 @@ taggingRouter.put('/:entityType/:entityId/tags', async (c) => {
     return c.json({ code: 400, message: 'tagIds 每个元素必须为字符串' }, 400)
 
   const tagIds: string[] = [...new Set(body.tagIds as string[])]
-  const source     = (body.source as string | undefined) ?? 'manual'
+  const rawSource = (body.source as string | undefined) ?? 'manual'
   const confidence = body.confidence as number | undefined
-  const status     = (body.status as string | undefined) ?? (source === 'ai' ? 'pending' : 'active')
+  const rawStatus  = (body.status as string | undefined) ?? (rawSource === 'ai' ? 'pending' : 'active')
 
-  if (!VALID_SOURCES.has(source))
+  if (!VALID_SOURCES.has(rawSource))
     return c.json({ code: 400, message: `source 无效，可选值：${[...VALID_SOURCES].join(', ')}` }, 400)
-  if (source === 'ai' && confidence === undefined)
+  if (rawSource === 'ai' && confidence === undefined)
     return c.json({ code: 400, message: 'AI 来源必须提供 confidence（0~1）' }, 400)
-  if (!VALID_STATUSES.has(status))
+  if (!VALID_STATUSES.has(rawStatus))
     return c.json({ code: 400, message: `status 无效，可选值：${[...VALID_STATUSES].join(', ')}` }, 400)
   if (confidence !== undefined && (typeof confidence !== 'number' || confidence < 0 || confidence > 1))
     return c.json({ code: 400, message: 'confidence 必须为 0~1 的数值' }, 400)
+
+  const source = rawSource as TagSource
+  const status = rawStatus as TagStatus
 
   const validationError = await validateTags(tagIds, entityType)
   if (validationError) return c.json({ code: 422, message: validationError }, 422)
@@ -119,18 +122,21 @@ taggingRouter.post('/:entityType/:entityId/tags/:tagId', async (c) => {
   let body: Record<string, unknown> = {}
   try { body = await c.req.json() } catch { /* 无 body 时使用默认值 */ }
 
-  const source     = (body.source as string | undefined) ?? 'manual'
+  const rawSource  = (body.source as string | undefined) ?? 'manual'
   const confidence = body.confidence as number | undefined
-  const status     = (body.status as string | undefined) ?? (source === 'ai' ? 'pending' : 'active')
+  const rawStatus  = (body.status as string | undefined) ?? (rawSource === 'ai' ? 'pending' : 'active')
 
-  if (!VALID_SOURCES.has(source))
+  if (!VALID_SOURCES.has(rawSource))
     return c.json({ code: 400, message: `source 无效，可选值：${[...VALID_SOURCES].join(', ')}` }, 400)
-  if (source === 'ai' && confidence === undefined)
+  if (rawSource === 'ai' && confidence === undefined)
     return c.json({ code: 400, message: 'AI 来源必须提供 confidence（0~1）' }, 400)
-  if (!VALID_STATUSES.has(status))
+  if (!VALID_STATUSES.has(rawStatus))
     return c.json({ code: 400, message: `status 无效，可选值：${[...VALID_STATUSES].join(', ')}` }, 400)
   if (confidence !== undefined && (typeof confidence !== 'number' || confidence < 0 || confidence > 1))
     return c.json({ code: 400, message: 'confidence 必须为 0~1 的数值' }, 400)
+
+  const source = rawSource as TagSource
+  const status = rawStatus as TagStatus
 
   const tag = await prisma.tag.findUnique({
     where:  { id: tagId, deletedAt: null },
@@ -208,7 +214,7 @@ taggingRouter.patch('/:entityType/:entityId/tags/:tagId', async (c) => {
   try {
     await prisma.entityTag.update({
       where: { tagId_entityType_entityId: { tagId, entityType, entityId } },
-      data:  { status: body.status as string },
+      data:  { status: body.status as TagStatus, reviewedAt: new Date() },
     })
     return c.json({ code: 0, message: '更新成功' })
   } catch (error: unknown) {
