@@ -4,9 +4,10 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import {
   Tag, Layers, ClipboardCheck, Box,
-  ChevronLeft, ChevronRight,
+  ChevronLeft, ChevronRight, HelpCircle,
 } from "lucide-react";
 import { NavLink } from "@/components/nav-link";
+import { AboutDialog } from "@/components/ui/about-dialog";
 
 const W_OPEN   = 216;
 const W_CLOSED = 56;
@@ -23,9 +24,10 @@ const BASE = process.env.NEXT_PUBLIC_TAG_SERVICE_URL ?? "http://localhost:3300";
 const SERVICE_DISPLAY = BASE.replace(/^https?:\/\//, "");
 
 export function AppShell({ children }: { children: React.ReactNode }) {
-  const [open, setOpen] = useState(true);
+  const [open, setOpen]   = useState(true);
   const [ready, setReady] = useState(false);
   const [health, setHealth] = useState<HealthStatus>("checking");
+  const [showAbout, setShowAbout] = useState(false);
 
   useEffect(() => {
     const saved = localStorage.getItem("sidebar-open");
@@ -99,23 +101,34 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
         {/* Footer */}
         <div
-          className="border-t border-edge shrink-0 flex items-center"
-          style={{ padding: open ? "10px 16px" : "10px 0", justifyContent: open ? "space-between" : "center" }}
+          className="border-t border-edge shrink-0 flex items-center gap-1"
+          style={{ padding: open ? "10px 12px" : "10px 0", justifyContent: open ? "space-between" : "center" }}
         >
           {open && (
-            <div className="flex items-center gap-2 overflow-hidden" title={dotTitle}>
+            <div className="flex items-center gap-2 overflow-hidden flex-1 min-w-0" title={dotTitle}>
               <span className={`inline-block w-1.5 h-1.5 rounded-full shrink-0 transition-colors duration-500 ${dotClass}`} />
               <span className="text-[11px] text-ink-sub font-mono whitespace-nowrap truncate">{SERVICE_DISPLAY}</span>
             </div>
           )}
-          <button
-            onClick={toggle}
-            title={open ? "收起侧边栏" : "展开侧边栏"}
-            className="p-1.5 rounded-lg text-ink-faint hover:text-ink hover:bg-surface-alt transition-colors shrink-0"
-          >
-            {open ? <ChevronLeft size={14} /> : <ChevronRight size={14} />}
-          </button>
+          <div className="flex items-center gap-0.5 shrink-0">
+            <button
+              onClick={() => setShowAbout(true)}
+              title="关于"
+              className="p-1.5 rounded-lg text-ink-faint hover:text-ink hover:bg-surface-alt transition-colors"
+            >
+              <HelpCircle size={14} />
+            </button>
+            <button
+              onClick={toggle}
+              title={open ? "收起侧边栏" : "展开侧边栏"}
+              className="p-1.5 rounded-lg text-ink-faint hover:text-ink hover:bg-surface-alt transition-colors"
+            >
+              {open ? <ChevronLeft size={14} /> : <ChevronRight size={14} />}
+            </button>
+          </div>
         </div>
+
+        <AboutDialog open={showAbout} onClose={() => setShowAbout(false)} />
       </aside>
 
       {/* ── Main ─────────────────────────────────────────────────── */}

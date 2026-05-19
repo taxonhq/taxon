@@ -9,6 +9,14 @@ async function req<T>(path: string, init?: RequestInit): Promise<T> {
 
 // ── 公共类型 ──────────────────────────────────────────────────────
 
+export interface HealthInfo {
+  status:      "ok" | "degraded";
+  db:          "ok" | "error";
+  timestamp:   string;
+  version:     string;
+  nodeVersion: string;
+}
+
 export interface RegisteredEntity {
   entityType: string;
   entityId: string;
@@ -314,4 +322,11 @@ export async function removeEntityTag(
   });
   const data = await res.json();
   if (data.code !== 0) throw new Error(data.message);
+}
+
+// ── Health ────────────────────────────────────────────────────────
+
+export async function getHealth(): Promise<HealthInfo> {
+  const res = await fetch(`${BASE}/health`, { signal: AbortSignal.timeout(4000) });
+  return res.json() as Promise<HealthInfo>;
 }

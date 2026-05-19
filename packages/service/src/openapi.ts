@@ -355,9 +355,11 @@ export const openApiSpec = {
                 schema: {
                   type: 'object',
                   properties: {
-                    status:    { type: 'string', enum: ['ok'],        example: 'ok' },
-                    db:        { type: 'string', enum: ['ok'],        example: 'ok' },
-                    timestamp: { type: 'string', format: 'date-time', example: '2026-05-18T00:00:00.000Z' },
+                    status:      { type: 'string', enum: ['ok'],        example: 'ok' },
+                    db:          { type: 'string', enum: ['ok'],        example: 'ok' },
+                    timestamp:   { type: 'string', format: 'date-time', example: '2026-05-18T00:00:00.000Z' },
+                    version:     { type: 'string', description: '服务版本号',    example: '0.1.0' },
+                    nodeVersion: { type: 'string', description: 'Node.js 版本', example: 'v23.11.0' },
                   },
                 },
               },
@@ -370,9 +372,11 @@ export const openApiSpec = {
                 schema: {
                   type: 'object',
                   properties: {
-                    status:    { type: 'string', enum: ['degraded'], example: 'degraded' },
-                    db:        { type: 'string', enum: ['error'],    example: 'error' },
-                    timestamp: { type: 'string', format: 'date-time' },
+                    status:      { type: 'string', enum: ['degraded'], example: 'degraded' },
+                    db:          { type: 'string', enum: ['error'],    example: 'error' },
+                    timestamp:   { type: 'string', format: 'date-time' },
+                    version:     { type: 'string', example: '0.1.0' },
+                    nodeVersion: { type: 'string', example: 'v23.11.0' },
                   },
                 },
               },

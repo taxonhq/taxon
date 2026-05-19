@@ -1,4 +1,5 @@
 import 'dotenv/config'
+import { createRequire } from 'module'
 import { serve } from '@hono/node-server'
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
@@ -10,6 +11,9 @@ import { entities } from './routes/entities.js'
 import { tagGroups } from './routes/tag-groups.js'
 import { tags } from './routes/tags.js'
 import { openApiSpec } from './openapi.js'
+
+const require = createRequire(import.meta.url)
+const { version: SERVICE_VERSION } = require('../package.json') as { version: string }
 
 const app = new Hono()
 
@@ -37,10 +41,22 @@ app.use('/*', async (c, next) => {
 app.get('/health', async (c) => {
   try {
     await prisma.$queryRaw`SELECT 1`
-    return c.json({ status: 'ok', db: 'ok', timestamp: new Date().toISOString() })
+    return c.json({
+      status:      'ok',
+      db:          'ok',
+      timestamp:   new Date().toISOString(),
+      version:     SERVICE_VERSION,
+      nodeVersion: process.version,
+    })
   } catch {
     logger.error('Health check: DB ping failed')
-    return c.json({ status: 'degraded', db: 'error', timestamp: new Date().toISOString() }, 503)
+    return c.json({
+      status:      'degraded',
+      db:          'error',
+      timestamp:   new Date().toISOString(),
+      version:     SERVICE_VERSION,
+      nodeVersion: process.version,
+    }, 503)
   }
 })
 
