@@ -11,6 +11,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Field, Input, Select, Textarea } from "@/components/ui/field";
+import { Combobox } from "@/components/ui/combobox";
 import { ErrorBanner } from "@/components/ui/error-banner";
 import { PageHeader } from "@/components/ui/page-header";
 import { Pagination } from "@/components/ui/pagination";
@@ -187,11 +188,14 @@ export default function GroupsPage() {
               </Field>
             </div>
             <div className="grid grid-cols-2 gap-4">
-              <Field label="适用实体范围" hint="留空则适用所有实体">
-                <Select value={groupForm.entityScope} onChange={e => setGF("entityScope", e.target.value)}>
-                  <option value="">通用（所有实体）</option>
-                  {entityTypes.map(et => <option key={et} value={et}>{et}</option>)}
-                </Select>
+              <Field label="适用实体范围" hint="留空则适用所有实体，可直接输入新类型名">
+                <Combobox
+                  value={groupForm.entityScope}
+                  onChange={v => setGF("entityScope", v)}
+                  options={entityTypes}
+                  placeholder="通用（所有实体）"
+                  emptyLabel="通用（所有实体）"
+                />
               </Field>
               <Field label="默认允许多选">
                 <Select value={groupForm.allowMultiple} onChange={e => setGF("allowMultiple", e.target.value)}>

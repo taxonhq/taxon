@@ -12,6 +12,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Field, Input, Select, Textarea } from "@/components/ui/field";
+import { Combobox } from "@/components/ui/combobox";
 import { ErrorBanner } from "@/components/ui/error-banner";
 import { Pagination } from "@/components/ui/pagination";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -114,8 +115,9 @@ export default function GroupDetailPage() {
   // ── Entity Rules ──────────────────────────────────────────────
 
   const addRule = () => {
-    if (!newRuleType || rules.some(r => r.entityType === newRuleType)) return;
-    setRules(prev => [...prev, { groupId, entityType: newRuleType, allowMultiple: true }]);
+    const t = newRuleType.trim();
+    if (!t || rules.some(r => r.entityType === t)) return;
+    setRules(prev => [...prev, { groupId, entityType: t, allowMultiple: true }]);
     setNewRuleType("");
   };
 
@@ -261,11 +263,14 @@ export default function GroupDetailPage() {
               </Field>
             </div>
             <div className="grid grid-cols-2 gap-4">
-              <Field label="适用实体范围">
-                <Select value={groupForm.entityScope} onChange={e => setGF("entityScope", e.target.value)}>
-                  <option value="">通用（所有实体）</option>
-                  {entityTypes.map(et => <option key={et} value={et}>{et}</option>)}
-                </Select>
+              <Field label="适用实体范围" hint="留空则适用所有实体，可直接输入新类型名">
+                <Combobox
+                  value={groupForm.entityScope}
+                  onChange={v => setGF("entityScope", v)}
+                  options={entityTypes}
+                  placeholder="通用（所有实体）"
+                  emptyLabel="通用（所有实体）"
+                />
               </Field>
               <Field label="默认允许多选">
                 <Select value={groupForm.allowMultiple} onChange={e => setGF("allowMultiple", e.target.value)}>
@@ -342,22 +347,19 @@ export default function GroupDetailPage() {
         )}
 
         {/* Add Rule */}
-        {availableEntityTypes.length > 0 && (
-          <div className="flex items-center gap-2 pt-1">
-            <Select
-              value={newRuleType}
-              onChange={e => setNewRuleType(e.target.value)}
-              className="w-40"
-            >
-              <option value="">选择实体类型</option>
-              {availableEntityTypes.map(et => <option key={et} value={et}>{et}</option>)}
-            </Select>
-            <Button size="sm" variant="outline" onClick={addRule} disabled={!newRuleType}>
-              <Plus size={13} />
-              添加规则
-            </Button>
-          </div>
-        )}
+        <div className="flex items-center gap-2 pt-1">
+          <Combobox
+            value={newRuleType}
+            onChange={setNewRuleType}
+            options={availableEntityTypes}
+            placeholder="选择或输入实体类型…"
+            className="w-48"
+          />
+          <Button size="sm" variant="outline" onClick={addRule} disabled={!newRuleType.trim()}>
+            <Plus size={13} />
+            添加规则
+          </Button>
+        </div>
       </Card>
 
       {/* Tag Create Form */}
