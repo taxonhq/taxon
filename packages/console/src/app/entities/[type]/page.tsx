@@ -48,8 +48,8 @@ export default function EntityTypePage() {
     setError("");
     try {
       const data = await getEntitiesByType(entityType, { page: p, pageSize: PAGE_SIZE, search: q || undefined });
-      setItems(data.items);
-      setTotal(data.total);
+      setItems(data.items ?? []);
+      setTotal(data.total ?? 0);
     } catch {
       setError("加载失败，请检查服务是否正常运行");
     } finally {
