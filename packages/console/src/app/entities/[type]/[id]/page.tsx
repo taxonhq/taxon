@@ -12,7 +12,10 @@ import {
 import { Button } from "@/components/ui/button";
 import { ErrorBanner } from "@/components/ui/error-banner";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { Pagination } from "@/components/ui/pagination";
 import { useRouter } from "next/navigation";
+
+const TAGS_PAGE_SIZE = 20;
 
 const STATUS_META: Record<string, { label: string; dot: string; text: string }> = {
   active:   { label: "已激活", dot: "bg-ok",     text: "text-ok" },
@@ -38,6 +41,7 @@ export default function EntityDetailPage() {
   const router     = useRouter();
 
   const [tags, setTags]         = useState<EntityTagItem[]>([]);
+  const [tagPage, setTagPage]   = useState(1);
   const [loading, setLoading]   = useState(true);
   const [error, setError]       = useState("");
   const [processing, setProcessing] = useState<Set<string>>(new Set());
@@ -59,6 +63,7 @@ export default function EntityDetailPage() {
   const load = useCallback(async () => {
     setLoading(true);
     setError("");
+    setTagPage(1);
     try {
       const data = await getEntityTags(entityType, entityId);
       setTags(data);
@@ -297,7 +302,9 @@ export default function EntityDetailPage() {
             <p className="text-[12px] text-ink-faint mt-1.5">点击「添加标签」为该实体打标</p>
           </div>
         </div>
-      ) : (
+      ) : (() => {
+        const pagedTags = tags.slice((tagPage - 1) * TAGS_PAGE_SIZE, tagPage * TAGS_PAGE_SIZE);
+        return (
         <div className="card-border overflow-hidden">
           <table className="w-full">
             <thead>
@@ -316,7 +323,7 @@ export default function EntityDetailPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-edge">
-              {tags.map((tag, idx) => {
+              {pagedTags.map((tag, idx) => {
                 const busy   = processing.has(tag.id);
                 const meta   = STATUS_META[tag.status] ?? { label: tag.status, dot: "bg-edge-mid", text: "text-ink-dim" };
                 return (
@@ -385,8 +392,15 @@ export default function EntityDetailPage() {
               })}
             </tbody>
           </table>
+          <Pagination
+            page={tagPage}
+            pageSize={TAGS_PAGE_SIZE}
+            total={tags.length}
+            onChange={setTagPage}
+          />
         </div>
-      )}
+        );
+      })()}
 
       {/* Danger zone */}
       <div className="pt-4 border-t border-edge">

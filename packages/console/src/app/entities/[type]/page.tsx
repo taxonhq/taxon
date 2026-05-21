@@ -5,8 +5,8 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Plus, Trash2, Search, X, ExternalLink } from "lucide-react";
 import {
-  getEntitiesByType, registerEntity, unregisterEntity,
-  type RegisteredEntity,
+  getEntitiesByType, getEntityTags, registerEntity, unregisterEntity,
+  type RegisteredEntity, type EntityTagItem,
 } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Field, Input } from "@/components/ui/field";
@@ -15,6 +15,24 @@ import { Pagination } from "@/components/ui/pagination";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
 const PAGE_SIZE = 20;
+
+// 根据分组 ID 哈希到固定调色板，同一分组在所有实体行中颜色一致
+const TAG_PALETTES = [
+  { bg: "bg-blue-500/10",   border: "border-blue-500/20",   group: "text-blue-400/70",   name: "text-blue-200"   },
+  { bg: "bg-violet-500/10", border: "border-violet-500/20", group: "text-violet-400/70", name: "text-violet-200" },
+  { bg: "bg-emerald-500/10",border: "border-emerald-500/20",group: "text-emerald-400/70",name: "text-emerald-200"},
+  { bg: "bg-amber-500/10",  border: "border-amber-500/20",  group: "text-amber-400/70",  name: "text-amber-200"  },
+  { bg: "bg-rose-500/10",   border: "border-rose-500/20",   group: "text-rose-400/70",   name: "text-rose-200"   },
+  { bg: "bg-cyan-500/10",   border: "border-cyan-500/20",   group: "text-cyan-400/70",   name: "text-cyan-200"   },
+  { bg: "bg-orange-500/10", border: "border-orange-500/20", group: "text-orange-400/70", name: "text-orange-200" },
+  { bg: "bg-teal-500/10",   border: "border-teal-500/20",   group: "text-teal-400/70",   name: "text-teal-200"   },
+] as const;
+
+function tagPalette(groupId: string) {
+  let h = 0;
+  for (let i = 0; i < groupId.length; i++) h = (h * 31 + groupId.charCodeAt(i)) & 0xffff;
+  return TAG_PALETTES[h % TAG_PALETTES.length];
+}
 
 function formatTime(iso: string) {
   return new Date(iso).toLocaleString("zh-CN", {
@@ -35,6 +53,10 @@ export default function EntityTypePage() {
   const [search, setSearch]     = useState("");
   const [committed, setCommitted] = useState(""); // debounced search value
 
+  // tags map: entityId → active tags
+  const [tagsMap, setTagsMap]         = useState<Record<string, EntityTagItem[]>>({});
+  const [tagsLoading, setTagsLoading] = useState(false);
+
   const [showForm, setShowForm] = useState(false);
   const [newId, setNewId]       = useState("");
   const [saving, setSaving]     = useState(false);
@@ -48,8 +70,28 @@ export default function EntityTypePage() {
     setError("");
     try {
       const data = await getEntitiesByType(entityType, { page: p, pageSize: PAGE_SIZE, search: q || undefined });
-      setItems(data.items ?? []);
+      const entities = data.items ?? [];
+      setItems(entities);
       setTotal(data.total ?? 0);
+
+      // Batch-fetch active tags for all entities on this page
+      if (entities.length > 0) {
+        setTagsLoading(true);
+        const results = await Promise.allSettled(
+          entities.map(e => getEntityTags(entityType, e.entityId))
+        );
+        const map: Record<string, EntityTagItem[]> = {};
+        entities.forEach((e, i) => {
+          const r = results[i];
+          map[e.entityId] = r.status === "fulfilled"
+            ? r.value.filter(t => t.status === "active")
+            : [];
+        });
+        setTagsMap(map);
+        setTagsLoading(false);
+      } else {
+        setTagsMap({});
+      }
     } catch {
       setError("加载失败，请检查服务是否正常运行");
     } finally {
@@ -182,9 +224,14 @@ export default function EntityTypePage() {
         <div className="card-border overflow-hidden animate-pulse">
           {[1, 2, 3, 4, 5].map(i => (
             <div key={i} className="flex items-center gap-4 px-5 py-3.5 border-b border-edge last:border-0">
-              <div className="flex-1 h-3.5 bg-edge-mid rounded w-48" />
-              <div className="h-3 w-28 bg-edge rounded" />
-              <div className="h-3 w-16 bg-edge rounded" />
+              <div className="h-3.5 bg-edge-mid rounded w-36 shrink-0" />
+              <div className="flex-1 flex gap-1.5">
+                <div className="h-5 bg-edge rounded-md w-20" />
+                <div className="h-5 bg-edge rounded-md w-14" />
+                <div className="h-5 bg-edge rounded-md w-16" />
+              </div>
+              <div className="h-3 w-28 bg-edge rounded shrink-0" />
+              <div className="h-3 w-16 bg-edge rounded shrink-0" />
             </div>
           ))}
         </div>
@@ -204,57 +251,104 @@ export default function EntityTypePage() {
           <table className="w-full">
             <thead>
               <tr className="border-b border-edge bg-[#0D0D0D]">
-                {["实体 ID", "注册时间", ""].map((h, i) => (
-                  <th
-                    key={i}
-                    className={`py-3 text-[10px] font-medium text-ink-faint uppercase tracking-[0.08em] ${
-                      i === 0 ? "pl-5 pr-3 text-left" :
-                      i === 2 ? "pr-4 text-right" : "px-3 text-left"
-                    }`}
-                  >
-                    {h}
-                  </th>
-                ))}
+                <th className="pl-5 pr-3 py-3 text-left text-[10px] font-medium text-ink-faint uppercase tracking-[0.08em] w-[220px]">
+                  实体 ID
+                </th>
+                <th className="px-3 py-3 text-left text-[10px] font-medium text-ink-faint uppercase tracking-[0.08em]">
+                  标签
+                </th>
+                <th className="px-3 py-3 text-left text-[10px] font-medium text-ink-faint uppercase tracking-[0.08em] w-[130px] whitespace-nowrap">
+                  注册时间
+                </th>
+                <th className="pr-4 py-3 text-right text-[10px] font-medium text-ink-faint uppercase tracking-[0.08em] w-[90px]" />
               </tr>
             </thead>
             <tbody className="divide-y divide-edge">
-              {items.map((item, idx) => (
-                <tr
-                  key={item.entityId}
-                  className="group/row hover:bg-[#0E0E0E] transition-colors animate-fade-in"
-                  style={{ animationDelay: `${idx * 20}ms` }}
-                >
-                  <td className="pl-5 pr-3 py-3">
-                    <Link
-                      href={`/entities/${encodeURIComponent(entityType)}/${encodeURIComponent(item.entityId)}`}
-                      className="font-mono text-[13px] text-ink hover:text-ink-dim transition-colors flex items-center gap-1.5 group/link"
-                    >
-                      <span className="truncate max-w-[340px]">{item.entityId}</span>
-                      <ExternalLink size={11} className="text-ink-faint opacity-0 group-hover/link:opacity-100 shrink-0 transition-opacity" />
-                    </Link>
-                  </td>
-                  <td className="px-3 py-3 text-[12px] text-ink-sub tabular-nums whitespace-nowrap">
-                    {formatTime(item.registeredAt)}
-                  </td>
-                  <td className="pr-4 py-3">
-                    <div className="flex items-center justify-end gap-0.5 opacity-0 group-hover/row:opacity-100 transition-opacity">
+              {items.map((item, idx) => {
+                const itemTags = tagsMap[item.entityId] ?? [];
+                const MAX_VISIBLE = 6;
+                const visible  = itemTags.slice(0, MAX_VISIBLE);
+                const overflow = itemTags.length - MAX_VISIBLE;
+                return (
+                  <tr
+                    key={item.entityId}
+                    className="group/row hover:bg-[#0E0E0E] transition-colors animate-fade-in"
+                    style={{ animationDelay: `${idx * 20}ms` }}
+                  >
+                    {/* Entity ID */}
+                    <td className="pl-5 pr-3 py-3.5">
                       <Link
                         href={`/entities/${encodeURIComponent(entityType)}/${encodeURIComponent(item.entityId)}`}
-                        className="px-2 py-1 rounded-md text-[11px] text-ink-faint hover:text-ink hover:bg-surface-alt transition-all"
+                        className="font-mono text-[13px] text-ink hover:text-ink-dim transition-colors flex items-center gap-1.5 group/link"
                       >
-                        标签管理
+                        <span className="truncate max-w-[200px]">{item.entityId}</span>
+                        <ExternalLink size={11} className="text-ink-faint opacity-0 group-hover/link:opacity-100 shrink-0 transition-opacity" />
                       </Link>
-                      <button
-                        onClick={() => setConfirmItem(item)}
-                        className="p-1.5 rounded-md text-ink-faint hover:text-bad hover:bg-bad/10 transition-all"
-                        title="注销实体"
-                      >
-                        <Trash2 size={13} />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
+                    </td>
+
+                    {/* Tags — single row, no wrap */}
+                    <td className="px-3 py-3.5">
+                      {tagsLoading && !(item.entityId in tagsMap) ? (
+                        <div className="flex items-center gap-1.5">
+                          {[52, 44, 60].map(w => (
+                            <div key={w} className="h-[22px] rounded bg-edge animate-pulse shrink-0" style={{ width: w }} />
+                          ))}
+                        </div>
+                      ) : visible.length > 0 ? (
+                        <div className="flex items-center gap-1.5 overflow-hidden">
+                          {visible.map(tag => {
+                            const p = tagPalette(tag.groupId);
+                            return (
+                              <span
+                                key={tag.id}
+                                title={`${tag.group.name} · ${tag.name}`}
+                                className={`inline-flex items-baseline gap-1 px-2 py-[3px] rounded border text-[11px] leading-none whitespace-nowrap shrink-0 ${p.bg} ${p.border}`}
+                              >
+                                <span className={`text-[10px] ${p.group}`}>{tag.group.name}</span>
+                                <span className={`font-medium ${p.name}`}>{tag.name}</span>
+                              </span>
+                            );
+                          })}
+                          {overflow > 0 && (
+                            <Link
+                              href={`/entities/${encodeURIComponent(entityType)}/${encodeURIComponent(item.entityId)}`}
+                              className="px-1.5 py-[3px] rounded text-[11px] text-ink-faint hover:text-ink border border-white/[.1] hover:border-white/25 transition-colors leading-none shrink-0 bg-white/[.03]"
+                            >
+                              +{overflow}
+                            </Link>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-[12px] text-ink-faint/40">—</span>
+                      )}
+                    </td>
+
+                    {/* Registration time */}
+                    <td className="px-3 py-3.5 text-[12px] text-ink-sub tabular-nums whitespace-nowrap">
+                      {formatTime(item.registeredAt)}
+                    </td>
+
+                    {/* Actions */}
+                    <td className="pr-4 py-3.5">
+                      <div className="flex items-center justify-end gap-0.5 opacity-0 group-hover/row:opacity-100 transition-opacity">
+                        <Link
+                          href={`/entities/${encodeURIComponent(entityType)}/${encodeURIComponent(item.entityId)}`}
+                          className="px-2 py-1 rounded-md text-[11px] text-ink-faint hover:text-ink hover:bg-surface-alt transition-all"
+                        >
+                          标签管理
+                        </Link>
+                        <button
+                          onClick={() => setConfirmItem(item)}
+                          className="p-1.5 rounded-md text-ink-faint hover:text-bad hover:bg-bad/10 transition-all"
+                          title="注销实体"
+                        >
+                          <Trash2 size={13} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
           <Pagination
