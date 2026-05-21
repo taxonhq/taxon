@@ -1,7 +1,7 @@
 import { Hono } from 'hono'
 import prisma from '../lib/db.js'
 import { parsePagination } from '../lib/pagination.js'
-import { isPrismaError, deletedSuffix } from '../lib/errors.js'
+import { isPrismaError } from '../lib/errors.js'
 import logger from '../lib/logger.js'
 
 const tagGroups = new Hono()
@@ -231,7 +231,7 @@ tagGroups.delete('/:groupId', async (c) => {
 
   const group = await prisma.tagGroup.findUnique({
     where: { id: groupId, deletedAt: null },
-    select: { id: true, slug: true, name: true },
+    select: { id: true },
   })
   if (!group) return c.json({ code: 404, message: '标签分组不存在' }, 404)
 
@@ -247,15 +247,11 @@ tagGroups.delete('/:groupId', async (c) => {
     }
   }
 
-  // 软删除：追加时间戳后缀以释放 slug/name 唯一约束
-  const suffix = deletedSuffix()
+  // 软删除：仅置 deletedAt。slug/name 保持原值 —— 部分唯一索引
+  // (WHERE deletedAt IS NULL) 已保证不会与活跃记录冲突。
   await prisma.tagGroup.update({
     where: { id: groupId },
-    data: {
-      deletedAt: new Date(),
-      slug:      `${group.slug}${suffix}`,
-      name:      `${group.name}${suffix}`,
-    },
+    data:  { deletedAt: new Date() },
   })
   return c.json({ code: 0, message: '删除成功' })
 })

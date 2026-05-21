@@ -83,17 +83,31 @@ CREATE UNIQUE INDEX IF NOT EXISTS "TagGroup_slug_key" ON "TagGroup"("slug");
 CREATE UNIQUE INDEX IF NOT EXISTS "TagGroup_name_key" ON "TagGroup"("name");
 
 -- AddForeignKey
-ALTER TABLE "EntityTag" ADD CONSTRAINT IF NOT EXISTS "EntityTag_tagId_fkey"
-    FOREIGN KEY ("tagId") REFERENCES "Tag"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+-- 注意：PostgreSQL 不支持 ALTER TABLE ... ADD CONSTRAINT IF NOT EXISTS。
+-- 使用 DO 块按 information_schema 检查 + 条件创建，确保 idempotent。
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints
+                 WHERE constraint_name = 'EntityTag_tagId_fkey' AND table_name = 'EntityTag') THEN
+    ALTER TABLE "EntityTag" ADD CONSTRAINT "EntityTag_tagId_fkey"
+      FOREIGN KEY ("tagId") REFERENCES "Tag"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+  END IF;
 
--- AddForeignKey
-ALTER TABLE "EntityTag" ADD CONSTRAINT IF NOT EXISTS "EntityTag_entityType_entityId_fkey"
-    FOREIGN KEY ("entityType","entityId") REFERENCES "RegisteredEntity"("entityType","entityId") ON DELETE CASCADE ON UPDATE CASCADE;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints
+                 WHERE constraint_name = 'EntityTag_entityType_entityId_fkey' AND table_name = 'EntityTag') THEN
+    ALTER TABLE "EntityTag" ADD CONSTRAINT "EntityTag_entityType_entityId_fkey"
+      FOREIGN KEY ("entityType","entityId") REFERENCES "RegisteredEntity"("entityType","entityId") ON DELETE CASCADE ON UPDATE CASCADE;
+  END IF;
 
--- AddForeignKey
-ALTER TABLE "Tag" ADD CONSTRAINT IF NOT EXISTS "Tag_groupId_fkey"
-    FOREIGN KEY ("groupId") REFERENCES "TagGroup"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints
+                 WHERE constraint_name = 'Tag_groupId_fkey' AND table_name = 'Tag') THEN
+    ALTER TABLE "Tag" ADD CONSTRAINT "Tag_groupId_fkey"
+      FOREIGN KEY ("groupId") REFERENCES "TagGroup"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+  END IF;
 
--- AddForeignKey
-ALTER TABLE "TagGroupEntityRule" ADD CONSTRAINT IF NOT EXISTS "TagGroupEntityRule_groupId_fkey"
-    FOREIGN KEY ("groupId") REFERENCES "TagGroup"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints
+                 WHERE constraint_name = 'TagGroupEntityRule_groupId_fkey' AND table_name = 'TagGroupEntityRule') THEN
+    ALTER TABLE "TagGroupEntityRule" ADD CONSTRAINT "TagGroupEntityRule_groupId_fkey"
+      FOREIGN KEY ("groupId") REFERENCES "TagGroup"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+  END IF;
+END $$;

@@ -106,6 +106,22 @@ curl -X POST http://localhost:3300/entities/dish/dish-001/tags/<tagId> \
                           └─────────────────────────────────┘
 ```
 
+## 测试
+
+后端服务有一套 vitest 测试，跑在真实 PostgreSQL 上。
+每次运行会创建独立 schema、应用迁移，结束后自动清除。
+
+```bash
+# 指向任意一次性 Postgres（不要用生产库）
+export TEST_DATABASE_URL="postgresql://user:pass@localhost:5432/taxon_test"
+
+pnpm -F tag-service test         # 运行一次
+pnpm -F tag-service test:watch   # 监听模式
+```
+
+CI（GitHub Actions）在每次 push / PR 时，针对 Postgres service container
+运行后端测试，并执行类型检查与控制台的 lint / build。
+
 ## 相关文档
 
 - 交互式 API 文档 —— `/docs`（Scalar UI）

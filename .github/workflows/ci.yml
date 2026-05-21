@@ -1,0 +1,82 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  service:
+    name: Service — typecheck & tests
+    runs-on: ubuntu-latest
+
+    # 真实 PostgreSQL service container，供 vitest 测试连接
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER:     taxon
+          POSTGRES_PASSWORD: taxon
+          POSTGRES_DB:       taxon_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U taxon"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      # 测试隔离用：global-setup 会在此库内创建独立 schema 并迁移
+      TEST_DATABASE_URL: postgresql://taxon:taxon@localhost:5432/taxon_test
+      # Prisma 客户端构建期需要一个 DATABASE_URL（值不重要，测试时会被覆盖）
+      DATABASE_URL: postgresql://taxon:taxon@localhost:5432/taxon_test
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate Prisma client
+        run: pnpm -F tag-service exec prisma generate
+
+      - name: Typecheck service
+        run: pnpm -F tag-service typecheck
+
+      - name: Run service tests
+        run: pnpm -F tag-service test
+
+  console:
+    name: Console — lint & build
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint console
+        run: pnpm -F tag-console lint
+
+      - name: Build console
+        run: pnpm -F tag-console build

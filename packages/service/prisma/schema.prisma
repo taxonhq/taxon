@@ -70,12 +70,19 @@ model EntityTag {
 
 // ── 标签 ──────────────────────────────────────────────────────
 // 隶属于某个 TagGroup 的具体标签。
-// slug 和 name 在同一分组内唯一（含软删除记录，软删除时追加时间戳后缀以释放名称）。
+// slug 和 name 在同一分组内、仅对未删除记录唯一。
+//
+// 唯一性由 PostgreSQL 部分唯一索引保证（WHERE deletedAt IS NULL），
+// 见 migration 20260521000000_soft_delete_partial_unique_index：
+//   - Tag_groupId_slug_active_key
+//   - Tag_groupId_name_active_key
+// Prisma schema 无法表达 partial index，故此处不写 @@unique。
+// 不要重新加回 @@unique —— 那会变成全量约束，软删除记录会重新占用名字空间。
 //
 // 字段说明：
-//   slug      — URL 友好标识符，同分组内唯一，最多 100 字符
-//   name      — 显示名称，同分组内唯一，最多 50 字符
-//   deletedAt — 软删除时间戳，null 表示未删除；软删除时 slug/name 追加时间戳后缀
+//   slug      — URL 友好标识符，同分组内未删除记录唯一，最多 100 字符
+//   name      — 显示名称，同分组内未删除记录唯一，最多 50 字符
+//   deletedAt — 软删除时间戳，null 表示未删除；软删除不再改写 slug/name
 model Tag {
   id          String    @id @default(cuid())
   groupId     String
@@ -90,22 +97,27 @@ model Tag {
 
   entityTags  EntityTag[]
 
-  @@unique([groupId, slug])
-  @@unique([groupId, name])
+  @@index([groupId])
 }
 
 // ── 标签分组（维度）──────────────────────────────────────────
 // 对标签进行维度划分，如"菜系"、"口味"。
 // allowMultiple 为默认规则，可通过 TagGroupEntityRule 按实体类型覆盖。
 //
+// slug / name 仅对未删除记录唯一，由 PostgreSQL 部分唯一索引保证：
+//   - TagGroup_slug_active_key   (WHERE deletedAt IS NULL)
+//   - TagGroup_name_active_key   (WHERE deletedAt IS NULL)
+// 见 migration 20260521000000_soft_delete_partial_unique_index。
+// 不要给 slug / name 加回 @unique —— 那会变成全量约束。
+//
 // 字段说明：
 //   entityScopes  — 允许使用本分组标签的实体类型；空数组=通用
 //   allowMultiple — 默认：单实体是否可持有本分组多个标签
-//   deletedAt     — 软删除时间戳；软删除时 slug/name 追加时间戳后缀
+//   deletedAt     — 软删除时间戳；软删除不再改写 slug/name
 model TagGroup {
   id            String    @id @default(cuid())
-  slug          String    @unique
-  name          String    @unique
+  slug          String
+  name          String
   description   String?
   entityScopes  String[]
   allowMultiple Boolean   @default(true)

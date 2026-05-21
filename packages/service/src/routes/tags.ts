@@ -2,7 +2,7 @@ import { Hono } from 'hono'
 import prisma from '../lib/db.js'
 import { parsePagination } from '../lib/pagination.js'
 import { generateSlug } from '../lib/slug.js'
-import { isPrismaError, deletedSuffix } from '../lib/errors.js'
+import { isPrismaError } from '../lib/errors.js'
 import logger from '../lib/logger.js'
 
 const tags = new Hono()
@@ -248,14 +248,11 @@ tags.delete('/:tagId', async (c) => {
     }, 409)
   }
 
-  const suffix = deletedSuffix()
+  // 软删除：仅置 deletedAt。slug/name 保持原值 —— 部分唯一索引
+  // (WHERE deletedAt IS NULL) 已保证不会与活跃记录冲突。
   await prisma.tag.update({
     where: { id: tagId },
-    data: {
-      deletedAt: new Date(),
-      slug: `${tag.slug}${suffix}`,
-      name: `${tag.name}${suffix}`,
-    },
+    data:  { deletedAt: new Date() },
   })
   return c.json({ code: 0, message: '删除成功' })
 })

@@ -106,6 +106,22 @@ curl -X POST http://localhost:3300/entities/dish/dish-001/tags/<tagId> \
                           └─────────────────────────────────┘
 ```
 
+## Testing
+
+The service has a vitest suite that runs against a real PostgreSQL database.
+Each run provisions an isolated schema, applies migrations, and drops it on teardown.
+
+```bash
+# Point at any throwaway Postgres (NOT production)
+export TEST_DATABASE_URL="postgresql://user:pass@localhost:5432/taxon_test"
+
+pnpm -F tag-service test         # run once
+pnpm -F tag-service test:watch   # watch mode
+```
+
+CI (GitHub Actions) runs the service tests against a Postgres service container,
+plus typecheck and a console lint/build, on every push and pull request.
+
 ## Documentation
 
 - Interactive API reference — `/docs` (Scalar UI)
