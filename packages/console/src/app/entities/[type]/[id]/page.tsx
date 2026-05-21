@@ -71,7 +71,7 @@ export default function EntityDetailPage() {
       if (err instanceof Error && err.message.includes("未注册")) {
         setError("该实体未注册或已被注销");
       } else {
-        setError("加载失败，请检查服务是否正常运行");
+        setError(err instanceof Error ? `加载失败：${err.message}` : "加载失败，请检查服务是否正常运行");
       }
     } finally {
       setLoading(false);
@@ -223,7 +223,7 @@ export default function EntityDetailPage() {
                       const g = compatibleGroups.find(g => g.id === e.target.value) ?? null;
                       setSelectedGroup(g);
                     }}
-                    className="w-full px-3 py-2 text-sm bg-[#0A0A0A] border border-edge-mid rounded-lg text-ink focus:outline-none focus:border-edge-strong hover:border-edge-strong/60 transition-all appearance-none pr-8 cursor-pointer"
+                    className="w-full px-3 py-2 text-sm bg-input border border-edge-mid rounded-lg text-ink focus:outline-none focus:border-edge-strong hover:border-edge-strong/60 transition-all appearance-none pr-8 cursor-pointer"
                   >
                     <option value="">选择分组…</option>
                     {compatibleGroups.map(g => (
@@ -245,7 +245,7 @@ export default function EntityDetailPage() {
                     value={selectedTagId}
                     onChange={e => setSelectedTagId(e.target.value)}
                     disabled={!selectedGroup || loadingGroupTags}
-                    className="w-full px-3 py-2 text-sm bg-[#0A0A0A] border border-edge-mid rounded-lg text-ink focus:outline-none focus:border-edge-strong hover:border-edge-strong/60 transition-all appearance-none pr-8 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                    className="w-full px-3 py-2 text-sm bg-input border border-edge-mid rounded-lg text-ink focus:outline-none focus:border-edge-strong hover:border-edge-strong/60 transition-all appearance-none pr-8 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
                   >
                     <option value="">
                       {!selectedGroup ? "先选分组" : availableGroupTags.length === 0 ? "无可用标签" : "选择标签…"}
@@ -266,7 +266,7 @@ export default function EntityDetailPage() {
                     <select
                       value={addSource}
                       onChange={e => setAddSource(e.target.value)}
-                      className="w-full px-3 py-2 text-sm bg-[#0A0A0A] border border-edge-mid rounded-lg text-ink focus:outline-none focus:border-edge-strong hover:border-edge-strong/60 transition-all appearance-none pr-8 cursor-pointer"
+                      className="w-full px-3 py-2 text-sm bg-input border border-edge-mid rounded-lg text-ink focus:outline-none focus:border-edge-strong hover:border-edge-strong/60 transition-all appearance-none pr-8 cursor-pointer"
                     >
                       <option value="manual">手动</option>
                       <option value="import">导入</option>
@@ -308,11 +308,11 @@ export default function EntityDetailPage() {
         <div className="card-border overflow-hidden">
           <table className="w-full">
             <thead>
-              <tr className="border-b border-edge bg-[#0D0D0D]">
+              <tr className="border-b border-edge bg-row-head">
                 {["标签", "分组", "状态", "来源", "时间", ""].map((h, i) => (
                   <th
                     key={i}
-                    className={`py-3 text-[10px] font-medium text-ink-faint uppercase tracking-[0.08em] ${
+                    className={`py-3 th-label ${
                       i === 0 ? "pl-5 pr-3 text-left" :
                       i === 5 ? "pr-4 text-right" : "px-3 text-left"
                     }`}
@@ -329,11 +329,11 @@ export default function EntityDetailPage() {
                 return (
                   <tr
                     key={`${tag.id}-${idx}`}
-                    className={`group/row transition-colors animate-fade-in ${busy ? "opacity-40 pointer-events-none" : "hover:bg-[#0E0E0E]"}`}
+                    className={`group/row transition-colors animate-fade-in ${busy ? "opacity-40 pointer-events-none" : "hover:bg-row-hover"}`}
                     style={{ animationDelay: `${idx * 20}ms` }}
                   >
                     <td className="pl-5 pr-3 py-3">
-                      <span className="text-[13px] font-semibold text-ink" style={{ letterSpacing: "-0.01em" }}>
+                      <span className="text-[13px] font-semibold text-ink">
                         {tag.name}
                       </span>
                     </td>

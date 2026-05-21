@@ -28,8 +28,8 @@ export default function EntitiesPage() {
     try {
       const data = await getEntityTypes();
       setTypes(data);
-    } catch {
-      setError("加载失败，请检查服务是否正常运行");
+    } catch (err) {
+      setError(err instanceof Error ? `加载失败：${err.message}` : "加载失败，请检查服务是否正常运行");
     } finally {
       setLoading(false);
     }

@@ -81,8 +81,8 @@ export default function GroupDetailPage() {
         entityScope: groupData.entityScopes?.[0] ?? "",
         allowMultiple: groupData.allowMultiple ? "true" : "false",
       });
-    } catch {
-      setError("加载失败");
+    } catch (err) {
+      setError(err instanceof Error ? `加载失败：${err.message}` : "加载失败");
     } finally {
       setLoading(false);
     }
@@ -312,7 +312,7 @@ export default function GroupDetailPage() {
             <thead>
               <tr className="border-b border-edge">
                 {["实体类型", "允许多选", ""].map((h, i) => (
-                  <th key={i} className={`py-2 text-[10px] font-medium text-ink-faint uppercase tracking-[0.08em] ${i === 2 ? "text-right" : "text-left"}`}>
+                  <th key={i} className={`py-2 th-label ${i === 2 ? "text-right" : "text-left"}`}>
                     {h}
                   </th>
                 ))}
@@ -423,9 +423,9 @@ export default function GroupDetailPage() {
           <>
             <table className="w-full">
               <thead>
-                <tr className="border-b border-edge bg-[#0D0D0D]">
+                <tr className="border-b border-edge bg-row-head">
                   {["名称", "Slug", "使用量", ""].map((h, i) => (
-                    <th key={i} className={`py-3 text-[10px] font-medium text-ink-faint uppercase tracking-[0.08em] ${i === 3 ? "pr-5 text-right" : "px-5 text-left"}`}>
+                    <th key={i} className={`py-3 th-label ${i === 3 ? "pr-5 text-right" : "px-5 text-left"}`}>
                       {h}
                     </th>
                   ))}
@@ -433,7 +433,7 @@ export default function GroupDetailPage() {
               </thead>
               <tbody className="divide-y divide-edge">
                 {tags.map(tag => (
-                  <tr key={tag.id} className="group/tag hover:bg-[#0E0E0E] transition-colors">
+                  <tr key={tag.id} className="group/tag hover:bg-row-hover transition-colors">
                     <td className="px-5 py-3">
                       {editingId === tag.id ? (
                         <input

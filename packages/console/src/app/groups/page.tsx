@@ -65,8 +65,8 @@ export default function GroupsPage() {
           setGroups(prev => prev.map(pg => pg.id === g.id ? { ...pg, previewTags: items, tagTotal } : pg));
         } catch { /* per-group failure is non-fatal */ }
       });
-    } catch {
-      setError("加载失败，请检查 Taxcon 服务是否正常运行");
+    } catch (err) {
+      setError(err instanceof Error ? `加载失败：${err.message}` : "加载失败，请检查 Taxcon 服务是否正常运行");
       setLoading(false);
     }
   };
@@ -330,7 +330,7 @@ function GroupCard({
       </div>
 
       {/* ── Tags strip ── */}
-      <div className="px-5 py-3 border-t border-edge bg-[#0A0A0A] flex flex-wrap gap-1.5 items-center">
+      <div className="px-5 py-3 border-t border-edge bg-input flex flex-wrap gap-1.5 items-center">
         {group.previewTags.map(tag => (
           <TagChip key={tag.id} tag={tag} onDelete={() => onDeleteTag(tag)} />
         ))}

@@ -101,6 +101,15 @@ taggingRouter.put('/:entityType/:entityId/tags', async (c) => {
         create: { entityType, entityId },
         update: {},
       })
+
+      // FOR UPDATE 锁住实体行，与并发 POST/PUT 串行化，
+      // 防止 PUT(delete) → POST(insert single-tag) → PUT(insert) 的交错导致约束冲突
+      await tx.$queryRaw`
+        SELECT 1 FROM "RegisteredEntity"
+        WHERE "entityType" = ${entityType} AND "entityId" = ${entityId}
+        FOR UPDATE
+      `
+
       await tx.entityTag.deleteMany({ where: { entityType, entityId } })
       if (tagIds.length > 0) {
         await tx.entityTag.createMany({

@@ -69,8 +69,8 @@ export default function AuditPage() {
       });
       setItems(data.items);
       setTotal(data.total);
-    } catch {
-      setError("加载失败，请检查 Taxcon 服务是否正常运行");
+    } catch (err) {
+      setError(err instanceof Error ? `加载失败：${err.message}` : "加载失败，请检查 Taxcon 服务是否正常运行");
     } finally {
       setLoading(false);
     }
@@ -262,7 +262,7 @@ export default function AuditPage() {
         <div className="card-border overflow-hidden">
           <table className="w-full">
             <thead>
-              <tr className="border-b border-edge bg-[#0D0D0D]">
+              <tr className="border-b border-edge bg-row-head">
                 <th className="pl-5 pr-3 py-3">
                   <input
                     type="checkbox"
@@ -273,7 +273,7 @@ export default function AuditPage() {
                   />
                 </th>
                 {["标签", "实体", "来源", "置信度", "状态", "时间", ""].map((h, i) => (
-                  <th key={i} className={`py-3 text-[10px] font-medium text-ink-faint uppercase tracking-[0.08em] ${i === 6 ? "pr-5 text-right" : "px-3 text-left"}`}>
+                  <th key={i} className={`py-3 th-label ${i === 6 ? "pr-5 text-right" : "px-3 text-left"}`}>
                     {h}
                   </th>
                 ))}
@@ -289,7 +289,7 @@ export default function AuditPage() {
                   <tr
                     key={key}
                     className={`group/row transition-colors ${busy ? "opacity-40 pointer-events-none" : ""} ${
-                      isSelected ? "bg-[#151515]" : "hover:bg-[#0E0E0E]"
+                      isSelected ? "bg-overlay" : "hover:bg-row-hover"
                     }`}
                   >
                     <td className="pl-5 pr-3 py-3">
@@ -302,7 +302,7 @@ export default function AuditPage() {
                       />
                     </td>
                     <td className="px-3 py-3">
-                      <p className="text-[13px] font-semibold text-ink" style={{ letterSpacing: "-0.01em" }}>{item.tag.name}</p>
+                      <p className="text-[13px] font-semibold text-ink">{item.tag.name}</p>
                       <p className="text-[11px] text-ink-sub mt-0.5">{item.tag.group.name}</p>
                     </td>
                     <td className="px-3 py-3">

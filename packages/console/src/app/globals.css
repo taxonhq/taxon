@@ -13,11 +13,12 @@
   --sidebar-bg:  #080808;
   --card-bg:     #0F0F0F;
 
-  /* Text — four-tier hierarchy */
-  --text-primary:  #F2F2F2;   /* headings, values */
-  --text-body:     #A1A1AA;   /* body copy */
-  --text-subtle:   #71717A;   /* secondary info */
-  --text-ghost:    #3F3F46;   /* labels, placeholders */
+  /* Text — four-tier hierarchy
+     all tiers ≥ 4.5:1 contrast against --bg (#000) to meet WCAG AA. */
+  --text-primary:  #F2F2F2;   /* headings, values   — ~18.5:1 */
+  --text-body:     #A1A1AA;   /* body copy          — ~8.2:1  */
+  --text-subtle:   #9A9AA3;   /* secondary info     — ~6.8:1  */
+  --text-ghost:    #7A7A82;   /* labels, placeholders — ~4.9:1 */
 
   /* Borders */
   --border-faint:  #161616;
@@ -34,6 +35,13 @@
   --color-surface:      var(--bg);
   --color-surface-alt:  #111111;
   --color-card:         var(--card-bg);
+
+  /* Layered greys — replace the scattered hex literals in pages.
+     Use these via Tailwind: bg-input, bg-row-head, bg-row-hover, bg-overlay */
+  --color-input:        #0A0A0A;   /* form inputs */
+  --color-row-head:     #0D0D0D;   /* table headers / subtle inset */
+  --color-row-hover:    #0E0E0E;   /* row hover state */
+  --color-overlay:      #151515;   /* modal panels, raised surfaces */
 
   --color-ink:          var(--text-primary);
   --color-ink-dim:      var(--text-body);
@@ -104,6 +112,19 @@ body {
 :focus-visible {
   outline: 2px solid var(--border-strong);
   outline-offset: 2px;
+}
+
+/* ─────────────────────────────────────────────────────────────────────── */
+/* Table header label                                                     */
+/* CJK-friendly: 11px (vs prior 10px), reduced tracking, no uppercase     */
+/* (uppercase is a no-op on Chinese glyphs — keep ASCII-only headers      */
+/* readable without imposing tracking that cramps CJK).                   */
+/* ─────────────────────────────────────────────────────────────────────── */
+.th-label {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-ghost);
+  letter-spacing: 0.04em;
 }
 
 /* ─────────────────────────────────────────────────────────────────────── */

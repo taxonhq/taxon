@@ -21,6 +21,8 @@ export interface RegisteredEntity {
   entityType: string;
   entityId: string;
   registeredAt: string;
+  /** withTags=true 时一并返回的 active 标签（避免 N+1） */
+  tags?: EntityTagItem[];
 }
 
 export interface EntityTagItem {
@@ -220,12 +222,13 @@ export async function getEntityTypes(): Promise<{ entityType: string; count: num
 
 export async function getEntitiesByType(
   entityType: string,
-  params?: { page?: number; pageSize?: number; search?: string }
+  params?: { page?: number; pageSize?: number; search?: string; withTags?: boolean }
 ): Promise<Paginated<RegisteredEntity>> {
   const q = new URLSearchParams();
   if (params?.page)     q.set("page",     String(params.page));
   if (params?.pageSize) q.set("pageSize", String(params.pageSize));
   if (params?.search)   q.set("search",   params.search);
+  if (params?.withTags) q.set("withTags", "true");
   return req<Paginated<RegisteredEntity>>(
     `/entities/${encodeURIComponent(entityType)}${q.size ? `?${q}` : ""}`
   );

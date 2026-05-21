@@ -5,7 +5,7 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Plus, Trash2, Search, X, ExternalLink } from "lucide-react";
 import {
-  getEntitiesByType, getEntityTags, registerEntity, unregisterEntity,
+  getEntitiesByType, registerEntity, unregisterEntity,
   type RegisteredEntity, type EntityTagItem,
 } from "@/lib/api";
 import { Button } from "@/components/ui/button";
@@ -69,31 +69,23 @@ export default function EntityTypePage() {
     setLoading(true);
     setError("");
     try {
-      const data = await getEntitiesByType(entityType, { page: p, pageSize: PAGE_SIZE, search: q || undefined });
+      // withTags=true 一次性带回当前页所有实体的 active 标签，避免 N+1
+      const data = await getEntitiesByType(entityType, {
+        page: p,
+        pageSize: PAGE_SIZE,
+        search: q || undefined,
+        withTags: true,
+      });
       const entities = data.items ?? [];
       setItems(entities);
       setTotal(data.total ?? 0);
 
-      // Batch-fetch active tags for all entities on this page
-      if (entities.length > 0) {
-        setTagsLoading(true);
-        const results = await Promise.allSettled(
-          entities.map(e => getEntityTags(entityType, e.entityId))
-        );
-        const map: Record<string, EntityTagItem[]> = {};
-        entities.forEach((e, i) => {
-          const r = results[i];
-          map[e.entityId] = r.status === "fulfilled"
-            ? r.value.filter(t => t.status === "active")
-            : [];
-        });
-        setTagsMap(map);
-        setTagsLoading(false);
-      } else {
-        setTagsMap({});
-      }
-    } catch {
-      setError("加载失败，请检查服务是否正常运行");
+      const map: Record<string, EntityTagItem[]> = {};
+      entities.forEach(e => { map[e.entityId] = e.tags ?? []; });
+      setTagsMap(map);
+      setTagsLoading(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "加载失败，请检查服务是否正常运行");
     } finally {
       setLoading(false);
     }
@@ -201,7 +193,7 @@ export default function EntityTypePage() {
             value={search}
             onChange={e => handleSearchChange(e.target.value)}
             placeholder="搜索实体 ID…"
-            className="w-full pl-8 pr-8 py-2 text-sm bg-[#0A0A0A] border border-edge-mid rounded-lg text-ink placeholder:text-ink-faint focus:outline-none focus:border-edge-strong focus:ring-2 focus:ring-white/[.04] hover:border-edge-strong/60 transition-all font-mono"
+            className="w-full pl-8 pr-8 py-2 text-sm bg-input border border-edge-mid rounded-lg text-ink placeholder:text-ink-faint focus:outline-none focus:border-edge-strong focus:ring-2 focus:ring-white/[.04] hover:border-edge-strong/60 transition-all font-mono"
           />
           {search && (
             <button
@@ -250,17 +242,17 @@ export default function EntityTypePage() {
         <div className="card-border overflow-hidden">
           <table className="w-full">
             <thead>
-              <tr className="border-b border-edge bg-[#0D0D0D]">
-                <th className="pl-5 pr-3 py-3 text-left text-[10px] font-medium text-ink-faint uppercase tracking-[0.08em] w-[220px]">
+              <tr className="border-b border-edge bg-row-head">
+                <th className="pl-5 pr-3 py-3 text-left th-label w-[220px]">
                   实体 ID
                 </th>
-                <th className="px-3 py-3 text-left text-[10px] font-medium text-ink-faint uppercase tracking-[0.08em]">
+                <th className="px-3 py-3 text-left th-label">
                   标签
                 </th>
-                <th className="px-3 py-3 text-left text-[10px] font-medium text-ink-faint uppercase tracking-[0.08em] w-[130px] whitespace-nowrap">
+                <th className="px-3 py-3 text-left th-label w-[130px] whitespace-nowrap">
                   注册时间
                 </th>
-                <th className="pr-4 py-3 text-right text-[10px] font-medium text-ink-faint uppercase tracking-[0.08em] w-[90px]" />
+                <th className="pr-4 py-3 text-right th-label w-[90px]" />
               </tr>
             </thead>
             <tbody className="divide-y divide-edge">
@@ -272,7 +264,7 @@ export default function EntityTypePage() {
                 return (
                   <tr
                     key={item.entityId}
-                    className="group/row hover:bg-[#0E0E0E] transition-colors animate-fade-in"
+                    className="group/row hover:bg-row-hover transition-colors animate-fade-in"
                     style={{ animationDelay: `${idx * 20}ms` }}
                   >
                     {/* Entity ID */}

@@ -108,10 +108,8 @@ export default function DashboardPage() {
       {/* ── Header ── */}
       <div className="flex items-end justify-between pb-7 border-b border-edge">
         <div>
-          <h1
-            className="text-[30px] font-extrabold text-ink leading-none"
-            style={{ letterSpacing: "-0.04em" }}
-          >
+          {/* CJK 标题不加负字距，避免笔画粘连 */}
+          <h1 className="text-[30px] font-extrabold text-ink leading-none">
             仪表盘
           </h1>
           <p className="text-[13px] text-ink-sub mt-2">Taxon 标签服务全局概览</p>
@@ -243,7 +241,7 @@ export default function DashboardPage() {
                 <Link
                   key={g.id}
                   href={`/groups/${g.id}`}
-                  className="flex items-center justify-between px-5 py-3 hover:bg-[#0E0E0E] transition-colors group animate-fade-in"
+                  className="flex items-center justify-between px-5 py-3 hover:bg-row-hover transition-colors group animate-fade-in"
                   style={{ animationDelay: `${i * 25}ms` }}
                 >
                   <div className="flex items-center gap-2.5 min-w-0">
@@ -366,7 +364,7 @@ function StatCard({
 function HealthCell({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div className="px-5 py-3.5 flex flex-col gap-1.5">
-      <p className="text-[10px] text-ink-faint uppercase tracking-[0.08em]">{label}</p>
+      <p className="th-label">{label}</p>
       <div>{value}</div>
     </div>
   );

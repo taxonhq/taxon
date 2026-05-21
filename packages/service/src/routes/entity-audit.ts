@@ -118,26 +118,79 @@ auditRouter.get('/:entityType', async (c) => {
   }
 
   // ── 分页列表模式 ──────────────────────────────────────────────
-  const search   = c.req.query('search')?.trim() || undefined
-  const page     = Math.max(1, parseInt(c.req.query('page') || '1'))
-  const pageSize = Math.min(100, Math.max(1, parseInt(c.req.query('pageSize') || '20')))
-  const skip     = (page - 1) * pageSize
+  const search    = c.req.query('search')?.trim() || undefined
+  const page      = Math.max(1, parseInt(c.req.query('page') || '1'))
+  const pageSize  = Math.min(100, Math.max(1, parseInt(c.req.query('pageSize') || '20')))
+  const withTags  = c.req.query('withTags') === 'true'
+  const skip      = (page - 1) * pageSize
 
   const where = {
     entityType,
     ...(search ? { entityId: { contains: search } } : {}),
   }
 
-  const [items, total] = await Promise.all([
-    prisma.registeredEntity.findMany({
+  // withTags=true：一次性 include 每个实体的 active 标签，避免 N+1
+  // （历史上 console 列表页对 20 条实体并发发 20 次 GET .../tags 请求）
+  const total = await prisma.registeredEntity.count({ where })
+
+  if (withTags) {
+    const rows = await prisma.registeredEntity.findMany({
       where,
-      select:  { entityType: true, entityId: true, registeredAt: true },
+      select: {
+        entityType:   true,
+        entityId:     true,
+        registeredAt: true,
+        entityTags: {
+          where: { status: 'active', tag: { deletedAt: null } },
+          select: {
+            tagId:      true,
+            source:     true,
+            confidence: true,
+            status:     true,
+            createdAt:  true,
+            tag: {
+              select: {
+                id: true, slug: true, name: true, groupId: true,
+                group: { select: { id: true, slug: true, name: true } },
+              },
+            },
+          },
+          orderBy: { createdAt: 'asc' },
+        },
+      },
       orderBy: { registeredAt: 'desc' },
       skip,
-      take:    pageSize,
-    }),
-    prisma.registeredEntity.count({ where }),
-  ])
+      take: pageSize,
+    })
+
+    // 平铺 entityTags 为 tags（与 GET /:type/:id/tags 字段一致）
+    const items = rows.map(r => ({
+      entityType:   r.entityType,
+      entityId:     r.entityId,
+      registeredAt: r.registeredAt,
+      tags: r.entityTags.map(et => ({
+        id:         et.tag.id,
+        slug:       et.tag.slug,
+        name:       et.tag.name,
+        groupId:    et.tag.groupId,
+        group:      et.tag.group,
+        source:     et.source,
+        confidence: et.confidence,
+        status:     et.status,
+        taggedAt:   et.createdAt,
+      })),
+    }))
+
+    return c.json({ code: 0, data: { items, total, page, pageSize } })
+  }
+
+  const items = await prisma.registeredEntity.findMany({
+    where,
+    select:  { entityType: true, entityId: true, registeredAt: true },
+    orderBy: { registeredAt: 'desc' },
+    skip,
+    take:    pageSize,
+  })
 
   return c.json({ code: 0, data: { items, total, page, pageSize } })
 })

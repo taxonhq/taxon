@@ -18,13 +18,28 @@ const { version: SERVICE_VERSION } = require('../package.json') as { version: st
 const app = new Hono()
 
 // ── CORS ──────────────────────────────────────────────────────────
+// 安全策略：
+// - 未设置 CORS_ORIGINS：仅在开发模式（NODE_ENV !== 'production'）下放行任意来源，
+//   生产环境直接拒绝（避免反射任意 origin + credentials 的高危默认值）。
+// - 设置 CORS_ORIGINS：精确白名单匹配，支持 "*" 显式声明全开。
 const CORS_ORIGINS = process.env.CORS_ORIGINS
 const ALLOWED_ORIGINS = CORS_ORIGINS ? CORS_ORIGINS.split(',').map(s => s.trim()) : null
+const ALLOW_ANY_ORIGIN = ALLOWED_ORIGINS?.includes('*') ?? false
+const IS_PROD = process.env.NODE_ENV === 'production'
+
+if (IS_PROD && !ALLOWED_ORIGINS) {
+  // 生产环境必须显式配置 CORS_ORIGINS，避免无意识开放
+  // （历史实现下未配置时反射任意来源，等价允许所有站点带凭据请求）
+  // 这里只警告不退出，因为 same-origin 部署也合法
+  // 但 cors 中间件会对跨域请求一律拒绝
+}
 
 app.use('/*', cors({
   origin: (origin) => {
-    if (!ALLOWED_ORIGINS) return origin
-    return ALLOWED_ORIGINS.includes(origin) ? origin : null
+    if (ALLOW_ANY_ORIGIN) return origin || '*'
+    if (ALLOWED_ORIGINS) return ALLOWED_ORIGINS.includes(origin) ? origin : null
+    // 未配置 CORS_ORIGINS：仅开发模式允许（便于本地 console 联调）
+    return IS_PROD ? null : (origin || '*')
   },
   allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
 }))
@@ -135,6 +150,10 @@ if (process.env.NODE_ENV === 'production' && !process.env.API_TOKEN) {
 
 if (!process.env.API_TOKEN) {
   logger.warn('API_TOKEN not set — authentication is DISABLED (development mode only)')
+}
+
+if (IS_PROD && !ALLOWED_ORIGINS) {
+  logger.warn('CORS_ORIGINS not set in production — all cross-origin requests will be REJECTED. Set CORS_ORIGINS to a comma-separated allow list (or "*" to explicitly allow all).')
 }
 
 // ── 启动 ──────────────────────────────────────────────────────────

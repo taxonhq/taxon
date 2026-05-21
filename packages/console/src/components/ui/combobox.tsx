@@ -110,7 +110,7 @@ export function Combobox({
       {/* Input row */}
       <div
         className={cn(
-          "flex items-center w-full px-3 py-2 text-sm bg-[#0A0A0A] border border-edge-mid rounded-lg",
+          "flex items-center w-full px-3 py-2 text-sm bg-input border border-edge-mid rounded-lg",
           "focus-within:border-edge-strong focus-within:ring-2 focus-within:ring-white/[.04]",
           "hover:border-edge-strong/60 transition-all duration-150",
         )}
