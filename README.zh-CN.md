@@ -2,100 +2,119 @@
 
 **中文** | [English](README.md)
 
-一个独立、可复用的标签微服务，内置管理控制台。
+一个独立的标签微服务，自带管理控制台 —— 标签分组、实体打标、AI 标签审核工作流，以及实时仪表盘。
 
-## 功能特性
+## 核心能力
 
-- **标签组** — 将标签组织到具名分组中，支持作用域和基数规则
-- **实体打标** — 从任意服务为任意实体类型挂载标签
-- **实体类型级规则** — 在分组内按实体类型单独覆盖 `allowMultiple`（是否允许多标签）
-- **审核工作流** — AI / 自动化产生的标签初始为 `pending` 状态，由人工审批或拒绝
-- **软删除** — 标签与标签组均为软删除，通过后缀释放唯一约束，可随时重建
-- **REST API** — 完整的 OpenAPI 3.0 规范，配备 Scalar UI 交互文档
-- **管理控制台** — 基于 Next.js 的管理界面，涵盖标签组、标签及审核队列
+- **仪表盘** — 单页概览：分组数、标签数、已注册实体、待审核数、热门分组、实体类型分布、服务健康状态
+- **标签分组与标签** — 把标签组织到具名维度，支持作用域与基数规则
+- **实体打标** — 业务服务通过 REST 给任意实体类型挂标签
+- **实体类型级覆盖** — 在分组默认值之上，按实体类型单独调整 `allowMultiple`
+- **审核工作流** — AI / 自动来源的标签初始为 `pending`，人工批量通过或拒绝
+- **Bearer 鉴权** — 当前为单令牌守卫，多角色 token 已纳入路线图
+- **REST API** — 完整 OpenAPI 3.0 规范，Scalar UI 提供交互文档（`/docs`）
+- **管理控制台** — 基于 Next.js 的管理界面，覆盖分组、标签、实体、审核四个核心场景
 
 ## 包结构
 
 | 包 | 说明 | 端口 |
 |----|------|------|
-| [`packages/service`](packages/service) | Hono + Prisma 后端服务 | 3300 |
-| [`packages/console`](packages/console) | Next.js 管理界面 | 3400 |
+| [`packages/service`](packages/service) | Hono + Prisma 后端，PostgreSQL | `3300` |
+| [`packages/console`](packages/console) | Next.js 管理界面 | `3400` |
 
 ## 快速开始
 
-**前置要求：** Node.js 20+、pnpm、PostgreSQL
+**前置要求：** Node.js 20+、pnpm、PostgreSQL 14+
 
 ```bash
-# 1. 克隆仓库
+# 1. 克隆 & 安装依赖
 git clone https://github.com/taxonhq/taxon.git
 cd taxon
-
-# 2. 安装依赖
 pnpm install
 
-# 3. 配置服务
+# 2. 配置服务
 cp packages/service/.env.example packages/service/.env
-# 编辑 packages/service/.env 中的 DATABASE_URL
+# 编辑 DATABASE_URL（可选 API_TOKEN、CORS_ORIGINS）
 
-# 4. 执行数据库迁移
-cd packages/service
-npx prisma migrate dev
-cd ../..
+# 3. 执行数据库迁移
+pnpm -F tag-service exec prisma migrate dev
 
-# 5. 同时启动服务与控制台
+# 4. 同时启动 service 与 console
 pnpm dev
 ```
 
-或使用 Docker Compose 启动服务（仅后端）：
+启动后访问：
+
+- 控制台 — http://localhost:3400
+- API 文档 — http://localhost:3300/docs
+- 健康检查 — http://localhost:3300/health
+
+使用 Docker Compose 启动（仅 service + PostgreSQL）：
 
 ```bash
 docker-compose up
 ```
 
-## API
+## 核心概念
 
-服务启动后，访问 `http://localhost:3300/docs` 查看交互式 API 参考文档。
+| 实体 | 作用 |
+|------|------|
+| **TagGroup（标签分组）** | 维度容器 —— 例如 `cuisine`、`dietary` |
+| **Tag（标签）** | 分组内的具体值 —— 例如 `sichuan`、`vegan` |
+| **RegisteredEntity（已注册实体）** | 可被打标的外部实体（复合键 `[entityType, entityId]`） |
+| **EntityTag（实体标签）** | 标签与实体之间的关联，带 `source`、`status`、`confidence` |
+| **TagGroupEntityRule（实体类型规则）** | 按实体类型覆盖 `allowMultiple` |
 
-### 核心概念
+API 响应统一格式：成功 `{ "code": 0, "data": ... }`，失败 `{ "code": <status>, "message": "..." }`。
 
-- **TagGroup（标签组）** — 标签的命名容器（例如 `cuisine`、`dietary`）
-- **Tag（标签）** — 标签组内的具体值（例如 `sichuan`、`vegan`）
-- **EntityTag（实体标签）** — 标签与业务实体之间的关联记录
-- **RegisteredEntity（已注册实体）** — 在 Taxon 中完成注册、可被打标的实体
-
-### 使用示例
+## API 示例
 
 ```bash
-# 创建标签组
+TOKEN="..."  # API_TOKEN 的值
+
+# 创建标签分组
 curl -X POST http://localhost:3300/tag-groups \
-  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
   -d '{"slug":"cuisine","name":"菜系","allowMultiple":false}'
 
-# 创建标签
+# 在分组下创建标签
 curl -X POST http://localhost:3300/tags \
-  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
   -d '{"groupId":"<groupId>","name":"川菜"}'
 
-# 注册实体
-curl -X POST http://localhost:3300/entities/dish/dish-001
+# 给实体打标 —— 实体会被自动注册
+curl -X POST http://localhost:3300/entities/dish/dish-001/tags/<tagId> \
+  -H "Authorization: Bearer $TOKEN"
 
-# 为实体打标
-curl -X POST http://localhost:3300/entities/dish/dish-001/tags/<tagId>
+# AI 来源的标签会落到 pending 状态，自动进入审核队列
+curl -X POST http://localhost:3300/entities/dish/dish-001/tags/<tagId> \
+  -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  -d '{"source":"ai","confidence":0.92}'
 ```
 
 ## 架构
 
 ```
 ┌────────────────┐        ┌─────────────────────────────────┐
-│  业务服务       │──────▶ │  Taxon Service  :3300           │
-│  （任意语言）   │        │  Hono + Prisma + PostgreSQL      │
-└────────────────┘        └─────────────────────────────────┘
-                                        │
+│  业务服务       │──────▶ │  Taxon Service  :3300            │
+│  （任意语言）   │  REST  │  Hono · Prisma · PostgreSQL      │
+└────────────────┘        └────────────┬─────────────────────┘
+                                       │
                           ┌─────────────────────────────────┐
-                          │  Taxon Console  :3400           │
-                          │  Next.js 管理界面               │
+                          │  Taxon Console  :3400            │
+                          │  Next.js 管理界面                │
                           └─────────────────────────────────┘
 ```
+
+## 相关文档
+
+- 交互式 API 文档 —— `/docs`（Scalar UI）
+- OpenAPI 规范 —— `/openapi.json`
+- 工程说明 —— [`CLAUDE.md`](CLAUDE.md)
+
+## 参与贡献
+
+欢迎提交 Issue 和 Pull Request。查看 [open issues](https://github.com/taxonhq/taxon/issues) 了解当前路线图。
 
 ## 许可证
 

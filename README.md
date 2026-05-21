@@ -2,100 +2,119 @@
 
 [中文](README.zh-CN.md) | **English**
 
-A standalone, reusable tagging microservice with a built-in management console.
+A standalone tagging microservice with a built-in management console — tag groups, entity tagging, AI-tag audit workflow, and a real-time dashboard.
 
-## Features
+## Highlights
 
-- **Tag Groups** — Organize tags into named groups with scope and cardinality rules
-- **Entity Tagging** — Attach tags to any entity type from any service
-- **Per-entity-type Rules** — Override `allowMultiple` per entity type within a group
-- **Audit Workflow** — AI/automated tags land in `pending` state, humans approve or reject
-- **Soft Delete** — Tags and groups are soft-deleted; unique constraints are freed via suffix
-- **REST API** — Full OpenAPI 3.0 spec with interactive docs via Scalar UI
-- **Management Console** — Next.js admin UI for groups, tags, and the audit queue
+- **Dashboard** — single-page overview of groups, tags, entities, pending reviews, top groups, entity-type distribution, and live service health
+- **Tag groups & tags** — group tags into named dimensions with scope and cardinality rules
+- **Entity tagging** — attach tags to any entity type from any service via REST
+- **Per-entity-type override** — fine-tune `allowMultiple` on top of group defaults
+- **Audit workflow** — AI/automated tags land in `pending`, humans approve or reject in batches
+- **Bearer auth** — single-token gate today; per-role tokens on the roadmap
+- **REST API** — full OpenAPI 3.0 spec served with Scalar UI at `/docs`
+- **Management console** — Next.js admin UI for groups, tags, entities, and the audit queue
 
 ## Packages
 
 | Package | Description | Port |
 |---------|-------------|------|
-| [`packages/service`](packages/service) | Hono + Prisma backend | 3300 |
-| [`packages/console`](packages/console) | Next.js management UI | 3400 |
+| [`packages/service`](packages/service) | Hono + Prisma backend, PostgreSQL | `3300` |
+| [`packages/console`](packages/console) | Next.js management UI | `3400` |
 
-## Quick Start
+## Quick start
 
-**Prerequisites:** Node.js 20+, pnpm, PostgreSQL
+**Prerequisites:** Node.js 20+, pnpm, PostgreSQL 14+
 
 ```bash
-# 1. Clone
+# 1. Clone & install
 git clone https://github.com/taxonhq/taxon.git
 cd taxon
-
-# 2. Install dependencies
 pnpm install
 
-# 3. Configure service
+# 2. Configure the service
 cp packages/service/.env.example packages/service/.env
-# Edit DATABASE_URL in packages/service/.env
+# Edit DATABASE_URL (and optionally API_TOKEN, CORS_ORIGINS)
 
-# 4. Run migrations
-cd packages/service
-npx prisma migrate dev
-cd ../..
+# 3. Run migrations
+pnpm -F tag-service exec prisma migrate dev
 
-# 5. Start both service and console
+# 4. Start service + console together
 pnpm dev
 ```
 
-Or use Docker Compose (service only):
+Then open:
+
+- Console — http://localhost:3400
+- API docs — http://localhost:3300/docs
+- Health   — http://localhost:3300/health
+
+Docker Compose (service + PostgreSQL only):
 
 ```bash
 docker-compose up
 ```
 
-## API
+## Core concepts
 
-Once running, visit `http://localhost:3300/docs` for the interactive API reference.
+| Entity | Purpose |
+|--------|---------|
+| **TagGroup**        | Named dimension container — e.g. `cuisine`, `dietary` |
+| **Tag**             | A value within a group — e.g. `sichuan`, `vegan` |
+| **RegisteredEntity** | An external entity that can be tagged (composite key `[entityType, entityId]`) |
+| **EntityTag**       | The link between a tag and a registered entity, with `source`, `status`, `confidence` |
+| **TagGroupEntityRule** | Per-entity-type override of `allowMultiple` |
 
-### Core Concepts
+API responses are uniform: `{ "code": 0, "data": ... }` on success, `{ "code": <status>, "message": "..." }` on error.
 
-- **TagGroup** — A named group of tags (e.g. `cuisine`, `dietary`)
-- **Tag** — A value within a group (e.g. `sichuan`, `vegan`)
-- **EntityTag** — A link between a tag and an entity from your system
-- **RegisteredEntity** — An entity registered with Taxon so it can be tagged
-
-### Example
+## API example
 
 ```bash
+TOKEN="..."  # value of API_TOKEN
+
 # Create a tag group
 curl -X POST http://localhost:3300/tag-groups \
-  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
   -d '{"slug":"cuisine","name":"Cuisine","allowMultiple":false}'
 
-# Create a tag
+# Create a tag inside it
 curl -X POST http://localhost:3300/tags \
-  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
   -d '{"groupId":"<groupId>","name":"Sichuan"}'
 
-# Register an entity
-curl -X POST http://localhost:3300/entities/dish/dish-001
+# Tag an entity — registration is automatic
+curl -X POST http://localhost:3300/entities/dish/dish-001/tags/<tagId> \
+  -H "Authorization: Bearer $TOKEN"
 
-# Tag the entity
-curl -X POST http://localhost:3300/entities/dish/dish-001/tags/<tagId>
+# AI-sourced tags land in `pending` and show up in the audit queue
+curl -X POST http://localhost:3300/entities/dish/dish-001/tags/<tagId> \
+  -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  -d '{"source":"ai","confidence":0.92}'
 ```
 
 ## Architecture
 
 ```
 ┌────────────────┐        ┌─────────────────────────────────┐
-│  Your Service  │──────▶ │  Taxon Service  :3300           │
-│  (any language)│        │  Hono + Prisma + PostgreSQL      │
-└────────────────┘        └─────────────────────────────────┘
-                                        │
+│  Your service  │──────▶ │  Taxon Service  :3300            │
+│  (any language)│  REST  │  Hono · Prisma · PostgreSQL      │
+└────────────────┘        └────────────┬─────────────────────┘
+                                       │
                           ┌─────────────────────────────────┐
-                          │  Taxon Console  :3400           │
-                          │  Next.js management UI          │
+                          │  Taxon Console  :3400            │
+                          │  Next.js admin UI                │
                           └─────────────────────────────────┘
 ```
+
+## Documentation
+
+- Interactive API reference — `/docs` (Scalar UI)
+- OpenAPI spec — `/openapi.json`
+- Engineering notes — [`CLAUDE.md`](CLAUDE.md)
+
+## Contributing
+
+Issues and pull requests welcome. See open [issues](https://github.com/taxonhq/taxon/issues) for the current roadmap.
 
 ## License
 
