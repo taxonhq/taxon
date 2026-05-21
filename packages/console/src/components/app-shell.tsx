@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import {
-  Tag, Layers, ClipboardCheck, Box,
+  Tag, Layers, ClipboardCheck, Box, LayoutDashboard,
   ChevronLeft, ChevronRight, HelpCircle,
 } from "lucide-react";
 import { NavLink } from "@/components/nav-link";
@@ -11,6 +11,10 @@ import { AboutDialog } from "@/components/ui/about-dialog";
 
 const W_OPEN   = 216;
 const W_CLOSED = 56;
+
+const NAV_TOP = [
+  { href: "/", icon: LayoutDashboard, label: "仪表盘" },
+] as const;
 
 const NAV = [
   { href: "/groups",   icon: Layers,        label: "分组管理" },
@@ -85,12 +89,21 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </div>
 
         {/* Nav */}
-        <nav className="flex-1 px-2 pt-4 pb-2 space-y-0.5 overflow-hidden">
-          {open && (
-            <p className="px-3 pb-2 text-[9px] font-semibold text-ink-faint uppercase whitespace-nowrap" style={{ letterSpacing: "0.16em" }}>
-              管理
-            </p>
-          )}
+        <nav className="flex-1 px-2 pt-4 pb-2 overflow-hidden space-y-0.5">
+          {/* 仪表盘 */}
+          {NAV_TOP.map(({ href, icon: Icon, label }) => (
+            <NavLink key={href} href={href} collapsed={!open} title={open ? undefined : label}>
+              <Icon size={15} strokeWidth={1.5} />
+              {open && label}
+            </NavLink>
+          ))}
+
+          {/* 分隔 */}
+          {open
+            ? <p className="px-3 pt-4 pb-1.5 text-[9px] font-semibold text-ink-faint uppercase whitespace-nowrap" style={{ letterSpacing: "0.16em" }}>管理</p>
+            : <div className="mx-2 my-2 h-px bg-edge" />
+          }
+
           {NAV.map(({ href, icon: Icon, label }) => (
             <NavLink key={href} href={href} collapsed={!open} title={open ? undefined : label}>
               <Icon size={15} strokeWidth={1.5} />
