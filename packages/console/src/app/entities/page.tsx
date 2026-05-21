@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { Plus, Box, ChevronRight, X } from "lucide-react";
-import { getEntityTypes, registerEntity, getEntitiesByType } from "@/lib/api";
+import { getEntityTypes, registerEntity } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Field, Input } from "@/components/ui/field";
 import { Combobox } from "@/components/ui/combobox";
@@ -35,7 +35,7 @@ export default function EntitiesPage() {
     }
   };
 
-  useEffect(() => { load(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { load(); }, []); // load on mount only
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();

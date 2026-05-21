@@ -102,7 +102,7 @@ export default function EntityDetailPage() {
   }, [selectedGroup]);
 
   const setProc = (id: string, active: boolean) =>
-    setProcessing(prev => { const n = new Set(prev); active ? n.add(id) : n.delete(id); return n; });
+    setProcessing(prev => { const n = new Set(prev); if (active) n.add(id); else n.delete(id); return n; });
 
   const handleStatusChange = async (tag: EntityTagItem, status: "active" | "rejected") => {
     const key = tag.id;

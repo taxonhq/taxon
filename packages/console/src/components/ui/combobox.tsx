@@ -29,6 +29,12 @@ export function Combobox({
   const inputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
+  const close = (revert = true) => {
+    setOpen(false);
+    setHighlighted(-1);
+    if (revert) setQuery(value);
+  };
+
   // Keep query in sync when value is changed externally
   useEffect(() => { setQuery(value); }, [value]);
 
@@ -60,12 +66,6 @@ export function Combobox({
     setQuery(v);
     setOpen(false);
     setHighlighted(-1);
-  };
-
-  const close = (revert = true) => {
-    setOpen(false);
-    setHighlighted(-1);
-    if (revert) setQuery(value);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
