@@ -456,6 +456,28 @@ export async function getHealth(): Promise<HealthInfo> {
   return res.json() as Promise<HealthInfo>;
 }
 
+// ── Dashboard Metrics ─────────────────────────────────────────────
+
+export interface TrendPoint  { date: string; tags: number; entities: number; reviews: number }
+export interface TrendResult { period: string; series: TrendPoint[] }
+
+export interface TodayMetric { today: number; comparePct: number }
+export interface TodayResult { tags: TodayMetric; entities: TodayMetric; audits: TodayMetric }
+
+export type ActivityEvent =
+  | { kind: "tag-added"; time: string; source: string; entityType: string; entityId: string; tagName: string; groupName: string }
+  | { kind: "review";    time: string; fromStatus: string; toStatus: string; entityType: string; entityId: string; tagName: string };
+
+export async function getMetricsTrend(period: "7d" | "14d" | "30d" = "7d"): Promise<TrendResult> {
+  return req<TrendResult>(`/metrics/trend?period=${period}`);
+}
+export async function getMetricsToday(): Promise<TodayResult> {
+  return req<TodayResult>("/metrics/today");
+}
+export async function getMetricsActivity(limit = 10): Promise<ActivityEvent[]> {
+  return req<ActivityEvent[]>(`/metrics/activity?limit=${limit}`);
+}
+
 // ── Token 管理 ────────────────────────────────────────────────────
 
 export interface ApiToken {

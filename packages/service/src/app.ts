@@ -19,6 +19,7 @@ import { tagGroups } from './routes/tag-groups.js'
 import { tags } from './routes/tags.js'
 import { tagAliases } from './routes/tag-aliases.js'
 import { tokensRouter } from './routes/tokens.js'
+import { dashboardMetrics } from './routes/metrics-dashboard.js'
 import { openApiSpec } from './openapi.js'
 
 export interface AppOptions {
@@ -172,6 +173,7 @@ export function buildApp(opts: AppOptions = {}) {
   // aliases 挂在 /tags/:tagId/aliases 下
   app.route('/tags/:tagId/aliases', tagAliases)
   app.route('/tokens',     tokensRouter)
+  app.route('/metrics',    dashboardMetrics)
 
   // ── Dashboard 布局配置 ──────────────────────────────────────────
   app.get('/dashboard/layout', async (c) => {
