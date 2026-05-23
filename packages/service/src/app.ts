@@ -181,13 +181,19 @@ export function buildApp(opts: AppOptions = {}) {
 
   app.put('/dashboard/layout', async (c) => {
     const body = await c.req.json<{ layout: unknown }>()
-    if (!Array.isArray(body?.layout)) {
-      return c.json({ code: 400, message: 'layout 必须为数组' }, 400)
+    // Accept either a raw array (legacy) or a versioned object { version, items }
+    const payload = body?.layout
+    const isVersioned = payload !== null && typeof payload === 'object' && !Array.isArray(payload)
+      && typeof (payload as Record<string, unknown>).version === 'number'
+      && Array.isArray((payload as Record<string, unknown>).items)
+    const isArray = Array.isArray(payload)
+    if (!isVersioned && !isArray) {
+      return c.json({ code: 400, message: 'layout 必须为数组或 { version, items } 对象' }, 400)
     }
     const cfg = await prisma.systemConfig.upsert({
       where:  { key: 'dashboard-layout' },
-      create: { key: 'dashboard-layout', value: body.layout },
-      update: { value: body.layout },
+      create: { key: 'dashboard-layout', value: payload as object },
+      update: { value: payload as object },
     })
     return c.json({ code: 0, data: cfg.value })
   })

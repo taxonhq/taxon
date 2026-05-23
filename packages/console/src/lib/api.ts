@@ -432,11 +432,16 @@ export interface DashboardLayoutItem {
   static?: boolean;
 }
 
-export async function getDashboardLayout(): Promise<DashboardLayoutItem[] | null> {
-  return req<DashboardLayoutItem[] | null>("/dashboard/layout");
+export interface PersistedDashboardLayout {
+  version: number;
+  items: DashboardLayoutItem[];
 }
 
-export async function saveDashboardLayout(layout: DashboardLayoutItem[]): Promise<void> {
+export async function getDashboardLayout(): Promise<PersistedDashboardLayout | DashboardLayoutItem[] | null> {
+  return req<PersistedDashboardLayout | DashboardLayoutItem[] | null>("/dashboard/layout");
+}
+
+export async function saveDashboardLayout(layout: PersistedDashboardLayout): Promise<void> {
   await req<unknown>("/dashboard/layout", {
     method: "PUT",
     headers: { "Content-Type": "application/json" },

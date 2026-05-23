@@ -13,7 +13,7 @@ import {
 import {
   getTagGroups, getEntityTypes, getAuditItems, getHealth,
   getDashboardLayout, saveDashboardLayout,
-  type HealthInfo,
+  type HealthInfo, type PersistedDashboardLayout,
 } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
@@ -86,7 +86,7 @@ function fmtTime(iso: string) {
 }
 
 // ─── 布局持久化格式（含版本号）──────────────────────────────────────────────
-interface PersistedLayout { version: number; items: LayoutItem[] }
+type PersistedLayout = PersistedDashboardLayout & { items: LayoutItem[] }
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // 主页面
@@ -105,10 +105,10 @@ export default function DashboardPage() {
   useEffect(() => {
     getDashboardLayout()
       .then(raw => {
-        // 新格式：{ version, items }
-        const saved = raw as unknown as PersistedLayout | null;
-        if (saved && saved.version === LAYOUT_VERSION && Array.isArray(saved.items) && saved.items.length > 0) {
-          setLayout(saved.items);
+        // 新格式：{ version, items }；旧格式为裸数组
+        const saved = raw as PersistedLayout | LayoutItem[] | null;
+        if (saved && !Array.isArray(saved) && saved.version === LAYOUT_VERSION && Array.isArray(saved.items) && saved.items.length > 0) {
+          setLayout(saved.items as LayoutItem[]);
         }
         // 旧格式或版本不匹配 → 使用 DEFAULT_LAYOUT（已在 state 初始值中）
       })
@@ -123,7 +123,7 @@ export default function DashboardPage() {
     clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(() => {
       const payload: PersistedLayout = { version: LAYOUT_VERSION, items };
-      saveDashboardLayout(payload as unknown as LayoutItem[]).catch(console.error);
+      saveDashboardLayout(payload).catch(console.error);
     }, 800);
   }, []);
 
