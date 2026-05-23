@@ -32,20 +32,22 @@ interface DashData {
 }
 
 // ─── 常量 ──────────────────────────────────────────────────────────
-const COLS       = 12;
-const ROW_H      = 72;   // px per row unit
+const COLS        = 12;
+const ROW_H       = 72;    // px per row unit
 const MARGIN: [number, number] = [10, 10];
 const PAD:    [number, number] = [28, 28];
-const MIN_W      = 1240; // canvas 最小宽度，支持横向滚动
+const CANVAS_W    = 2400;  // 固定画布宽度：比任何视口都宽，始终可横向滚动
 
+// 2400px 画布 / 12cols / margin=10 → 每列 ≈ (2400-56-110)/12 ≈ 186px
+// 默认布局仅占左侧 ~8 列（约 1550px），右侧留白供用户拖放扩展
 const DEFAULT_LAYOUT: LayoutItem[] = [
-  { i: "stat-groups",    x: 0, y: 0,  w: 3,  h: 4, minW: 2, minH: 3 },
-  { i: "stat-tags",      x: 3, y: 0,  w: 3,  h: 4, minW: 2, minH: 3 },
-  { i: "stat-entities",  x: 6, y: 0,  w: 3,  h: 4, minW: 2, minH: 3 },
-  { i: "stat-pending",   x: 9, y: 0,  w: 3,  h: 4, minW: 2, minH: 3 },
-  { i: "entity-dist",    x: 0, y: 4,  w: 7,  h: 9, minW: 4, minH: 5 },
-  { i: "top-groups",     x: 7, y: 4,  w: 5,  h: 9, minW: 3, minH: 5 },
-  { i: "service-health", x: 0, y: 13, w: 12, h: 3, minW: 6, minH: 2 },
+  { i: "stat-groups",    x: 0, y: 0,  w: 2,  h: 4, minW: 2, minH: 3 },
+  { i: "stat-tags",      x: 2, y: 0,  w: 2,  h: 4, minW: 2, minH: 3 },
+  { i: "stat-entities",  x: 4, y: 0,  w: 2,  h: 4, minW: 2, minH: 3 },
+  { i: "stat-pending",   x: 6, y: 0,  w: 2,  h: 4, minW: 2, minH: 3 },
+  { i: "entity-dist",    x: 0, y: 4,  w: 5,  h: 9, minW: 3, minH: 5 },
+  { i: "top-groups",     x: 5, y: 4,  w: 3,  h: 9, minW: 2, minH: 5 },
+  { i: "service-health", x: 0, y: 13, w: 8,  h: 3, minW: 4, minH: 2 },
 ];
 
 const WIDGET_LABELS: Record<string, string> = {
@@ -78,20 +80,7 @@ export default function DashboardPage() {
   const [editMode,  setEditMode]  = useState(false);
   const [layoutReady, setLayoutReady] = useState(false);
 
-  const containerRef  = useRef<HTMLDivElement>(null);
-  const [canvasW, setCanvasW] = useState(MIN_W);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-
-  // ── 画布宽度自适应（横向可滚动）────────────────────────────────
-  useEffect(() => {
-    const el = containerRef.current;
-    if (!el) return;
-    const ro = new ResizeObserver(([entry]) => {
-      setCanvasW(Math.max(entry.contentRect.width, MIN_W));
-    });
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, []);
 
   // ── 从后端加载已保存布局 ─────────────────────────────────────────
   useEffect(() => {
@@ -247,7 +236,6 @@ export default function DashboardPage() {
 
       {/* ── Bento 画布 ─────────────────────────────────────────────── */}
       <div
-        ref={containerRef}
         className={cn("flex-1 overflow-x-auto", editMode && "bento-edit")}
         style={{
           // 深色打点背景，模拟设计画布
@@ -260,7 +248,7 @@ export default function DashboardPage() {
           layout={layout}
           cols={COLS}
           rowHeight={ROW_H}
-          width={canvasW}
+          width={CANVAS_W}
           margin={MARGIN}
           containerPadding={PAD}
           isDraggable={editMode}
