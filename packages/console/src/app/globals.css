@@ -163,3 +163,73 @@ body {
     var(--border-base)   50%,
     var(--border-faint)  100%);
 }
+
+/* ── react-resizable 基础样式（内嵌，避免 pnpm 跨包 CSS 路径问题）── */
+.react-resizable { position: relative; }
+.react-resizable-handle {
+  position: absolute;
+  width: 20px; height: 20px;
+  background-repeat: no-repeat;
+  background-origin: content-box;
+  box-sizing: border-box;
+  background-position: bottom right;
+  padding: 0 3px 3px 0;
+}
+.react-resizable-handle-se { bottom: 0; right: 0; cursor: se-resize; }
+.react-resizable-handle-s  { bottom: 0; left: 50%; margin-left: -10px; cursor: ns-resize; transform: rotate(45deg); }
+.react-resizable-handle-e  { right: 0; top: 50%; margin-top: -10px; cursor: ew-resize; transform: rotate(315deg); }
+
+/* ── react-grid-layout 深色主题覆盖 ──────────────────────────── */
+.react-grid-item.react-grid-placeholder {
+  background: rgba(255, 255, 255, 0.04) !important;
+  border: 1px dashed rgba(255, 255, 255, 0.18) !important;
+  border-radius: 1rem !important;
+  opacity: 1 !important;
+  transition: none !important;
+}
+
+/* 默认隐藏 resize 箭头图片 */
+.react-resizable-handle {
+  background-image: none !important;
+}
+
+/* 右下角的 resize 手柄（se） */
+.react-resizable-handle-se::after,
+.react-resizable-handle-s::after,
+.react-resizable-handle-e::after {
+  content: '' !important;
+  position: absolute;
+  right: 5px;
+  bottom: 5px;
+  width: 7px;
+  height: 7px;
+  border-right: 2px solid rgba(255, 255, 255, 0.2);
+  border-bottom: 2px solid rgba(255, 255, 255, 0.2);
+}
+
+.react-resizable-handle-e::after {
+  right: 5px;
+  bottom: 50%;
+  transform: translateY(50%);
+  border-bottom: none;
+  border-right: 2px solid rgba(255, 255, 255, 0.2);
+  width: 4px;
+  height: 7px;
+}
+
+.react-resizable-handle-s::after {
+  right: 50%;
+  bottom: 5px;
+  transform: translateX(50%);
+  border-right: none;
+  border-bottom: 2px solid rgba(255, 255, 255, 0.2);
+  width: 7px;
+  height: 4px;
+}
+
+/* 编辑模式 hover 时手柄高亮 */
+.bento-edit .react-grid-item:hover .react-resizable-handle-se::after,
+.bento-edit .react-grid-item:hover .react-resizable-handle-s::after,
+.bento-edit .react-grid-item:hover .react-resizable-handle-e::after {
+  border-color: rgba(255, 255, 255, 0.5) !important;
+}

@@ -1,10 +1,11 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { usePathname } from "next/navigation";
 import Link from "next/link";
 import {
   Tag, Layers, ClipboardCheck, Box, LayoutDashboard,
-  ChevronLeft, ChevronRight, HelpCircle,
+  ChevronLeft, ChevronRight, HelpCircle, KeyRound,
 } from "lucide-react";
 import { NavLink } from "@/components/nav-link";
 import { AboutDialog } from "@/components/ui/about-dialog";
@@ -22,12 +23,18 @@ const NAV = [
   { href: "/audit",    icon: ClipboardCheck, label: "审核队列" },
 ] as const;
 
+const NAV_BOTTOM = [
+  { href: "/settings/tokens", icon: KeyRound, label: "API Tokens" },
+] as const;
+
 type HealthStatus = "ok" | "degraded" | "checking";
 
 const BASE = process.env.NEXT_PUBLIC_TAG_SERVICE_URL ?? "http://localhost:3300";
 const SERVICE_DISPLAY = BASE.replace(/^https?:\/\//, "");
 
 export function AppShell({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
+  const isDashboard = pathname === "/";
   const [open, setOpen]   = useState(true);
   const [ready, setReady] = useState(false);
   const [health, setHealth] = useState<HealthStatus>("checking");
@@ -110,6 +117,19 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               {open && label}
             </NavLink>
           ))}
+
+          {/* 分隔 */}
+          {open
+            ? <p className="px-3 pt-4 pb-1.5 text-[9px] font-semibold text-ink-faint uppercase whitespace-nowrap" style={{ letterSpacing: "0.16em" }}>设置</p>
+            : <div className="mx-2 my-2 h-px bg-edge" />
+          }
+
+          {NAV_BOTTOM.map(({ href, icon: Icon, label }) => (
+            <NavLink key={href} href={href} collapsed={!open} title={open ? undefined : label}>
+              <Icon size={15} strokeWidth={1.5} />
+              {open && label}
+            </NavLink>
+          ))}
         </nav>
 
         {/* Footer */}
@@ -138,9 +158,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         style={{ marginLeft: w }}
         className="flex-1 min-h-screen transition-[margin-left] duration-200 ease-in-out"
       >
-        <div className="px-10 py-9 max-w-[880px] mx-auto">
-          {children}
-        </div>
+        {isDashboard ? (
+          // 仪表盘：全宽画布，自身管理 padding 与 overflow
+          children
+        ) : (
+          <div className="px-10 py-9 max-w-[880px] mx-auto">
+            {children}
+          </div>
+        )}
       </main>
 
       {/* ── 右上角关于按钮（固定悬浮）────────────────────────────── */}

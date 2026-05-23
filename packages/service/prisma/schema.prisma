@@ -21,6 +21,37 @@ enum TagStatus {
   rejected
 }
 
+enum ApiRole {
+  reader    // 只读
+  writer    // reader + 实体注册/打标
+  reviewer  // writer + 审核 AI 标签
+  admin     // 全权限，含分组/标签 CRUD
+}
+
+// ── API Token ─────────────────────────────────────────────────
+// 服务级 API Key，用于业务服务和审核工具的身份认证。
+// 不存明文：tokenHash = SHA-256(rawToken)，只在创建时返回一次明文。
+//
+// 字段说明：
+//   name       — 人类可读标识，如 "restaurant-service"
+//   tokenHash  — SHA-256 十六进制，用于请求时比对
+//   role       — 权限角色，见 ApiRole enum
+//   scopes     — entityType 白名单，空数组表示全部放行
+//   lastUsedAt — 最近一次认证成功时间（异步更新，不阻塞请求）
+//   revokedAt  — 撤销时间戳；非 null 表示已撤销，认证直接拒绝
+model ApiToken {
+  id         String    @id @default(cuid())
+  name       String
+  tokenHash  String    @unique
+  role       ApiRole
+  scopes     String[]
+  createdAt  DateTime  @default(now())
+  lastUsedAt DateTime?
+  revokedAt  DateTime?
+
+  reviews    EntityTagReview[]
+}
+
 // ── 实体注册表 ────────────────────────────────────────────────
 // tag-service 的实体生命周期登记簿。业务服务在创建实体时注册，删除时注销。
 // tag-service 对实体的了解仅限于 entityType + entityId，不存储业务字段。
@@ -56,16 +87,23 @@ model EntityTag {
   entityType String
   entityId   String
   entity     RegisteredEntity @relation(fields: [entityType, entityId], references: [entityType, entityId], onDelete: Cascade)
-  source     TagSource @default(manual)
-  confidence Float?
-  status     TagStatus @default(active)
-  createdAt  DateTime  @default(now())
-  reviewedAt DateTime?                   // 审核操作时间（PATCH status 时设置）
+  source         TagSource  @default(manual)
+  confidence     Float?
+  status         TagStatus  @default(active)
+  createdAt      DateTime   @default(now())
+  reviewedAt     DateTime?                    // 最后一次审核时间
+  reviewerId     String?                      // 最后一次审核者 ApiToken.id（软引用）
+  reviewNote     String?                      // 最后一次审核备注
+  previousStatus TagStatus?                   // 上一次状态（供撤销参考）
+
+  reviews        EntityTagReview[]
 
   @@id([tagId, entityType, entityId])
   @@index([entityType, entityId])
   @@index([entityType, entityId, status])
   @@index([tagId])
+  @@index([tagId, status])
+  @@index([status, entityType])
 }
 
 // ── 标签 ──────────────────────────────────────────────────────
@@ -87,17 +125,41 @@ model Tag {
   id          String    @id @default(cuid())
   groupId     String
   group       TagGroup  @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  parentId    String?
+  parent      Tag?      @relation("TagHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
+  children    Tag[]     @relation("TagHierarchy")
   slug        String
   name        String
   description String?
   sortOrder   Int       @default(0)
+  // 物化路径，格式 /slug1/slug2/slug3/，便于高效子孙查询（LIKE 前缀匹配）
+  path        String    @default("")
+  depth       Int       @default(0)
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
   deletedAt   DateTime?
 
   entityTags  EntityTag[]
+  aliases     TagAlias[]
 
   @@index([groupId])
+  @@index([groupId, parentId])
+  @@index([path])
+}
+
+// ── 标签别名 ───────────────────────────────────────────────────
+// 同一 tag 可有多个别名（如 "麻辣" = "辣" = "spicy"）。
+// 同一 group 内 alias 不能挂到两个不同 tag（应用层校验）。
+model TagAlias {
+  id        String   @id @default(cuid())
+  tagId     String
+  tag       Tag      @relation(fields: [tagId], references: [id], onDelete: Cascade)
+  alias     String
+  source    String   @default("manual") // manual | ai | import
+  createdAt DateTime @default(now())
+
+  @@unique([tagId, alias])
+  @@index([alias])
 }
 
 // ── 标签分组（维度）──────────────────────────────────────────
@@ -142,4 +204,57 @@ model TagGroupEntityRule {
   allowMultiple Boolean
 
   @@id([groupId, entityType])
+}
+
+// ── 合并操作日志 ──────────────────────────────────────────────
+// 记录每次 merge 的操作结果，保留审计轨迹。
+// 软引用 tag ID（tag 可能被后续删除），不加 FK。
+model TagMergeLog {
+  id              String   @id @default(cuid())
+  targetTagId     String
+  sourceTagIds    String[]
+  entityTagsMoved Int
+  aliasesMoved    Int
+  mergedAt        DateTime @default(now())
+}
+
+// ── 跨分组迁移日志 ────────────────────────────────────────────
+// 记录每次 move（含子孙节点数量），保留审计轨迹。
+model TagMoveLog {
+  id          String   @id @default(cuid())
+  tagId       String
+  fromGroupId String
+  toGroupId   String
+  tagsMoved   Int      // 含子孙节点数量
+  movedAt     DateTime @default(now())
+}
+
+// ── 系统配置（键值存储）─────────────────────────────────────────
+// 通用键值存储，用于保存系统级配置，如仪表盘布局。
+// value 使用 Json 类型，支持任意结构。
+model SystemConfig {
+  key       String   @id
+  value     Json
+  updatedAt DateTime @updatedAt
+}
+
+// ── 审核历史 ───────────────────────────────────────────────────
+// 每次 PATCH status 操作生成一条记录，完整保留操作轨迹。
+// entityTag 通过复合主键 (tagId, entityType, entityId) 关联。
+// reviewer  通过 ApiToken.id 关联；dev-bypass 时 reviewerId 为 null。
+model EntityTagReview {
+  id         String    @id @default(cuid())
+  tagId      String
+  entityType String
+  entityId   String
+  entityTag  EntityTag @relation(fields: [tagId, entityType, entityId], references: [tagId, entityType, entityId], onDelete: Cascade)
+  reviewerId String?
+  reviewer   ApiToken? @relation(fields: [reviewerId], references: [id], onDelete: SetNull)
+  fromStatus TagStatus
+  toStatus   TagStatus
+  note       String?
+  reviewedAt DateTime  @default(now())
+
+  @@index([tagId, entityType, entityId, reviewedAt])
+  @@index([reviewerId, reviewedAt])
 }

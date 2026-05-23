@@ -9,12 +9,16 @@
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import { bearerAuth } from './middleware/auth.js'
+import { requestIdMiddleware } from './middleware/request-id.js'
 import { validateEntityParams } from './middleware/validate-params.js'
 import prisma from './lib/db.js'
 import logger from './lib/logger.js'
+import { registry, httpRequestsTotal, httpRequestDuration, normalizeRoute } from './lib/metrics.js'
 import { entities } from './routes/entities.js'
 import { tagGroups } from './routes/tag-groups.js'
 import { tags } from './routes/tags.js'
+import { tagAliases } from './routes/tag-aliases.js'
+import { tokensRouter } from './routes/tokens.js'
 import { openApiSpec } from './openapi.js'
 
 export interface AppOptions {
@@ -27,6 +31,9 @@ export interface AppOptions {
 export function buildApp(opts: AppOptions = {}) {
   const app = new Hono()
   const version = opts.version ?? 'unknown'
+
+  // ── Request ID ──────────────────────────────────────────────────
+  app.use('/*', requestIdMiddleware)
 
   // ── CORS ────────────────────────────────────────────────────────
   // 安全策略：
@@ -47,17 +54,39 @@ export function buildApp(opts: AppOptions = {}) {
     allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   }))
 
-  // ── 请求日志 ────────────────────────────────────────────────────
-  if (!opts.silent) {
-    app.use('/*', async (c, next) => {
-      const start = Date.now()
-      await next()
-      const ms = Date.now() - start
-      logger.info(`${c.req.method} ${c.req.path} ${c.res.status} ${ms}ms`)
-    })
-  }
+  // ── 请求日志 + HTTP 指标 ────────────────────────────────────────
+  app.use('/*', async (c, next) => {
+    const start = performance.now()
+    await next()
+    const durationSec = (performance.now() - start) / 1000
+    const route  = normalizeRoute(c.req.path)
+    const method = c.req.method
+    const status = String(c.res.status)
+
+    if (!opts.silent) {
+      logger.info(`${method} ${c.req.path} ${c.res.status} ${Math.round(durationSec * 1000)}ms`)
+    }
+    httpRequestsTotal.labels(method, route, status).inc()
+    httpRequestDuration.labels(method, route).observe(durationSec)
+  })
 
   // ── 公开端点 ────────────────────────────────────────────────────
+
+  // Liveness: 进程存活即 200，不依赖 DB
+  app.get('/health/live', (c) => c.json({ status: 'ok' }))
+
+  // Readiness: DB 可达才 200
+  app.get('/health/ready', async (c) => {
+    try {
+      await prisma.$queryRaw`SELECT 1`
+      return c.json({ status: 'ok', db: 'ok' })
+    } catch {
+      logger.error('Health/ready: DB ping failed')
+      return c.json({ status: 'degraded', db: 'error' }, 503)
+    }
+  })
+
+  // Full health: 兼容旧客户端
   app.get('/health', async (c) => {
     try {
       await prisma.$queryRaw`SELECT 1`
@@ -74,6 +103,13 @@ export function buildApp(opts: AppOptions = {}) {
         version, nodeVersion: process.version,
       }, 503)
     }
+  })
+
+  // Prometheus 指标抓取端点
+  app.get('/metrics', async (c) => {
+    const metrics = await registry.metrics()
+    c.header('Content-Type', registry.contentType)
+    return c.body(metrics)
   })
 
   app.get('/', (c) => c.json({ code: 0, message: 'Taxcon OK' }))
@@ -99,11 +135,15 @@ export function buildApp(opts: AppOptions = {}) {
   <script>Scalar.createApiReference('#app', { url: '/openapi.json' })</script>
 </body></html>`))
 
-  // ── 认证保护（API_TOKEN 未配置时跳过，方便本地开发与测试）──────
+  // ── 认证保护 ────────────────────────────────────────────────
+  // bearerAuth：API_TOKEN 未设置且无 DB token 时跳过（本地开发/测试）
+  // tokenAuth ：识别 Bearer Token 并写入角色，/tokens 路由专用
   app.use('/entities/*',   bearerAuth)
   app.use('/tag-groups/*', bearerAuth)
   app.use('/tags/*',       bearerAuth)
   app.use('/entity-types', bearerAuth)
+  app.use('/tokens',       bearerAuth)
+  app.use('/tokens/*',     bearerAuth)
 
   // ── 实体路径参数格式校验 ────────────────────────────────────────
   app.use('/entities/:entityType', validateEntityParams)
@@ -129,6 +169,28 @@ export function buildApp(opts: AppOptions = {}) {
   app.route('/entities',   entities)
   app.route('/tag-groups', tagGroups)
   app.route('/tags',       tags)
+  // aliases 挂在 /tags/:tagId/aliases 下
+  app.route('/tags/:tagId/aliases', tagAliases)
+  app.route('/tokens',     tokensRouter)
+
+  // ── Dashboard 布局配置 ──────────────────────────────────────────
+  app.get('/dashboard/layout', async (c) => {
+    const cfg = await prisma.systemConfig.findUnique({ where: { key: 'dashboard-layout' } })
+    return c.json({ code: 0, data: cfg?.value ?? null })
+  })
+
+  app.put('/dashboard/layout', async (c) => {
+    const body = await c.req.json<{ layout: unknown }>()
+    if (!Array.isArray(body?.layout)) {
+      return c.json({ code: 400, message: 'layout 必须为数组' }, 400)
+    }
+    const cfg = await prisma.systemConfig.upsert({
+      where:  { key: 'dashboard-layout' },
+      create: { key: 'dashboard-layout', value: body.layout },
+      update: { value: body.layout },
+    })
+    return c.json({ code: 0, data: cfg.value })
+  })
 
   // ── 兜底错误处理 ────────────────────────────────────────────────
   app.onError((err, c) => {

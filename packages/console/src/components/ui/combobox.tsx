@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { ChevronDown, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -26,8 +27,15 @@ export function Combobox({
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState(value);
   const [highlighted, setHighlighted] = useState<number>(-1);
-  const inputRef = useRef<HTMLInputElement>(null);
+  // 下拉列表的 fixed 定位坐标
+  const [dropdownStyle, setDropdownStyle] = useState<React.CSSProperties>({});
+  const [mounted, setMounted] = useState(false);
+
+  const inputRef    = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  // 避免 SSR hydration 不匹配（portal 只在客户端生效）
+  useEffect(() => { setMounted(true); }, []);
 
   const close = (revert = true) => {
     setOpen(false);
@@ -35,10 +43,35 @@ export function Combobox({
     if (revert) setQuery(value);
   };
 
-  // Keep query in sync when value is changed externally
+  // 计算并更新下拉定位（打开时调用一次，滚动/resize 时也更新）
+  const updatePosition = () => {
+    if (!containerRef.current) return;
+    const rect = containerRef.current.getBoundingClientRect();
+    setDropdownStyle({
+      position: "fixed",
+      top:      rect.bottom + 4,
+      left:     rect.left,
+      width:    rect.width,
+      zIndex:   9999,
+    });
+  };
+
   useEffect(() => { setQuery(value); }, [value]);
 
-  // Close when clicking outside
+  useEffect(() => {
+    if (!open) return;
+    updatePosition();
+
+    // 跟随滚动 / resize 更新位置
+    window.addEventListener("scroll",  updatePosition, true);
+    window.addEventListener("resize",  updatePosition);
+    return () => {
+      window.removeEventListener("scroll", updatePosition, true);
+      window.removeEventListener("resize", updatePosition);
+    };
+  }, [open]);
+
+  // 点击外部关闭
   useEffect(() => {
     if (!open) return;
     const handler = (e: MouseEvent) => {
@@ -48,18 +81,14 @@ export function Combobox({
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
-  }, [open, value]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [open, value]); // eslint-disable-line react-hooks/exhaustive-deps -- close 是稳定闭包，无需列入
 
   const filtered = options.filter(
     o => !query || o.toLowerCase().includes(query.toLowerCase())
   );
 
-  // Whether to show the "create new" item at the bottom
   const showCreate = query.trim() !== "" && !options.includes(query.trim());
-
-  // Total items in the dropdown (for keyboard navigation)
-  // index -1 = emptyLabel, 0..filtered.length-1 = filtered options, filtered.length = create
-  const maxIndex = filtered.length + (showCreate ? 0 : -1);
+  const maxIndex   = filtered.length + (showCreate ? 0 : -1);
 
   const commit = (v: string) => {
     onChange(v);
@@ -105,6 +134,61 @@ export function Combobox({
     }
   };
 
+  const dropdown = (
+    <ul
+      style={dropdownStyle}
+      className="bg-[#111] border border-edge-mid rounded-lg shadow-2xl shadow-black/70 overflow-auto max-h-52 py-1 animate-fade-in"
+    >
+      {emptyLabel && (
+        <li
+          onMouseDown={() => commit("")}
+          onMouseEnter={() => setHighlighted(-1)}
+          className={cn(
+            "flex items-center px-3 py-2 text-sm cursor-pointer transition-colors text-ink-sub",
+            highlighted === -1 ? "bg-surface-alt text-ink" : "hover:bg-surface-alt hover:text-ink",
+          )}
+        >
+          {emptyLabel}
+        </li>
+      )}
+
+      {filtered.map((opt, i) => (
+        <li
+          key={opt}
+          onMouseDown={() => commit(opt)}
+          onMouseEnter={() => setHighlighted(i)}
+          className={cn(
+            "flex items-center px-3 py-2 text-sm font-mono cursor-pointer transition-colors",
+            highlighted === i ? "bg-surface-alt text-ink" : "text-ink-dim hover:bg-surface-alt hover:text-ink",
+          )}
+        >
+          {opt}
+        </li>
+      ))}
+
+      {filtered.length === 0 && !query && !emptyLabel && (
+        <li className="px-3 py-2 text-xs text-ink-faint select-none">
+          暂无已知实体类型，直接输入新类型名
+        </li>
+      )}
+
+      {showCreate && (
+        <li
+          onMouseDown={() => commit(query.trim())}
+          onMouseEnter={() => setHighlighted(filtered.length)}
+          className={cn(
+            "flex items-center gap-2 px-3 py-2 text-sm cursor-pointer transition-colors",
+            filtered.length > 0 && "border-t border-edge",
+            highlighted === filtered.length ? "bg-surface-alt text-ink" : "text-ink-dim hover:bg-surface-alt hover:text-ink",
+          )}
+        >
+          <span className="text-[10px] text-ink-faint uppercase tracking-wider shrink-0">新建</span>
+          <span className="font-mono">{query.trim()}</span>
+        </li>
+      )}
+    </ul>
+  );
+
   return (
     <div ref={containerRef} className={cn("relative", className)}>
       {/* Input row */}
@@ -149,62 +233,8 @@ export function Combobox({
         </div>
       </div>
 
-      {/* Dropdown */}
-      {open && (
-        <ul className="absolute z-50 top-[calc(100%+4px)] left-0 right-0 bg-[#111] border border-edge-mid rounded-lg shadow-2xl shadow-black/70 overflow-auto max-h-52 py-1 animate-fade-in">
-          {/* Empty / universal option */}
-          {emptyLabel && (
-            <li
-              onMouseDown={() => commit("")}
-              onMouseEnter={() => setHighlighted(-1)}
-              className={cn(
-                "flex items-center px-3 py-2 text-sm cursor-pointer transition-colors text-ink-sub",
-                highlighted === -1 ? "bg-surface-alt text-ink" : "hover:bg-surface-alt hover:text-ink",
-              )}
-            >
-              {emptyLabel}
-            </li>
-          )}
-
-          {/* Matching options */}
-          {filtered.map((opt, i) => (
-            <li
-              key={opt}
-              onMouseDown={() => commit(opt)}
-              onMouseEnter={() => setHighlighted(i)}
-              className={cn(
-                "flex items-center px-3 py-2 text-sm font-mono cursor-pointer transition-colors",
-                highlighted === i ? "bg-surface-alt text-ink" : "text-ink-dim hover:bg-surface-alt hover:text-ink",
-              )}
-            >
-              {opt}
-            </li>
-          ))}
-
-          {/* No matches + free-text */}
-          {filtered.length === 0 && !query && !emptyLabel && (
-            <li className="px-3 py-2 text-xs text-ink-faint select-none">
-              暂无已知实体类型，直接输入新类型名
-            </li>
-          )}
-
-          {/* Create new item */}
-          {showCreate && (
-            <li
-              onMouseDown={() => commit(query.trim())}
-              onMouseEnter={() => setHighlighted(filtered.length)}
-              className={cn(
-                "flex items-center gap-2 px-3 py-2 text-sm cursor-pointer transition-colors",
-                filtered.length > 0 && "border-t border-edge",
-                highlighted === filtered.length ? "bg-surface-alt text-ink" : "text-ink-dim hover:bg-surface-alt hover:text-ink",
-              )}
-            >
-              <span className="text-[10px] text-ink-faint uppercase tracking-wider shrink-0">新建</span>
-              <span className="font-mono">{query.trim()}</span>
-            </li>
-          )}
-        </ul>
-      )}
+      {/* 下拉通过 portal 渲染到 body，避免被父容器 overflow:hidden 裁切 */}
+      {open && mounted && createPortal(dropdown, document.body)}
     </div>
   );
 }
