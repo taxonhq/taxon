@@ -30,31 +30,31 @@ interface DashData {
 }
 
 // ─── 布局版本控制（版本号变化时自动重置旧布局）────────────────────────────
-const LAYOUT_VERSION = 3;
+const LAYOUT_VERSION = 4;
 
 // ─── 画布配置 ────────────────────────────────────────────────────────────────
-// 2400px 固定宽度画布，12 列，默认 Widget 集中在前 6 列（约 1200px），
-// 右侧 1200px 留白供用户横向扩展排布。
-const COLS    = 12;
-const ROW_H   = 76;    // 行高 px
-const MARGIN: [number, number] = [10, 10];
+// 横向 dashboard：宽 2800px、14 列。所有 widget 高度控制在 8 行内（≈700px），
+// 自然适配 1080p 视口，超出右侧通过横向滚动浏览。
+const COLS    = 14;
+const ROW_H   = 78;
+const MARGIN: [number, number] = [14, 14];
 const PAD:    [number, number] = [32, 32];
-const CANVAS_W = 2400;
+const CANVAS_W = 2800;
 
-// ─── 默认 Bento 布局（非对称，前 6 列可见）────────────────────────────────
-// 每列宽: (2400 - 64 - 110) / 12 ≈ 185px，6 列 ≈ 1175px，在任何桌面端可见。
-// 非对称排布：stat 卡高低错落，主内容宽窄对比，形成 Bento 节奏感。
+// ─── 默认 Bento 布局（横向铺开，h ≤ 8）────────────────────────────────────
+// 节奏：左侧 4 张 stat 卡 2×2 排列（高度配对内容卡），
+// 中段超大 hero（实体分布），右侧并列列表 + 状态。
 const DEFAULT_LAYOUT: LayoutItem[] = [
-  // ── 统计卡片行（高低交错）
-  { i: "stat-groups",    x: 0, y:  0, w: 2, h: 5, minW: 2, minH: 3 },
-  { i: "stat-tags",      x: 2, y:  0, w: 2, h: 3, minW: 2, minH: 3 },
-  { i: "stat-entities",  x: 4, y:  0, w: 2, h: 5, minW: 2, minH: 3 },
-  { i: "stat-pending",   x: 2, y:  3, w: 2, h: 2, minW: 2, minH: 2 },
-  // ── 内容行
-  { i: "entity-dist",    x: 0, y:  5, w: 4, h: 9, minW: 3, minH: 5 },
-  { i: "top-groups",     x: 4, y:  5, w: 2, h: 9, minW: 2, minH: 5 },
-  // ── 状态行
-  { i: "service-health", x: 0, y: 14, w: 6, h: 3, minW: 4, minH: 2 },
+  // ── 左：4 张统计卡片，2×2 网格，高度合计 8 行
+  { i: "stat-groups",    x:  0, y: 0, w: 2, h: 4, minW: 2, minH: 3 },
+  { i: "stat-tags",      x:  0, y: 4, w: 2, h: 4, minW: 2, minH: 3 },
+  { i: "stat-entities",  x:  2, y: 0, w: 2, h: 4, minW: 2, minH: 3 },
+  { i: "stat-pending",   x:  2, y: 4, w: 2, h: 4, minW: 2, minH: 3 },
+  // ── 中：实体分布大卡（hero），8 行全高
+  { i: "entity-dist",    x:  4, y: 0, w: 4, h: 8, minW: 3, minH: 5 },
+  // ── 右：分组榜单 + 服务状态
+  { i: "top-groups",     x:  8, y: 0, w: 3, h: 8, minW: 2, minH: 5 },
+  { i: "service-health", x: 11, y: 0, w: 3, h: 8, minW: 3, minH: 4 },
 ];
 
 // ─── Stat 卡片配置（颜色 + 图标）────────────────────────────────────────────
@@ -327,14 +327,15 @@ export default function DashboardPage() {
       )}
 
       {/* ── Bento 画布 ──────────────────────────────────────────────────────── */}
+      {/* 横向 dashboard：视口高度内铺开，横向滚动；点状网格仅编辑态显示 */}
       <div
-        className={cn("flex-1 overflow-x-auto", editMode && "bento-edit")}
-        style={{
-          background: "#050505",
-          backgroundImage: `
-            radial-gradient(circle, rgba(255,255,255,0.13) 1px, transparent 1px)
-          `,
-          backgroundSize: "20px 20px",
+        className={cn("flex-1 overflow-x-auto overflow-y-hidden relative", editMode && "bento-edit")}
+        style={editMode ? {
+          background: "#070707",
+          backgroundImage: "radial-gradient(circle, rgba(255,255,255,0.10) 1px, transparent 1px)",
+          backgroundSize: "22px 22px",
+        } : {
+          background: "#000",
         }}
       >
         <ReactGridLayout
@@ -395,22 +396,6 @@ export default function DashboardPage() {
             </div>
           ))}
         </ReactGridLayout>
-
-        {/* 右侧空区域提示（仅在非编辑模式显示） */}
-        {!editMode && (
-          <div
-            className="absolute pointer-events-none select-none"
-            style={{
-              left: 1280, top: 200,
-              color: "rgba(255,255,255,0.06)",
-              fontSize: 11, letterSpacing: "0.12em",
-              textTransform: "uppercase",
-              writingMode: "vertical-rl",
-            }}
-          >
-            点击「编辑布局」拖放组件到此区域
-          </div>
-        )}
       </div>
     </div>
   );
@@ -473,7 +458,7 @@ function StatWidget({
         <p
           className="font-extrabold leading-none tabular-nums text-white"
           style={{
-            fontSize: "clamp(32px, 3.5vw, 48px)",
+            fontSize: 38,
             letterSpacing: "-0.05em",
           }}
         >
@@ -626,19 +611,19 @@ function HealthWidget({ health }: { health: HealthInfo | null }) {
   return (
     <div className="flex flex-col h-full">
       <WidgetHeader icon={<CheckCircle2 size={13} strokeWidth={1.5} />} title="服务状态" />
-      <div className="flex-1 grid grid-cols-4 min-h-0" style={{ borderTop: "none" }}>
+      <div className="flex-1 flex flex-col min-h-0">
         {cells.map((cell, idx) => (
           <div
             key={cell.label}
-            className="flex flex-col justify-center gap-1.5 px-5"
+            className="flex-1 flex items-center justify-between gap-3 px-5 py-3 min-h-0"
             style={{
-              borderRight: idx < cells.length - 1 ? "1px solid rgba(255,255,255,0.05)" : "none",
+              borderBottom: idx < cells.length - 1 ? "1px solid rgba(255,255,255,0.05)" : "none",
             }}
           >
-            <p className="text-[10px] font-semibold uppercase tracking-[0.1em]" style={{ color: "rgba(255,255,255,0.3)" }}>
+            <p className="text-[10px] font-semibold uppercase tracking-[0.1em] shrink-0" style={{ color: "rgba(255,255,255,0.3)" }}>
               {cell.label}
             </p>
-            <div>{cell.value}</div>
+            <div className="text-right">{cell.value}</div>
           </div>
         ))}
       </div>
