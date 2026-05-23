@@ -30,7 +30,7 @@ interface DashData {
 }
 
 // ─── 布局版本控制（版本号变化时自动重置旧布局）────────────────────────────
-const LAYOUT_VERSION = 5;
+const LAYOUT_VERSION = 6;
 
 // ─── 画布配置 ────────────────────────────────────────────────────────────────
 // 横向流动式 dashboard，参考 macOS / iOS Widget 风格：
@@ -43,23 +43,44 @@ const MARGIN: [number, number] = [20, 20];   // 大间距 → 流动感
 const PAD:    [number, number] = [40, 40];
 const CANVAS_W = 2800;
 
-// ─── 默认布局：错落不齐、大小混搭 ────────────────────────────────────────
-// y 坐标故意错位（0/1/3 等），让卡片像 Apple Widget 一样浮动。
-// compactType=null 配合：不会自动 "snap" 到顶部，可保留 y 偏移。
+// ─── 尺寸预设（像 iOS Widget 的 S/M/L）────────────────────────────────────
+type SizeKey = "S" | "M" | "W" | "T" | "L";
+const SIZE_PRESETS: Record<SizeKey, { w: number; h: number; label: string }> = {
+  S: { w: 2, h: 3, label: "小" },   // 方块（stat 卡专用）
+  M: { w: 3, h: 3, label: "中" },   // 中方块
+  W: { w: 4, h: 3, label: "宽" },   // 横长条
+  T: { w: 3, h: 5, label: "高" },   // 竖长条
+  L: { w: 4, h: 5, label: "大" },   // 大块
+};
+
+// ─── 每个 widget 允许的尺寸（积木只能装在对应槽位）────────────────────────
+const WIDGET_PRESETS: Record<string, SizeKey[]> = {
+  "stat-groups":    ["S"],
+  "stat-tags":      ["S"],
+  "stat-entities":  ["S"],
+  "stat-pending":   ["S"],
+  "entity-dist":    ["M", "L"],
+  "top-groups":     ["T", "L"],
+  "service-health": ["W", "L"],
+};
+
+// ─── 默认布局：积木拼图（位置错落、尺寸混搭）────────────────────────────
+// 禁止自由拉伸 → 不需要 minW/minH，只能在 WIDGET_PRESETS 内切换
 const DEFAULT_LAYOUT: LayoutItem[] = [
-  // 左侧：3 张小卡片，垂直错落（不在一条线上）
-  { i: "stat-groups",    x:  0, y: 1, w: 2, h: 3, minW: 2, minH: 3 },  // 偏低
-  { i: "stat-tags",      x:  2, y: 0, w: 2, h: 3, minW: 2, minH: 3 },  // 最高
-  { i: "stat-entities",  x:  2, y: 3, w: 2, h: 3, minW: 2, minH: 3 },  // 中下
-  // 中央：实体分布 hero，垂直居中偏下
-  { i: "entity-dist",    x:  4, y: 1, w: 4, h: 5, minW: 3, minH: 4 },
-  // 右上：分组榜单，最高位置
-  { i: "top-groups",     x:  8, y: 0, w: 3, h: 5, minW: 2, minH: 4 },
-  // 右侧小卡：待审核，与 top-groups 顶部对齐但偏下
-  { i: "stat-pending",   x: 11, y: 1, w: 2, h: 3, minW: 2, minH: 3 },
-  // 底部宽卡：服务状态，错位放在右下
-  { i: "service-health", x:  8, y: 5, w: 5, h: 3, minW: 4, minH: 3 },
+  { i: "stat-groups",    x:  0, y: 1, ...SIZE_PRESETS.S },
+  { i: "stat-tags",      x:  2, y: 0, ...SIZE_PRESETS.S },
+  { i: "stat-entities",  x:  2, y: 3, ...SIZE_PRESETS.S },
+  { i: "entity-dist",    x:  4, y: 1, ...SIZE_PRESETS.L },
+  { i: "top-groups",     x:  8, y: 0, ...SIZE_PRESETS.T },
+  { i: "stat-pending",   x: 11, y: 1, ...SIZE_PRESETS.S },
+  { i: "service-health", x:  8, y: 5, ...SIZE_PRESETS.W },
 ];
+
+// ─── 工具：获取 widget 当前所处的 preset key ──────────────────────────────
+function currentPreset(item: LayoutItem): SizeKey | null {
+  const allowed = WIDGET_PRESETS[item.i] ?? [];
+  return allowed.find(k => SIZE_PRESETS[k].w === item.w && SIZE_PRESETS[k].h === item.h) ?? null;
+}
 
 // ─── Stat 卡片配置（颜色 + 图标）────────────────────────────────────────────
 const STAT_CONFIG = {
@@ -129,6 +150,23 @@ export default function DashboardPage() {
       const payload: PersistedLayout = { version: LAYOUT_VERSION, items };
       saveDashboardLayout(payload).catch(console.error);
     }, 800);
+  }, []);
+
+  // ── 切换 widget 尺寸到指定 preset ────────────────────────────────────────
+  const switchSize = useCallback((id: string, size: SizeKey) => {
+    setLayout(prev => {
+      const next = prev.map(it =>
+        it.i === id
+          ? { ...it, w: SIZE_PRESETS[size].w, h: SIZE_PRESETS[size].h }
+          : it,
+      );
+      clearTimeout(saveTimer.current);
+      saveTimer.current = setTimeout(() => {
+        const payload: PersistedLayout = { version: LAYOUT_VERSION, items: next };
+        saveDashboardLayout(payload).catch(console.error);
+      }, 400);
+      return next;
+    });
   }, []);
 
   // ── 加载仪表盘数据 ────────────────────────────────────────────────────────
@@ -350,11 +388,10 @@ export default function DashboardPage() {
           margin={MARGIN}
           containerPadding={PAD}
           isDraggable={editMode}
-          isResizable={editMode}
+          isResizable={false}
           onLayoutChange={handleLayoutChange}
           compactType={null}
           draggableHandle=".drag-handle"
-          resizeHandles={["se", "s", "e"]}
           useCSSTransforms
         >
           {layout.map(item => (
@@ -375,22 +412,57 @@ export default function DashboardPage() {
                   : "0 1px 0 0 rgba(255,255,255,0.03) inset, 0 12px 40px rgba(0,0,0,0.55)",
               }}
             >
-              {/* 编辑模式：拖拽把手 */}
+              {/* 编辑模式：拖拽把手 + 尺寸切换按钮 */}
               {editMode && (
                 <div
-                  className="drag-handle flex items-center gap-2 px-4 py-2.5 shrink-0 select-none cursor-grab active:cursor-grabbing"
+                  className="drag-handle flex items-center justify-between gap-2 px-4 py-2.5 shrink-0 select-none cursor-grab active:cursor-grabbing"
                   style={{
                     borderBottom: "1px solid rgba(255,255,255,0.07)",
                     background: "rgba(255,255,255,0.03)",
                   }}
                 >
-                  <GripHorizontal size={12} style={{ color: "rgba(255,255,255,0.25)" }} />
-                  <span
-                    className="text-[10px] uppercase tracking-widest"
-                    style={{ color: "rgba(255,255,255,0.3)" }}
-                  >
-                    {WIDGET_LABELS[item.i] ?? item.i}
-                  </span>
+                  <div className="flex items-center gap-2 min-w-0">
+                    <GripHorizontal size={12} style={{ color: "rgba(255,255,255,0.25)" }} />
+                    <span
+                      className="text-[10px] uppercase tracking-widest truncate"
+                      style={{ color: "rgba(255,255,255,0.3)" }}
+                    >
+                      {WIDGET_LABELS[item.i] ?? item.i}
+                    </span>
+                  </div>
+                  {/* 尺寸切换（仅当 widget 有多个 preset 时显示）*/}
+                  {(WIDGET_PRESETS[item.i]?.length ?? 0) > 1 && (
+                    <div
+                      className="flex items-center gap-0.5 shrink-0 cursor-default"
+                      // 阻止 mousedown 冒泡到拖拽把手，避免点按钮时触发拖拽
+                      onMouseDown={e => e.stopPropagation()}
+                      onClick={e => e.stopPropagation()}
+                    >
+                      {WIDGET_PRESETS[item.i].map(size => {
+                        const active = currentPreset(item) === size;
+                        return (
+                          <button
+                            key={size}
+                            type="button"
+                            onClick={() => switchSize(item.i, size)}
+                            className="text-[10px] font-semibold px-1.5 py-0.5 rounded-md transition-all"
+                            style={active ? {
+                              color: "#fff",
+                              background: "rgba(255,255,255,0.16)",
+                              border: "1px solid rgba(255,255,255,0.22)",
+                            } : {
+                              color: "rgba(255,255,255,0.4)",
+                              background: "transparent",
+                              border: "1px solid rgba(255,255,255,0.08)",
+                            }}
+                            title={`切换为${SIZE_PRESETS[size].label}尺寸 (${SIZE_PRESETS[size].w}×${SIZE_PRESETS[size].h})`}
+                          >
+                            {SIZE_PRESETS[size].label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
               )}
               {/* Widget 内容区 */}
