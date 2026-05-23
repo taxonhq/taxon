@@ -30,31 +30,35 @@ interface DashData {
 }
 
 // ─── 布局版本控制（版本号变化时自动重置旧布局）────────────────────────────
-const LAYOUT_VERSION = 4;
+const LAYOUT_VERSION = 5;
 
 // ─── 画布配置 ────────────────────────────────────────────────────────────────
-// 横向 dashboard：宽 2800px、14 列。所有 widget 高度控制在 8 行内（≈700px），
-// 自然适配 1080p 视口，超出右侧通过横向滚动浏览。
+// 横向流动式 dashboard，参考 macOS / iOS Widget 风格：
+// - 卡片尺寸有大有小（2×3 / 3×3 / 3×5 / 4×5 / 5×3）
+// - 不严格对齐基线，垂直方向有意错落形成"飘浮"感
+// - 大间距增强呼吸感
 const COLS    = 14;
-const ROW_H   = 78;
-const MARGIN: [number, number] = [14, 14];
-const PAD:    [number, number] = [32, 32];
+const ROW_H   = 70;
+const MARGIN: [number, number] = [20, 20];   // 大间距 → 流动感
+const PAD:    [number, number] = [40, 40];
 const CANVAS_W = 2800;
 
-// ─── 默认 Bento 布局（横向铺开，h ≤ 8）────────────────────────────────────
-// 节奏：左侧 4 张 stat 卡 2×2 排列（高度配对内容卡），
-// 中段超大 hero（实体分布），右侧并列列表 + 状态。
+// ─── 默认布局：错落不齐、大小混搭 ────────────────────────────────────────
+// y 坐标故意错位（0/1/3 等），让卡片像 Apple Widget 一样浮动。
+// compactType=null 配合：不会自动 "snap" 到顶部，可保留 y 偏移。
 const DEFAULT_LAYOUT: LayoutItem[] = [
-  // ── 左：4 张统计卡片，2×2 网格，高度合计 8 行
-  { i: "stat-groups",    x:  0, y: 0, w: 2, h: 4, minW: 2, minH: 3 },
-  { i: "stat-tags",      x:  0, y: 4, w: 2, h: 4, minW: 2, minH: 3 },
-  { i: "stat-entities",  x:  2, y: 0, w: 2, h: 4, minW: 2, minH: 3 },
-  { i: "stat-pending",   x:  2, y: 4, w: 2, h: 4, minW: 2, minH: 3 },
-  // ── 中：实体分布大卡（hero），8 行全高
-  { i: "entity-dist",    x:  4, y: 0, w: 4, h: 8, minW: 3, minH: 5 },
-  // ── 右：分组榜单 + 服务状态
-  { i: "top-groups",     x:  8, y: 0, w: 3, h: 8, minW: 2, minH: 5 },
-  { i: "service-health", x: 11, y: 0, w: 3, h: 8, minW: 3, minH: 4 },
+  // 左侧：3 张小卡片，垂直错落（不在一条线上）
+  { i: "stat-groups",    x:  0, y: 1, w: 2, h: 3, minW: 2, minH: 3 },  // 偏低
+  { i: "stat-tags",      x:  2, y: 0, w: 2, h: 3, minW: 2, minH: 3 },  // 最高
+  { i: "stat-entities",  x:  2, y: 3, w: 2, h: 3, minW: 2, minH: 3 },  // 中下
+  // 中央：实体分布 hero，垂直居中偏下
+  { i: "entity-dist",    x:  4, y: 1, w: 4, h: 5, minW: 3, minH: 4 },
+  // 右上：分组榜单，最高位置
+  { i: "top-groups",     x:  8, y: 0, w: 3, h: 5, minW: 2, minH: 4 },
+  // 右侧小卡：待审核，与 top-groups 顶部对齐但偏下
+  { i: "stat-pending",   x: 11, y: 1, w: 2, h: 3, minW: 2, minH: 3 },
+  // 底部宽卡：服务状态，错位放在右下
+  { i: "service-health", x:  8, y: 5, w: 5, h: 3, minW: 4, minH: 3 },
 ];
 
 // ─── Stat 卡片配置（颜色 + 图标）────────────────────────────────────────────
@@ -361,14 +365,14 @@ export default function DashboardPage() {
                 editMode && "cursor-move",
               )}
               style={{
-                borderRadius: 16,
-                background: "#141414",
+                borderRadius: 22,
+                background: "#161616",
                 border: editMode
-                  ? "1px solid rgba(255,255,255,0.18)"
-                  : "1px solid rgba(255,255,255,0.07)",
+                  ? "1px solid rgba(255,255,255,0.16)"
+                  : "1px solid rgba(255,255,255,0.05)",
                 boxShadow: editMode
-                  ? "0 0 0 1px rgba(255,255,255,0.06) inset, 0 20px 60px rgba(0,0,0,0.7)"
-                  : "0 0 0 1px rgba(255,255,255,0.03) inset, 0 4px 24px rgba(0,0,0,0.5)",
+                  ? "0 0 0 1px rgba(255,255,255,0.04) inset, 0 24px 60px rgba(0,0,0,0.7)"
+                  : "0 1px 0 0 rgba(255,255,255,0.03) inset, 0 12px 40px rgba(0,0,0,0.55)",
               }}
             >
               {/* 编辑模式：拖拽把手 */}

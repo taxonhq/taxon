@@ -183,7 +183,7 @@ body {
 .react-grid-item.react-grid-placeholder {
   background: rgba(255, 255, 255, 0.04) !important;
   border: 1px dashed rgba(255, 255, 255, 0.18) !important;
-  border-radius: 1rem !important;
+  border-radius: 22px !important;
   opacity: 1 !important;
   transition: none !important;
 }
