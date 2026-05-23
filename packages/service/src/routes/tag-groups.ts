@@ -3,6 +3,7 @@ import prisma from '../lib/db.js'
 import { parsePagination } from '../lib/pagination.js'
 import { isPrismaError } from '../lib/errors.js'
 import logger from '../lib/logger.js'
+import { requireRole } from '../middleware/auth.js'
 
 const tagGroups = new Hono()
 
@@ -63,8 +64,46 @@ tagGroups.get('/:groupId', async (c) => {
   return c.json({ code: 0, data: group })
 })
 
+/* ── GET /:groupId/tree — 返回分组内完整标签树 ──────────────── */
+tagGroups.get('/:groupId/tree', async (c) => {
+  const groupId = c.req.param('groupId')
+  const group = await prisma.tagGroup.findUnique({
+    where: { id: groupId, deletedAt: null },
+    select: { id: true },
+  })
+  if (!group) return c.json({ code: 404, message: '标签分组不存在' }, 404)
+
+  const allTags = await prisma.tag.findMany({
+    where: { groupId, deletedAt: null },
+    select: {
+      id: true, slug: true, name: true, description: true,
+      parentId: true, path: true, depth: true, sortOrder: true,
+      _count:   { select: { entityTags: { where: { status: 'active' } } } },
+      aliases:  { select: { id: true, alias: true, source: true, createdAt: true, tagId: true }, orderBy: { createdAt: 'asc' } },
+    },
+    orderBy: [{ sortOrder: 'asc' }, { path: 'asc' }],
+  })
+
+  // 在内存里构建树结构
+  type TagNode = (typeof allTags)[number] & { children: TagNode[] }
+  const map = new Map<string, TagNode>(
+    allTags.map(t => [t.id, { ...t, children: [] }]),
+  )
+  const roots: TagNode[] = []
+  for (const tag of allTags) {
+    const node = map.get(tag.id)!
+    if (tag.parentId && map.has(tag.parentId)) {
+      map.get(tag.parentId)!.children.push(node)
+    } else {
+      roots.push(node)
+    }
+  }
+
+  return c.json({ code: 0, data: roots })
+})
+
 /* ── POST / — 创建分组 ──────────────────────────────────────── */
-tagGroups.post('/', async (c) => {
+tagGroups.post('/', requireRole('admin'), async (c) => {
   let body: Record<string, unknown>
   try { body = await c.req.json() } catch {
     return c.json({ code: 400, message: '请求体必须为合法的 JSON' }, 400)
@@ -120,7 +159,7 @@ tagGroups.post('/', async (c) => {
 })
 
 /* ── PATCH /:groupId — 更新分组（支持 slug）────────────────── */
-tagGroups.patch('/:groupId', async (c) => {
+tagGroups.patch('/:groupId', requireRole('admin'), async (c) => {
   const groupId = c.req.param('groupId')
 
   let body: Record<string, unknown>
@@ -225,7 +264,7 @@ tagGroups.patch('/:groupId', async (c) => {
 })
 
 /* ── DELETE /:groupId — 软删除分组 ──────────────────────────── */
-tagGroups.delete('/:groupId', async (c) => {
+tagGroups.delete('/:groupId', requireRole('admin'), async (c) => {
   const groupId = c.req.param('groupId')
   const force   = c.req.query('force') === 'true' || c.req.query('force') === '1'
 
@@ -283,7 +322,7 @@ tagGroups.get('/:groupId/tags', async (c) => {
 })
 
 /* ── PUT /:groupId/entity-rules — 设置分组的实体类型规则 ──── */
-tagGroups.put('/:groupId/entity-rules', async (c) => {
+tagGroups.put('/:groupId/entity-rules', requireRole('admin'), async (c) => {
   const groupId = c.req.param('groupId')
 
   let body: Record<string, unknown>

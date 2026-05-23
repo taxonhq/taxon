@@ -5,6 +5,7 @@ import prisma from '../lib/db.js'
 import { isPrismaError, ValidationError } from '../lib/errors.js'
 import { validateTags } from '../lib/validate-tags.js'
 import logger from '../lib/logger.js'
+import { requireRole, getTokenId } from '../middleware/auth.js'
 
 const VALID_SOURCES  = new Set<string>(Object.values(TagSource))
 const VALID_STATUSES = new Set<string>(Object.values(TagStatus))
@@ -58,7 +59,7 @@ taggingRouter.get('/:entityType/:entityId/tags', async (c) => {
 })
 
 // PUT /:entityType/:entityId/tags — 全量替换实体标签
-taggingRouter.put('/:entityType/:entityId/tags', async (c) => {
+taggingRouter.put('/:entityType/:entityId/tags', requireRole('writer'), async (c) => {
   const { entityType, entityId } = c.req.param()
 
   let body: Record<string, unknown>
@@ -94,7 +95,7 @@ taggingRouter.put('/:entityType/:entityId/tags', async (c) => {
   if (validationError) return c.json({ code: 422, message: validationError }, 422)
 
   try {
-    await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+    await prisma.$transaction(async (tx) => {
       // 自动注册实体（upsert），业务方无需提前调用注册接口
       await tx.registeredEntity.upsert({
         where:  { entityType_entityId: { entityType, entityId } },
@@ -125,7 +126,7 @@ taggingRouter.put('/:entityType/:entityId/tags', async (c) => {
 })
 
 // POST /:entityType/:entityId/tags/:tagId — 增量打标（单个）
-taggingRouter.post('/:entityType/:entityId/tags/:tagId', async (c) => {
+taggingRouter.post('/:entityType/:entityId/tags/:tagId', requireRole('writer'), async (c) => {
   const { entityType, entityId, tagId } = c.req.param()
 
   let body: Record<string, unknown> = {}
@@ -147,9 +148,12 @@ taggingRouter.post('/:entityType/:entityId/tags/:tagId', async (c) => {
   const source = rawSource as TagSource
   const status = rawStatus as TagStatus
 
-  const tag = await prisma.tag.findUnique({
+  // tagId 参数支持传真实 ID 或 alias（自动 resolve）
+  let resolvedTagId = tagId
+  let tag = await prisma.tag.findUnique({
     where:  { id: tagId, deletedAt: null },
     select: {
+      id: true,
       groupId: true,
       group: {
         select: {
@@ -161,6 +165,34 @@ taggingRouter.post('/:entityType/:entityId/tags/:tagId', async (c) => {
       },
     },
   })
+
+  // 未按 ID 找到时，尝试按 alias 解析
+  if (!tag) {
+    const aliasRecord = await prisma.tagAlias.findFirst({
+      where: { alias: tagId, tag: { deletedAt: null } },
+      include: {
+        tag: {
+          select: {
+            id: true,
+            groupId: true,
+            group: {
+              select: {
+                name: true,
+                allowMultiple: true,
+                entityScopes: true,
+                entityRules: { where: { entityType }, select: { allowMultiple: true } },
+              },
+            },
+          },
+        },
+      },
+    })
+    if (aliasRecord) {
+      resolvedTagId = aliasRecord.tag.id
+      tag = aliasRecord.tag
+    }
+  }
+
   if (!tag) return c.json({ code: 404, message: '标签不存在' }, 404)
 
   if (tag.group.entityScopes.length > 0 && !tag.group.entityScopes.includes(entityType)) {
@@ -173,7 +205,7 @@ taggingRouter.post('/:entityType/:entityId/tags/:tagId', async (c) => {
       : tag.group.allowMultiple
 
   try {
-    await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+    await prisma.$transaction(async (tx) => {
       // 自动注册实体
       await tx.registeredEntity.upsert({
         where:  { entityType_entityId: { entityType, entityId } },
@@ -195,7 +227,7 @@ taggingRouter.post('/:entityType/:entityId/tags/:tagId', async (c) => {
         if (existing) throw new ValidationError(422, `分组「${tag.group.name}」不允许多选`)
       }
 
-      await tx.entityTag.create({ data: { tagId, entityType, entityId, source, confidence, status } })
+      await tx.entityTag.create({ data: { tagId: resolvedTagId, entityType, entityId, source, confidence, status } })
     })
     return c.json({ code: 0, message: '打标成功' })
   } catch (error: unknown) {
@@ -208,8 +240,8 @@ taggingRouter.post('/:entityType/:entityId/tags/:tagId', async (c) => {
   }
 })
 
-// PATCH /:entityType/:entityId/tags/:tagId — 更新 status（审核流）
-taggingRouter.patch('/:entityType/:entityId/tags/:tagId', async (c) => {
+// PATCH /:entityType/:entityId/tags/:tagId — 更新 status（审核流），写入历史记录
+taggingRouter.patch('/:entityType/:entityId/tags/:tagId', requireRole('reviewer'), async (c) => {
   const { entityType, entityId, tagId } = c.req.param()
 
   let body: Record<string, unknown>
@@ -220,22 +252,79 @@ taggingRouter.patch('/:entityType/:entityId/tags/:tagId', async (c) => {
   if (!body.status || !VALID_STATUSES.has(body.status as string))
     return c.json({ code: 400, message: `status 必填，可选值：${[...VALID_STATUSES].join(', ')}` }, 400)
 
+  const newStatus  = body.status as TagStatus
+  const note       = typeof body.note === 'string' ? body.note.trim() || null : null
+  const reviewerId = getTokenId(c)
+
   try {
-    await prisma.entityTag.update({
-      where: { tagId_entityType_entityId: { tagId, entityType, entityId } },
-      data:  { status: body.status as TagStatus, reviewedAt: new Date() },
+    await prisma.$transaction(async (tx) => {
+      const current = await tx.entityTag.findUnique({
+        where:  { tagId_entityType_entityId: { tagId, entityType, entityId } },
+        select: { status: true },
+      })
+      if (!current) throw Object.assign(new Error('not found'), { code: 'P2025' })
+
+      await tx.entityTag.update({
+        where: { tagId_entityType_entityId: { tagId, entityType, entityId } },
+        data:  {
+          status:         newStatus,
+          reviewedAt:     new Date(),
+          reviewerId,
+          reviewNote:     note,
+          previousStatus: current.status,
+        },
+      })
+
+      await tx.entityTagReview.create({
+        data: {
+          tagId, entityType, entityId,
+          reviewerId,
+          fromStatus: current.status,
+          toStatus:   newStatus,
+          note,
+        },
+      })
     })
     return c.json({ code: 0, message: '更新成功' })
   } catch (error: unknown) {
-    if (isPrismaError(error, 'P2025'))
+    if (isPrismaError(error, 'P2025') || (error instanceof Error && (error as NodeJS.ErrnoException).code === 'P2025'))
       return c.json({ code: 404, message: '关联不存在' }, 404)
     logger.error({ err: error, entityType, entityId, tagId }, 'PATCH entity tag error')
     return c.json({ code: 500, message: '更新失败' }, 500)
   }
 })
 
+// GET /:entityType/:entityId/tags/:tagId/history — 审核历史时间线
+taggingRouter.get('/:entityType/:entityId/tags/:tagId/history', async (c) => {
+  const { entityType, entityId, tagId } = c.req.param()
+
+  const exists = await prisma.entityTag.findUnique({
+    where:  { tagId_entityType_entityId: { tagId, entityType, entityId } },
+    select: { status: true },
+  })
+  if (!exists) return c.json({ code: 404, message: '关联不存在' }, 404)
+
+  const reviews = await prisma.entityTagReview.findMany({
+    where:   { tagId, entityType, entityId },
+    include: { reviewer: { select: { id: true, name: true, role: true } } },
+    orderBy: { reviewedAt: 'asc' },
+  })
+
+  return c.json({
+    code: 0,
+    data: reviews.map(r => ({
+      id:           r.id,
+      fromStatus:   r.fromStatus,
+      toStatus:     r.toStatus,
+      note:         r.note,
+      reviewedAt:   r.reviewedAt,
+      reviewer:     r.reviewer ? { id: r.reviewer.id, name: r.reviewer.name, role: r.reviewer.role } : null,
+    })),
+  })
+})
+
 // DELETE /:entityType/:entityId/tags/:tagId — 摘标
-taggingRouter.delete('/:entityType/:entityId/tags/:tagId', async (c) => {
+taggingRouter.delete('/:entityType/:entityId/tags/:tagId', requireRole('writer'), async (c) => {
   const { entityType, entityId, tagId } = c.req.param()
   try {
     await prisma.entityTag.delete({

@@ -2,10 +2,11 @@ import { Hono } from 'hono'
 import prisma from '../lib/db.js'
 import { isPrismaError } from '../lib/errors.js'
 import logger from '../lib/logger.js'
+import { requireRole } from '../middleware/auth.js'
 
 export const registrationRouter = new Hono()
 
-registrationRouter.post('/:entityType/:entityId', async (c) => {
+registrationRouter.post('/:entityType/:entityId', requireRole('writer'), async (c) => {
   const { entityType, entityId } = c.req.param()
   try {
     await prisma.registeredEntity.upsert({
@@ -20,7 +21,7 @@ registrationRouter.post('/:entityType/:entityId', async (c) => {
   }
 })
 
-registrationRouter.delete('/:entityType/:entityId', async (c) => {
+registrationRouter.delete('/:entityType/:entityId', requireRole('writer'), async (c) => {
   const { entityType, entityId } = c.req.param()
   try {
     await prisma.registeredEntity.delete({
