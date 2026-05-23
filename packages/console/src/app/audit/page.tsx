@@ -37,6 +37,59 @@ function formatTime(iso: string) {
   });
 }
 
+// ── 审核操作弹窗（含备注） ────────────────────────────────────────
+function ReviewDialog({
+  item,
+  action,
+  onConfirm,
+  onCancel,
+}: {
+  item:      AuditItem;
+  action:    "active" | "rejected";
+  onConfirm: (note: string) => void;
+  onCancel:  () => void;
+}) {
+  const [note, setNote] = useState("");
+  const isApprove = action === "active";
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+      <div className="bg-surface rounded-xl shadow-xl border border-edge w-full max-w-md p-6">
+        <h2 className="text-base font-semibold text-ink mb-1">
+          {isApprove ? "通过审核" : "拒绝标签"}
+        </h2>
+        <p className="text-xs text-ink-sub mb-4">
+          标签：<span className="font-medium text-ink">{item.tag.name}</span>
+          （{item.tag.group.name}）
+          &nbsp;·&nbsp;{item.entityType}/{item.entityId}
+        </p>
+        <div className="mb-4">
+          <label className="block text-xs text-ink-sub mb-1">
+            备注 <span className="text-ink-faint">（可选）</span>
+          </label>
+          <textarea
+            className="w-full border border-edge rounded-lg px-3 py-2 text-sm text-ink bg-surface-alt focus:outline-none focus:ring-1 focus:ring-ink resize-none"
+            rows={3}
+            placeholder={isApprove ? "说明通过原因…" : "说明拒绝原因…"}
+            value={note}
+            onChange={e => setNote(e.target.value)}
+            autoFocus
+          />
+        </div>
+        <div className="flex justify-end gap-2">
+          <Button variant="ghost" onClick={onCancel}>取消</Button>
+          <Button
+            variant={isApprove ? "primary" : "danger"}
+            onClick={() => onConfirm(note.trim())}
+          >
+            {isApprove ? "确认通过" : "确认拒绝"}
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function AuditPage() {
   const [items, setItems] = useState<AuditItem[]>([]);
   const [total, setTotal] = useState(0);
@@ -49,6 +102,7 @@ export default function AuditPage() {
   const [processing, setProcessing] = useState<Set<string>>(new Set());
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [confirmItem, setConfirmItem] = useState<AuditItem | null>(null);
+  const [reviewTarget, setReviewTarget] = useState<{ item: AuditItem; action: "active" | "rejected" } | null>(null);
 
   useEffect(() => {
     getEntityTypes()
@@ -97,17 +151,24 @@ export default function AuditPage() {
     setSelected(prev => { const n = new Set(prev); n.delete(key); return n; });
   };
 
-  const handleStatusChange = async (item: AuditItem, newStatus: "active" | "rejected") => {
+  const handleStatusChange = async (item: AuditItem, newStatus: "active" | "rejected", note?: string) => {
     const key = itemKey(item);
     setProcessingKey(key, true);
     try {
-      await updateEntityTagStatus(item.entityType, item.entityId, item.tagId, newStatus);
+      await updateEntityTagStatus(item.entityType, item.entityId, item.tagId, newStatus, note);
       removeItem(key);
     } catch (err) {
       setError(err instanceof Error ? err.message : "操作失败");
     } finally {
       setProcessingKey(key, false);
     }
+  };
+
+  const handleReviewConfirm = async (note: string) => {
+    if (!reviewTarget) return;
+    const { item, action } = reviewTarget;
+    setReviewTarget(null);
+    await handleStatusChange(item, action, note || undefined);
   };
 
   const handleRemove = async (item: AuditItem) => {
@@ -155,6 +216,8 @@ export default function AuditPage() {
     });
   };
 
+  const showReviewCols = statusFilter !== "pending";
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -170,7 +233,6 @@ export default function AuditPage() {
 
       {/* Toolbar */}
       <div className="flex items-center gap-3">
-        {/* Segmented status tabs */}
         <div className="flex items-center p-0.5 bg-[#111] border border-edge rounded-lg gap-px">
           {(["pending", "active", "rejected"] as StatusFilter[]).map(s => (
             <button
@@ -272,8 +334,10 @@ export default function AuditPage() {
                     aria-label="全选"
                   />
                 </th>
-                {["标签", "实体", "来源", "置信度", "状态", "时间", ""].map((h, i) => (
-                  <th key={i} className={`py-3 th-label ${i === 6 ? "pr-5 text-right" : "px-3 text-left"}`}>
+                {["标签", "实体", "来源", "置信度", "状态",
+                  ...(showReviewCols ? ["审核员", "备注"] : []),
+                  "时间", ""].map((h, i, arr) => (
+                  <th key={i} className={`py-3 th-label ${i === arr.length - 1 ? "pr-5 text-right" : "px-3 text-left"}`}>
                     {h}
                   </th>
                 ))}
@@ -330,6 +394,25 @@ export default function AuditPage() {
                         {statusMeta.label}
                       </span>
                     </td>
+                    {showReviewCols && (
+                      <>
+                        <td className="px-3 py-3 text-[11px] text-ink-sub max-w-[100px] truncate">
+                          {item.reviewerName ?? <span className="text-ink-faint">—</span>}
+                        </td>
+                        <td className="px-3 py-3 max-w-[160px]">
+                          {item.reviewNote ? (
+                            <span
+                              className="text-[11px] text-ink-sub truncate block"
+                              title={item.reviewNote}
+                            >
+                              {item.reviewNote}
+                            </span>
+                          ) : (
+                            <span className="text-[11px] text-ink-faint">—</span>
+                          )}
+                        </td>
+                      </>
+                    )}
                     <td className="px-3 py-3 text-[11px] text-ink-sub tabular-nums">
                       {formatTime(item.taggedAt)}
                     </td>
@@ -338,7 +421,7 @@ export default function AuditPage() {
                         {item.status !== "active" && (
                           <button
                             disabled={busy}
-                            onClick={() => handleStatusChange(item, "active")}
+                            onClick={() => setReviewTarget({ item, action: "active" })}
                             className="p-1.5 rounded-md text-ink-faint hover:text-ok hover:bg-ok/10 transition-all disabled:opacity-40"
                             title="通过"
                           >
@@ -348,7 +431,7 @@ export default function AuditPage() {
                         {item.status !== "rejected" && (
                           <button
                             disabled={busy}
-                            onClick={() => handleStatusChange(item, "rejected")}
+                            onClick={() => setReviewTarget({ item, action: "rejected" })}
                             className="p-1.5 rounded-md text-ink-faint hover:text-warn hover:bg-warn/10 transition-all disabled:opacity-40"
                             title="拒绝"
                           >
@@ -377,6 +460,15 @@ export default function AuditPage() {
             onChange={newPage => { setPage(newPage); load(newPage); }}
           />
         </div>
+      )}
+
+      {reviewTarget && (
+        <ReviewDialog
+          item={reviewTarget.item}
+          action={reviewTarget.action}
+          onConfirm={handleReviewConfirm}
+          onCancel={() => setReviewTarget(null)}
+        />
       )}
 
       {confirmItem && (
