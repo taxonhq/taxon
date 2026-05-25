@@ -50,8 +50,8 @@ export function AboutDialog({ open, onClose }: Props) {
             <Tag size={14} className="text-surface" strokeWidth={2.5} />
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-[16px] font-bold text-ink" style={{ letterSpacing: "-0.03em" }}>Taxon</p>
-            <p className="text-[11px] text-ink-faint mt-0.5">标签微服务管理控制台</p>
+            <p className="text-lg font-bold text-ink" style={{ letterSpacing: "-0.03em" }}>Taxon</p>
+            <p className="text-xs text-ink-faint mt-0.5">标签微服务管理控制台</p>
           </div>
           <button
             onClick={onClose}
@@ -91,19 +91,19 @@ export function AboutDialog({ open, onClose }: Props) {
           <div className="space-y-2.5">
             <Row label="服务地址" value={BASE.replace(/^https?:\/\//, "")} mono />
             <div className="flex items-center justify-between">
-              <span className="text-[12px] text-ink-faint">数据库</span>
+              <span className="text-sm text-ink-faint">数据库</span>
               {loading ? (
                 <Loader2 size={12} className="text-ink-faint animate-spin" />
               ) : error ? (
-                <span className="flex items-center gap-1.5 text-[12px] text-bad">
+                <span className="flex items-center gap-1.5 text-sm text-bad">
                   <XCircle size={12} /> 无法连接
                 </span>
               ) : health?.db === "ok" ? (
-                <span className="flex items-center gap-1.5 text-[12px] text-ok">
+                <span className="flex items-center gap-1.5 text-sm text-ok">
                   <CheckCircle2 size={12} /> 正常
                 </span>
               ) : (
-                <span className="flex items-center gap-1.5 text-[12px] text-bad">
+                <span className="flex items-center gap-1.5 text-sm text-bad">
                   <XCircle size={12} /> 异常
                 </span>
               )}
@@ -120,7 +120,7 @@ export function AboutDialog({ open, onClose }: Props) {
             rel="noopener noreferrer"
             className="flex items-center justify-between w-full px-3.5 py-2.5 rounded-lg border border-edge hover:border-edge-strong hover:bg-surface-alt transition-all group"
           >
-            <span className="text-[13px] font-medium text-ink-dim group-hover:text-ink transition-colors">
+            <span className="text-base font-medium text-ink-dim group-hover:text-ink transition-colors">
               API 接口文档
             </span>
             <ExternalLink size={12} className="text-ink-faint group-hover:text-ink transition-colors" />
@@ -141,11 +141,11 @@ function Row({
 }) {
   return (
     <div className="flex items-center justify-between">
-      <span className="text-[12px] text-ink-faint">{label}</span>
+      <span className="text-sm text-ink-faint">{label}</span>
       {loading ? (
         <Loader2 size={12} className="text-ink-faint animate-spin" />
       ) : (
-        <span className={`text-[12px] text-ink ${mono ? "font-mono" : ""}`}>
+        <span className={`text-sm text-ink ${mono ? "font-mono" : ""}`}>
           {value ?? "—"}
         </span>
       )}

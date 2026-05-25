@@ -104,9 +104,9 @@ export function ConfirmDialog({
           <div className="absolute top-0 left-6 right-6 h-px bg-gradient-to-r from-transparent via-bad/40 to-transparent rounded-full" aria-hidden="true" />
         )}
         <div className="space-y-2">
-          <p id={titleId} className="text-[15px] font-semibold text-ink">{title}</p>
+          <p id={titleId} className="text-lg font-semibold text-ink">{title}</p>
           {description && (
-            <p id={descId} className="text-[12px] text-ink-sub whitespace-pre-wrap leading-relaxed">{description}</p>
+            <p id={descId} className="text-sm text-ink-sub whitespace-pre-wrap leading-relaxed">{description}</p>
           )}
         </div>
         <div className="flex justify-end gap-2">

@@ -5,7 +5,10 @@
     "dev:service": "pnpm --filter tag-service dev",
     "dev:console": "pnpm --filter tag-console dev",
     "dev": "concurrently --names svc,ui --prefix-colors cyan,magenta --prefix '[{name}]' \"pnpm dev:service\" \"pnpm dev:console\"",
-    "build": "pnpm -r build"
+    "build": "pnpm -r build",
+    "gen:spec": "pnpm --filter tag-service gen:spec",
+    "gen:types": "pnpm gen:spec && pnpm --filter tag-console gen:types",
+    "check:openapi": "pnpm --filter tag-service check:openapi"
   },
   "devDependencies": {
     "concurrently": "^9.0.0"

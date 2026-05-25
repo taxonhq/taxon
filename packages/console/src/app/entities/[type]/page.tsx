@@ -14,7 +14,7 @@ import { ErrorBanner } from "@/components/ui/error-banner";
 import { Pagination } from "@/components/ui/pagination";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
-const PAGE_SIZE = 20;
+const PAGE_SIZE_DEFAULT = 20;
 
 // 根据分组 ID 哈希到固定调色板，同一分组在所有实体行中颜色一致
 const TAG_PALETTES = [
@@ -48,6 +48,7 @@ export default function EntityTypePage() {
   const [items, setItems]       = useState<RegisteredEntity[]>([]);
   const [total, setTotal]       = useState(0);
   const [page, setPage]         = useState(1);
+  const [pageSize, setPageSize] = useState(PAGE_SIZE_DEFAULT);
   const [loading, setLoading]   = useState(true);
   const [error, setError]       = useState("");
   const [search, setSearch]     = useState("");
@@ -65,14 +66,14 @@ export default function EntityTypePage() {
 
   const searchRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const load = useCallback(async (p = 1, q = committed) => {
+  const load = useCallback(async (p = 1, q = committed, ps?: number) => {
     setLoading(true);
     setError("");
     try {
       // withTags=true 一次性带回当前页所有实体的 active 标签，避免 N+1
       const data = await getEntitiesByType(entityType, {
         page: p,
-        pageSize: PAGE_SIZE,
+        pageSize: ps ?? pageSize,
         search: q || undefined,
         withTags: true,
       });
@@ -89,7 +90,7 @@ export default function EntityTypePage() {
     } finally {
       setLoading(false);
     }
-  }, [entityType, committed]);
+  }, [entityType, committed, pageSize]);
 
   useEffect(() => { load(1, committed); }, [committed]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -151,7 +152,7 @@ export default function EntityTypePage() {
           >
             {entityType}
           </h1>
-          <p className="text-[12px] text-ink-sub mt-1.5 tabular-nums">
+          <p className="text-sm text-ink-sub mt-1.5 tabular-nums">
             共 <span className="text-ink font-medium">{total}</span> 个已注册实体
           </p>
         </div>
@@ -205,7 +206,7 @@ export default function EntityTypePage() {
           )}
         </div>
         {committed && (
-          <span className="text-[12px] text-ink-sub">
+          <span className="text-sm text-ink-sub">
             找到 <span className="text-ink font-medium tabular-nums">{total}</span> 条
           </span>
         )}
@@ -230,11 +231,11 @@ export default function EntityTypePage() {
       ) : items.length === 0 ? (
         <div className="card-border overflow-hidden animate-fade-in">
           <div className="py-20 flex flex-col items-center text-center">
-            <p className="text-[14px] font-semibold text-ink-sub">
+            <p className="text-md font-semibold text-ink-sub">
               {committed ? `未找到包含「${committed}」的实体` : "暂无已注册实体"}
             </p>
             {!committed && (
-              <p className="text-[12px] text-ink-faint mt-1.5">点击「注册实体」添加第一个实体</p>
+              <p className="text-sm text-ink-faint mt-1.5">点击「注册实体」添加第一个实体</p>
             )}
           </div>
         </div>
@@ -271,10 +272,10 @@ export default function EntityTypePage() {
                     <td className="pl-5 pr-3 py-3.5">
                       <Link
                         href={`/entities/${encodeURIComponent(entityType)}/${encodeURIComponent(item.entityId)}`}
-                        className="font-mono text-[13px] text-ink hover:text-ink-dim transition-colors flex items-center gap-1.5 group/link"
+                        className="font-mono text-base text-ink hover:text-ink-dim transition-colors flex items-center gap-1.5 group/link"
                       >
                         <span className="truncate max-w-[200px]">{item.entityId}</span>
-                        <ExternalLink size={11} className="text-ink-faint opacity-0 group-hover/link:opacity-100 shrink-0 transition-opacity" />
+                        <ExternalLink size={11} className="text-ink-faint opacity-0 group-hover/link:opacity-100 group-focus-within/link:opacity-100 shrink-0 transition-opacity" />
                       </Link>
                     </td>
 
@@ -294,9 +295,9 @@ export default function EntityTypePage() {
                               <span
                                 key={tag.id}
                                 title={`${tag.group.name} · ${tag.name}`}
-                                className={`inline-flex items-baseline gap-1 px-2 py-[3px] rounded border text-[11px] leading-none whitespace-nowrap shrink-0 ${p.bg} ${p.border}`}
+                                className={`inline-flex items-baseline gap-1 px-2 py-[3px] rounded border text-xs leading-none whitespace-nowrap shrink-0 ${p.bg} ${p.border}`}
                               >
-                                <span className={`text-[10px] ${p.group}`}>{tag.group.name}</span>
+                                <span className={`text-2xs ${p.group}`}>{tag.group.name}</span>
                                 <span className={`font-medium ${p.name}`}>{tag.name}</span>
                               </span>
                             );
@@ -304,28 +305,28 @@ export default function EntityTypePage() {
                           {overflow > 0 && (
                             <Link
                               href={`/entities/${encodeURIComponent(entityType)}/${encodeURIComponent(item.entityId)}`}
-                              className="px-1.5 py-[3px] rounded text-[11px] text-ink-faint hover:text-ink border border-white/[.1] hover:border-white/25 transition-colors leading-none shrink-0 bg-white/[.03]"
+                              className="px-1.5 py-[3px] rounded text-xs text-ink-faint hover:text-ink border border-white/[.1] hover:border-white/25 transition-colors leading-none shrink-0 bg-white/[.03]"
                             >
                               +{overflow}
                             </Link>
                           )}
                         </div>
                       ) : (
-                        <span className="text-[12px] text-ink-faint/40">—</span>
+                        <span className="text-sm text-ink-faint/40">—</span>
                       )}
                     </td>
 
                     {/* Registration time */}
-                    <td className="px-3 py-3.5 text-[12px] text-ink-sub tabular-nums whitespace-nowrap">
+                    <td className="px-3 py-3.5 text-sm text-ink-sub tabular-nums whitespace-nowrap">
                       {formatTime(item.registeredAt)}
                     </td>
 
                     {/* Actions */}
                     <td className="pr-4 py-3.5">
-                      <div className="flex items-center justify-end gap-0.5 opacity-0 group-hover/row:opacity-100 transition-opacity">
+                      <div className="flex items-center justify-end gap-0.5 opacity-0 group-hover/row:opacity-100 focus-within:opacity-100 transition-opacity">
                         <Link
                           href={`/entities/${encodeURIComponent(entityType)}/${encodeURIComponent(item.entityId)}`}
-                          className="px-2 py-1 rounded-md text-[11px] text-ink-faint hover:text-ink hover:bg-surface-alt transition-all"
+                          className="px-2 py-1 rounded-md text-xs text-ink-faint hover:text-ink hover:bg-surface-alt transition-all"
                         >
                           标签管理
                         </Link>
@@ -345,9 +346,10 @@ export default function EntityTypePage() {
           </table>
           <Pagination
             page={page}
-            pageSize={PAGE_SIZE}
+            pageSize={pageSize}
             total={total}
             onChange={p => { setPage(p); load(p, committed); }}
+            onPageSizeChange={size => { setPageSize(size); setPage(1); load(1, committed, size); }}
           />
         </div>
       )}

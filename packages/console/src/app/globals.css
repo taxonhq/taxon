@@ -7,6 +7,8 @@
 }
 
 /* ── Design tokens ────────────────────────────────────────────────────── */
+/* 单一来源原则：所有颜色先在 :root 中定义为语义化 CSS 变量，
+   再在下方 @theme 中暴露给 Tailwind。light mode 只需覆盖此处变量。 */
 :root {
   /* Surfaces */
   --bg:          #000000;
@@ -29,6 +31,12 @@
   --ok:    #22C55E;
   --warn:  #EAB308;
   --bad:   #EF4444;
+
+  /* Brand palette（深色默认；light mode 下可微调饱和度）*/
+  --brand-1: #6366f1;
+  --brand-2: #a855f7;
+  --cyan:    #06b6d4;
+  --amber:   #f59e0b;
 }
 
 @theme inline {
@@ -55,6 +63,65 @@
   --color-ok:    var(--ok);
   --color-warn:  var(--warn);
   --color-bad:   var(--bad);
+
+  /* ── Brand palette ──────────────────────────────────────────────────
+     单一来源：在此定义，widgets.tsx / recharts 等通过 var() 引用，
+     确保 dark/light 主题切换时自动适配。                              */
+  --color-brand-1: var(--brand-1);
+  --color-brand-2: var(--brand-2);
+  --color-cyan:    var(--cyan);
+  --color-amber:   var(--amber);
+
+  /* ── Type scale — 6 级（替换各页面散落的 text-[Npx] 字面量）───────
+     2xs  10px  最小标签、时间戳
+     xs   11px  表头、芯片、元信息
+     sm   12px  次要正文、描述
+     base 13px  主体正文（默认）
+     md   14px  卡片内容、突出标签
+     lg   16px  区块小标题
+     xl   20px  页面大标题
+     （更大的展示数字用内联 style fontSize，不纳入 scale）             */
+  --text-2xs:  0.625rem;    /* 10px */
+  --text-xs:   0.6875rem;   /* 11px — 覆盖 Tailwind 默认 12px */
+  --text-sm:   0.75rem;     /* 12px — 覆盖 Tailwind 默认 14px */
+  --text-base: 0.8125rem;   /* 13px — 覆盖 Tailwind 默认 16px */
+  --text-md:   0.875rem;    /* 14px — 新增 */
+  --text-lg:   1rem;        /* 16px — 覆盖 Tailwind 默认 18px */
+  --text-xl:   1.25rem;     /* 20px */
+}
+
+/* ── Light mode overrides ─────────────────────────────────────────────── */
+/* 仅覆盖 :root 中的语义变量；@theme inline 的 Tailwind token 自动联动。  */
+[data-theme="light"] {
+  --bg:          #F8F8FA;
+  --sidebar-bg:  #EFEFF3;
+  --card-bg:     #FFFFFF;
+
+  --text-primary:  #111111;
+  --text-body:     #3F3F46;
+  --text-subtle:   #52525B;
+  --text-ghost:    #71717A;
+
+  --border-faint:  #E4E4E7;
+  --border-base:   #D4D4D8;
+  --border-strong: #A1A1AA;
+
+  --ok:    #16A34A;
+  --warn:  #D97706;
+  --bad:   #DC2626;
+
+  /* Brand 在浅色下保持不变，饱和度自然 */
+  --brand-1: #6366f1;
+  --brand-2: #7c3aed;
+  --cyan:    #0891b2;
+  --amber:   #d97706;
+
+  /* 浅色模式下 Tailwind layered greys 覆盖 */
+  --color-surface-alt: #F1F1F5;
+  --color-input:       #FAFAFA;
+  --color-row-head:    #F4F4F8;
+  --color-row-hover:   #F0F0F4;
+  --color-overlay:     #FFFFFF;
 }
 
 /* ── Base ─────────────────────────────────────────────────────────────── */
@@ -68,13 +135,18 @@ html {
 body {
   background: var(--bg);
   color: var(--text-primary);
-  /* Very subtle warm center glow — like Vercel dashboard */
+  /* 深色模式：白色中心光晕；浅色模式：无背景图 */
   background-image: radial-gradient(
     ellipse 60% 40% at 65% 0%,
-    rgba(255,255,255,0.024) 0%,
+    var(--glow-color, rgba(255,255,255,0.024)) 0%,
     transparent 100%
   );
   background-attachment: fixed;
+}
+
+[data-theme="light"] body,
+[data-theme="light"] {
+  --glow-color: rgba(99,102,241,0.06);   /* brand-1 tint in light mode */
 }
 
 /* ── Animations ───────────────────────────────────────────────────────── */
@@ -106,7 +178,7 @@ body {
 ::-webkit-scrollbar-thumb:hover { background: var(--border-strong); }
 
 /* ── Selection ────────────────────────────────────────────────────────── */
-::selection { background: rgba(255,255,255,.1); }
+::selection { background: color-mix(in srgb, var(--color-brand-1) 30%, transparent); }
 
 /* ── Focus ────────────────────────────────────────────────────────────── */
 :focus-visible {
@@ -134,12 +206,11 @@ body {
   position: relative;
   background: var(--card-bg);
   border-radius: 12px;
-  /* Subtle inner shadow for depth */
-  box-shadow: 0 1px 2px rgba(0,0,0,.4), inset 0 1px 0 rgba(255,255,255,.02);
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--bg) 60%, #000 40%), inset 0 1px 0 var(--border-faint);
   transition: box-shadow .2s ease;
 }
 .card-border:hover {
-  box-shadow: 0 2px 8px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.03);
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--bg) 50%, #000 50%), inset 0 1px 0 var(--border-base);
 }
 .card-border::before {
   content: '';

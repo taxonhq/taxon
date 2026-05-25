@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { Plus, Trash2, Settings2, ChevronRight, Layers } from "lucide-react";
 import {
-  getTagGroups, getGroupTags, createTagGroup, deleteTagGroup,
+  getTagGroups, createTagGroup, deleteTagGroup,
   createTag, deleteTag, getEntityTypes,
   type TagGroup, type Tag,
 } from "@/lib/api";
@@ -17,7 +17,7 @@ import { PageHeader } from "@/components/ui/page-header";
 import { Pagination } from "@/components/ui/pagination";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
-const GROUP_PAGE_SIZE = 20;
+const GROUP_PAGE_SIZE_DEFAULT = 20;
 const TAG_PREVIEW_SIZE = 20;
 
 type GroupWithTags = TagGroup & { previewTags: Tag[]; tagTotal: number };
@@ -34,6 +34,7 @@ export default function GroupsPage() {
   const [groups, setGroups] = useState<GroupWithTags[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(GROUP_PAGE_SIZE_DEFAULT);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [showGroupForm, setShowGroupForm] = useState(false);
@@ -52,21 +53,23 @@ export default function GroupsPage() {
 
   const setGF = (k: string, v: string) => setGroupForm(f => ({ ...f, [k]: v }));
 
-  const load = async (pageNum = page) => {
+  const load = async (pageNum = page, ps = pageSize) => {
     setError("");
     try {
-      const { items: rawGroups, total: groupTotal } = await getTagGroups({ page: pageNum, pageSize: GROUP_PAGE_SIZE });
-      setTotal(groupTotal);
-      setGroups(rawGroups.map(g => ({ ...g, previewTags: [], tagTotal: g._count?.tags ?? 0 })));
-      setLoading(false);
-      rawGroups.forEach(async g => {
-        try {
-          const { items, total: tagTotal } = await getGroupTags(g.id, { page: 1, pageSize: TAG_PREVIEW_SIZE });
-          setGroups(prev => prev.map(pg => pg.id === g.id ? { ...pg, previewTags: items, tagTotal } : pg));
-        } catch { /* per-group failure is non-fatal */ }
+      // withPreviewTags=true：一次请求带回 previewSize 个标签，消除 N+1
+      const { items: rawGroups, total: groupTotal } = await getTagGroups({
+        page: pageNum, pageSize: ps,
+        withPreviewTags: true, previewSize: TAG_PREVIEW_SIZE,
       });
+      setTotal(groupTotal);
+      setGroups(rawGroups.map(g => ({
+        ...g,
+        previewTags: g.tags ?? [],
+        tagTotal:    g._count?.tags ?? 0,
+      })));
     } catch (err) {
       setError(err instanceof Error ? `加载失败：${err.message}` : "加载失败，请检查 Taxcon 服务是否正常运行");
+    } finally {
       setLoading(false);
     }
   };
@@ -74,6 +77,7 @@ export default function GroupsPage() {
   useEffect(() => { setLoading(true); load(1); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handlePageChange = (newPage: number) => { setPage(newPage); setLoading(true); load(newPage); };
+  const handlePageSizeChange = (size: number) => { setPageSize(size); setPage(1); setLoading(true); load(1, size); };
 
   const handleCreateGroup = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -175,8 +179,8 @@ export default function GroupsPage() {
       {showGroupForm && (
         <Card className="space-y-5 animate-slide-up">
           <div>
-            <p className="text-[15px] font-semibold text-ink">新建标签分组</p>
-            <p className="text-[12px] text-ink-dim mt-0.5">分组用于对标签进行维度分类，如「菜系」「口味」「烹饪工艺」</p>
+            <p className="text-lg font-semibold text-ink">新建标签分组</p>
+            <p className="text-sm text-ink-dim mt-0.5">分组用于对标签进行维度分类，如「菜系」「口味」「烹饪工艺」</p>
           </div>
           <form onSubmit={handleCreateGroup} className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
@@ -234,7 +238,7 @@ export default function GroupsPage() {
               </div>
             ))}
           </div>
-          <Pagination page={page} pageSize={GROUP_PAGE_SIZE} total={total} onChange={handlePageChange} />
+          <Pagination page={page} pageSize={pageSize} total={total} onChange={handlePageChange} onPageSizeChange={handlePageSizeChange} />
         </>
       )}
 
@@ -268,7 +272,7 @@ function GroupCard({
         <div className="flex-1 min-w-0 space-y-2">
           <Link
             href={`/groups/${group.id}`}
-            className="block text-[14px] font-semibold text-ink hover:text-ink-dim transition-colors truncate"
+            className="block text-md font-semibold text-ink hover:text-ink-dim transition-colors truncate"
             style={{ letterSpacing: "-0.01em" }}
           >
             {group.name}
@@ -276,25 +280,25 @@ function GroupCard({
 
           <div className="flex items-center gap-2 flex-wrap">
             {/* slug */}
-            <code className="text-[11px] font-mono text-ink-sub bg-[#1A1A1A] border border-edge-mid px-1.5 py-0.5 rounded">
+            <code className="text-xs font-mono text-ink-sub bg-[#1A1A1A] border border-edge-mid px-1.5 py-0.5 rounded">
               {group.slug}
             </code>
             {/* entity scope */}
             {group.entityScopes.map(s => (
-              <span key={s} className="inline-flex items-center gap-1 text-[11px] text-ink-sub border border-edge-mid px-1.5 py-0.5 rounded">
+              <span key={s} className="inline-flex items-center gap-1 text-xs text-ink-sub border border-edge-mid px-1.5 py-0.5 rounded">
                 <span className="w-1 h-1 rounded-full bg-ink-sub/60 inline-block" />
                 {s}
               </span>
             ))}
             {/* cardinality badge */}
             {!group.allowMultiple && (
-              <span className="text-[11px] text-warn border border-warn/20 bg-warn/5 px-1.5 py-0.5 rounded">
+              <span className="text-xs text-warn border border-warn/20 bg-warn/5 px-1.5 py-0.5 rounded">
                 单选
               </span>
             )}
             {/* rule count */}
             {group.entityRules.length > 0 && (
-              <span className="text-[11px] text-ink-faint">
+              <span className="text-xs text-ink-faint">
                 {group.entityRules.length} 条规则
               </span>
             )}
@@ -309,8 +313,8 @@ function GroupCard({
           <p className="text-[9px] text-ink-faint uppercase mt-2" style={{ letterSpacing: "0.18em" }}>标签</p>
         </div>
 
-        {/* Actions — appear on hover */}
-        <div className="shrink-0 flex items-center gap-0.5 opacity-0 group-hover/card:opacity-100 transition-opacity pt-0.5">
+        {/* Actions — appear on hover or keyboard focus */}
+        <div className="shrink-0 flex items-center gap-0.5 opacity-0 group-hover/card:opacity-100 group-focus-within/card:opacity-100 transition-opacity pt-0.5">
           <button
             onClick={onDelete}
             className="p-1.5 rounded-lg text-ink-faint hover:text-bad hover:bg-bad/10 transition-all"
@@ -337,7 +341,7 @@ function GroupCard({
         {group.tagTotal > group.previewTags.length && (
           <Link
             href={`/groups/${group.id}`}
-            className="inline-flex items-center px-2 py-1 text-[11px] text-ink-faint border border-dashed border-edge-mid rounded-md hover:border-edge-strong hover:text-ink-sub transition-all"
+            className="inline-flex items-center px-2 py-1 text-xs text-ink-faint border border-dashed border-edge-mid rounded-md hover:border-edge-strong hover:text-ink-sub transition-all"
           >
             还有 {group.tagTotal - group.previewTags.length} 个 →
           </Link>
@@ -349,22 +353,18 @@ function GroupCard({
 }
 
 function TagChip({ tag, onDelete }: { tag: Tag; onDelete: () => void }) {
-  const [hov, setHov] = useState(false);
   return (
     <span
-      className="inline-flex items-center gap-1 px-2 py-1 text-[11px] text-ink-sub border border-edge rounded-md cursor-default select-none transition-all hover:border-edge-mid hover:text-ink"
-      onMouseEnter={() => setHov(true)}
-      onMouseLeave={() => setHov(false)}
+      className="group/chip inline-flex items-center gap-1 px-2 py-1 text-xs text-ink-sub border border-edge rounded-md cursor-default select-none transition-all hover:border-edge-mid hover:text-ink focus-within:border-edge-mid"
     >
       {tag.name}
-      {hov && (
-        <button
-          onClick={onDelete}
-          className="ml-0.5 -mr-0.5 w-3.5 h-3.5 flex items-center justify-center text-ink-faint hover:text-bad transition-colors leading-none"
-        >
-          ×
-        </button>
-      )}
+      <button
+        onClick={onDelete}
+        aria-label={`删除标签 ${tag.name}`}
+        className="ml-0.5 -mr-0.5 w-3.5 h-3.5 flex items-center justify-center text-ink-faint hover:text-bad focus:text-bad transition-colors leading-none opacity-0 group-hover/chip:opacity-100 group-focus-within/chip:opacity-100 focus:opacity-100"
+      >
+        ×
+      </button>
     </span>
   );
 }
@@ -377,31 +377,49 @@ function AddTagInput({ onAdd }: { onAdd: (name: string) => Promise<void> }) {
 
   const submit = async () => {
     const name = value.trim();
-    if (!name) { setActive(false); setValue(""); return; }
+    if (!name) { discard(); return; }
     setLoading(true);
     await onAdd(name);
-    setValue(""); setLoading(false);
+    setValue("");
+    setLoading(false);
     ref.current?.focus();
   };
+
+  const discard = () => { setActive(false); setValue(""); };
 
   if (!active) return (
     <button
       onClick={() => { setActive(true); setTimeout(() => ref.current?.focus(), 0); }}
-      className="inline-flex items-center gap-1 px-2 py-1 text-[11px] text-ink-faint border border-dashed border-edge rounded-md hover:border-edge-mid hover:text-ink-sub transition-all"
+      className="inline-flex items-center gap-1 px-2 py-1 text-xs text-ink-faint border border-dashed border-edge rounded-md hover:border-edge-mid hover:text-ink-sub transition-all"
     >
       <Plus size={10} />新增标签
     </button>
   );
 
   return (
-    <input
-      ref={ref} value={value} disabled={loading}
-      onChange={e => setValue(e.target.value)}
-      onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); submit(); } if (e.key === "Escape") { setActive(false); setValue(""); } }}
-      onBlur={submit}
-      placeholder="输入名称，回车确认"
-      className="inline-flex px-2 py-1 text-[11px] border border-edge-mid bg-[#1A1A1A] text-ink rounded-md focus:outline-none focus:border-edge-strong w-36 disabled:opacity-50"
-    />
+    <div className="inline-flex items-center gap-1">
+      <input
+        ref={ref} value={value} disabled={loading}
+        onChange={e => setValue(e.target.value)}
+        onKeyDown={e => {
+          if (e.key === "Enter")  { e.preventDefault(); submit(); }
+          if (e.key === "Escape") { e.preventDefault(); discard(); }
+        }}
+        // blur 仅取消，不提交 —— 防止 Tab/点击其他区域误创建标签
+        onBlur={discard}
+        placeholder="输入名称…"
+        title="Enter 确认 · Esc 取消"
+        className="inline-flex px-2 py-1 text-xs border border-edge-mid bg-[#1A1A1A] text-ink rounded-md focus:outline-none focus:border-edge-strong w-32 disabled:opacity-50"
+      />
+      <button
+        onMouseDown={e => { e.preventDefault(); submit(); }} // mousedown 防止 input blur 先于 click 触发
+        disabled={loading || !value.trim()}
+        className="p-1 rounded text-ink-faint hover:text-ok hover:bg-ok/10 disabled:opacity-30 transition-all"
+        title="确认（Enter）"
+      >
+        <Plus size={11} />
+      </button>
+    </div>
   );
 }
 
@@ -439,8 +457,8 @@ function EmptyGroups() {
         <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-[#161616] to-[#0A0A0A] border border-edge-mid flex items-center justify-center mb-5 shadow-[0_2px_8px_rgba(0,0,0,.4)]">
           <Layers size={22} className="text-ink-faint" strokeWidth={1.5} />
         </div>
-        <p className="text-[14px] font-semibold text-ink-sub">暂无标签分组</p>
-        <p className="text-[12px] text-ink-faint mt-1.5 max-w-[200px] leading-relaxed">
+        <p className="text-md font-semibold text-ink-sub">暂无标签分组</p>
+        <p className="text-sm text-ink-faint mt-1.5 max-w-[200px] leading-relaxed">
           点击右上角「新建分组」开始创建标签维度
         </p>
       </div>

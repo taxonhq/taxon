@@ -10,6 +10,7 @@ import {
   mergeTag, moveTagToGroup,
   type TagGroup, type TagTreeNode, type TagGroupEntityRule,
 } from "@/lib/api";
+import { toast } from "@/components/ui/toast";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Field, Input, Select, Textarea } from "@/components/ui/field";
@@ -237,9 +238,7 @@ export default function GroupDetailPage() {
       const result = await mergeTag(mergeState.targetId, [mergeState.source.id]);
       setMergeState(null);
       load();
-      // brief success hint via error banner (green would need extra component; use neutral approach)
-      setError(`合并成功：迁移了 ${result.entityTagsMoved} 条实体关联，${result.aliasesMoved} 个别名`);
-      setTimeout(() => setError(""), 4000);
+      toast.success(`合并成功：迁移了 ${result.entityTagsMoved} 条实体关联，${result.aliasesMoved} 个别名`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "合并失败");
     } finally {
@@ -256,8 +255,7 @@ export default function GroupDetailPage() {
       const result = await moveTagToGroup(moveGroupState.tag.id, moveGroupState.targetGroupId);
       setMoveGroupState(null);
       load();
-      setError(`迁移成功：共移动 ${result.tagsMoved} 个标签（含子孙）`);
-      setTimeout(() => setError(""), 4000);
+      toast.success(`迁移成功：共移动 ${result.tagsMoved} 个标签（含子孙）`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "迁移失败");
     } finally {
@@ -314,7 +312,7 @@ export default function GroupDetailPage() {
         </Link>
         <div className="flex-1 min-w-0">
           <h1 className="text-xl font-semibold text-ink leading-tight">{group?.name ?? "标签分组"}</h1>
-          <p className="text-[11px] text-ink-faint font-mono mt-0.5">{group?.slug}</p>
+          <p className="text-xs text-ink-faint font-mono mt-0.5">{group?.slug}</p>
         </div>
         <Button variant="outline" size="sm" onClick={() => setShowGroupEdit(v => !v)}>
           编辑分组

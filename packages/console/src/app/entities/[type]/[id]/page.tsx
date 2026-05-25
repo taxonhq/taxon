@@ -15,7 +15,7 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Pagination } from "@/components/ui/pagination";
 import { useRouter } from "next/navigation";
 
-const TAGS_PAGE_SIZE = 20;
+const TAGS_PAGE_SIZE_DEFAULT = 20;
 
 const STATUS_META: Record<string, { label: string; dot: string; text: string }> = {
   active:   { label: "已激活", dot: "bg-ok",     text: "text-ok" },
@@ -41,7 +41,8 @@ export default function EntityDetailPage() {
   const router     = useRouter();
 
   const [tags, setTags]         = useState<EntityTagItem[]>([]);
-  const [tagPage, setTagPage]   = useState(1);
+  const [tagPage, setTagPage]     = useState(1);
+  const [tagsPageSize, setTagsPageSize] = useState(TAGS_PAGE_SIZE_DEFAULT);
   const [loading, setLoading]   = useState(true);
   const [error, setError]       = useState("");
   const [processing, setProcessing] = useState<Set<string>>(new Set());
@@ -181,16 +182,16 @@ export default function EntityDetailPage() {
         </Link>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
-            <span className="text-[13px] font-mono text-ink-sub">{entityType}</span>
+            <span className="text-base font-mono text-ink-sub">{entityType}</span>
             <span className="text-ink-faint">/</span>
             <h1
-              className="text-[15px] font-bold text-ink font-mono truncate"
+              className="text-lg font-bold text-ink font-mono truncate"
               style={{ letterSpacing: "-0.02em" }}
             >
               {entityId}
             </h1>
           </div>
-          <p className="text-[11px] text-ink-faint mt-1">
+          <p className="text-xs text-ink-faint mt-1">
             <span className="tabular-nums">{tags.length}</span> 个标签
           </p>
         </div>
@@ -206,7 +207,7 @@ export default function EntityDetailPage() {
       {showAddForm && (
         <div className="card-border overflow-hidden p-5 space-y-4 animate-slide-up">
           <div className="flex items-center justify-between">
-            <p className="text-[13px] font-semibold text-ink">添加标签</p>
+            <p className="text-base font-semibold text-ink">添加标签</p>
             <button onClick={() => setShowAddForm(false)} className="p-1.5 text-ink-faint hover:text-ink transition-colors rounded-lg hover:bg-surface-alt">
               <X size={13} />
             </button>
@@ -215,7 +216,7 @@ export default function EntityDetailPage() {
             <div className="grid grid-cols-3 gap-3 items-end">
               {/* Step 1: Select group */}
               <div className="flex flex-col gap-1.5">
-                <label className="text-[11px] font-medium text-ink-sub uppercase tracking-[0.08em]">标签分组</label>
+                <label className="text-xs font-medium text-ink-sub uppercase tracking-[0.08em]">标签分组</label>
                 <div className="relative">
                   <select
                     value={selectedGroup?.id ?? ""}
@@ -236,7 +237,7 @@ export default function EntityDetailPage() {
 
               {/* Step 2: Select tag */}
               <div className="flex flex-col gap-1.5">
-                <label className="text-[11px] font-medium text-ink-sub uppercase tracking-[0.08em]">
+                <label className="text-xs font-medium text-ink-sub uppercase tracking-[0.08em]">
                   标签值
                   {loadingGroupTags && <span className="ml-1.5 text-ink-faint normal-case tracking-normal">加载中…</span>}
                 </label>
@@ -260,7 +261,7 @@ export default function EntityDetailPage() {
 
               {/* Step 3: Source + Submit */}
               <div className="flex flex-col gap-1.5">
-                <label className="text-[11px] font-medium text-ink-sub uppercase tracking-[0.08em]">来源</label>
+                <label className="text-xs font-medium text-ink-sub uppercase tracking-[0.08em]">来源</label>
                 <div className="flex gap-2">
                   <div className="relative flex-1">
                     <select
@@ -298,12 +299,12 @@ export default function EntityDetailPage() {
       ) : tags.length === 0 ? (
         <div className="card-border overflow-hidden animate-fade-in">
           <div className="py-20 flex flex-col items-center text-center">
-            <p className="text-[14px] font-semibold text-ink-sub">暂无标签</p>
-            <p className="text-[12px] text-ink-faint mt-1.5">点击「添加标签」为该实体打标</p>
+            <p className="text-md font-semibold text-ink-sub">暂无标签</p>
+            <p className="text-sm text-ink-faint mt-1.5">点击「添加标签」为该实体打标</p>
           </div>
         </div>
       ) : (() => {
-        const pagedTags = tags.slice((tagPage - 1) * TAGS_PAGE_SIZE, tagPage * TAGS_PAGE_SIZE);
+        const pagedTags = tags.slice((tagPage - 1) * tagsPageSize, tagPage * tagsPageSize);
         return (
         <div className="card-border overflow-hidden">
           <table className="w-full">
@@ -333,18 +334,18 @@ export default function EntityDetailPage() {
                     style={{ animationDelay: `${idx * 20}ms` }}
                   >
                     <td className="pl-5 pr-3 py-3">
-                      <span className="text-[13px] font-semibold text-ink">
+                      <span className="text-base font-semibold text-ink">
                         {tag.name}
                       </span>
                     </td>
-                    <td className="px-3 py-3 text-[12px] text-ink-sub">{tag.group.name}</td>
+                    <td className="px-3 py-3 text-sm text-ink-sub">{tag.group.name}</td>
                     <td className="px-3 py-3">
-                      <span className={`inline-flex items-center gap-1.5 text-[11px] font-medium ${meta.text}`}>
+                      <span className={`inline-flex items-center gap-1.5 text-xs font-medium ${meta.text}`}>
                         <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${meta.dot}`} />
                         {meta.label}
                       </span>
                     </td>
-                    <td className="px-3 py-3 text-[12px] text-ink-dim">
+                    <td className="px-3 py-3 text-sm text-ink-dim">
                       {SOURCE_LABEL[tag.source] ?? tag.source}
                       {tag.confidence != null && (
                         <span className={`ml-1.5 tabular-nums ${
@@ -355,11 +356,11 @@ export default function EntityDetailPage() {
                         </span>
                       )}
                     </td>
-                    <td className="px-3 py-3 text-[11px] text-ink-sub tabular-nums whitespace-nowrap">
+                    <td className="px-3 py-3 text-xs text-ink-sub tabular-nums whitespace-nowrap">
                       {formatTime(tag.taggedAt)}
                     </td>
                     <td className="pr-4 py-3">
-                      <div className="flex items-center justify-end gap-0.5 opacity-0 group-hover/row:opacity-100 transition-opacity">
+                      <div className="flex items-center justify-end gap-0.5 opacity-0 group-hover/row:opacity-100 focus-within:opacity-100 transition-opacity">
                         {tag.status !== "active" && (
                           <button
                             onClick={() => handleStatusChange(tag, "active")}
@@ -394,9 +395,10 @@ export default function EntityDetailPage() {
           </table>
           <Pagination
             page={tagPage}
-            pageSize={TAGS_PAGE_SIZE}
+            pageSize={tagsPageSize}
             total={tags.length}
             onChange={setTagPage}
+            onPageSizeChange={size => { setTagsPageSize(size); setTagPage(1); }}
           />
         </div>
         );
@@ -406,8 +408,8 @@ export default function EntityDetailPage() {
       <div className="pt-4 border-t border-edge">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-[13px] font-medium text-ink-sub">注销实体</p>
-            <p className="text-[12px] text-ink-faint mt-0.5">注销后该实体的所有标签关联将一并删除</p>
+            <p className="text-base font-medium text-ink-sub">注销实体</p>
+            <p className="text-sm text-ink-faint mt-0.5">注销后该实体的所有标签关联将一并删除</p>
           </div>
           <Button variant="danger" size="sm" onClick={() => setConfirmUnregister(true)}>
             注销

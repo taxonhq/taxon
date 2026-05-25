@@ -6,9 +6,11 @@
  * that live in src/index.ts.
  */
 
-import { Hono } from 'hono'
+import { OpenAPIHono } from '@hono/zod-openapi'
 import { cors } from 'hono/cors'
+import { secureHeaders } from 'hono/secure-headers'
 import { bearerAuth } from './middleware/auth.js'
+import { rateLimit } from './middleware/rate-limit.js'
 import { requestIdMiddleware } from './middleware/request-id.js'
 import { validateEntityParams } from './middleware/validate-params.js'
 import prisma from './lib/db.js'
@@ -16,11 +18,11 @@ import logger from './lib/logger.js'
 import { registry, httpRequestsTotal, httpRequestDuration, normalizeRoute } from './lib/metrics.js'
 import { entities } from './routes/entities.js'
 import { tagGroups } from './routes/tag-groups.js'
-import { tags } from './routes/tags.js'
+import { tags } from './routes/tags/index.js'
 import { tagAliases } from './routes/tag-aliases.js'
 import { tokensRouter } from './routes/tokens.js'
 import { dashboardMetrics } from './routes/metrics-dashboard.js'
-import { openApiSpec } from './openapi.js'
+import { searchRouter } from './routes/search.js'
 
 export interface AppOptions {
   /** Service version for /health output (defaults to "unknown" if not provided). */
@@ -30,8 +32,30 @@ export interface AppOptions {
 }
 
 export function buildApp(opts: AppOptions = {}) {
-  const app = new Hono()
+  const app = new OpenAPIHono()
   const version = opts.version ?? 'unknown'
+
+  // BearerAuth セキュリティスキームをレジストリに登録（app.doc の components は Omit されているため）
+  app.openAPIRegistry.registerComponent('securitySchemes', 'BearerAuth', {
+    type: 'http',
+    scheme: 'bearer',
+    description: 'Bearer API Token',
+  })
+
+  // ── Security headers ────────────────────────────────────────────
+  // X-Content-Type-Options: nosniff, X-Frame-Options: DENY,
+  // Strict-Transport-Security (HSTS), X-XSS-Protection, Referrer-Policy.
+  // Content-Security-Policy is intentionally omitted here — the service is a
+  // pure JSON API; CSP is more relevant for the Next.js console.
+  app.use('/*', secureHeaders({
+    xFrameOptions: 'DENY',
+    xContentTypeOptions: 'nosniff',
+    referrerPolicy: 'strict-origin-when-cross-origin',
+    // CSP intentionally omitted: this is a pure JSON API + Scalar docs UI.
+    // The /docs page loads external scripts from cdn.jsdelivr.net; a tight
+    // CSP here would break the interactive docs without adding meaningful
+    // security value to a JSON endpoint.
+  }))
 
   // ── Request ID ──────────────────────────────────────────────────
   app.use('/*', requestIdMiddleware)
@@ -126,15 +150,61 @@ export function buildApp(opts: AppOptions = {}) {
 </svg>`)
   })
 
-  app.get('/openapi.json', (c) => c.json(openApiSpec))
-  app.get('/docs', (c) => c.html(`<!doctype html>
+  // OpenAPI 3.0 仕様を自動生成（@hono/zod-openapi が各ルートの createRoute 定義から構築）
+  app.doc('/openapi.json', {
+    openapi: '3.0.0',
+    info: {
+      title: 'Taxon Tag Service',
+      version: '1.0.0',
+      description: 'Standalone tagging microservice — tag groups, entity tagging, audit workflow',
+    },
+    security: [{ BearerAuth: [] }],
+  })
+
+  app.get('/docs', (c) => {
+    const defaultToken = process.env.SCALAR_BEARER_TOKEN ?? ''
+    const authConfig = JSON.stringify({
+      preferredSecurityScheme: 'BearerAuth',
+      http: { bearer: { token: defaultToken } },
+    })
+    return c.html(`<!doctype html>
 <html><head><title>Taxon API</title><meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" /></head>
 <body><div id="app"></div>
   <script src="https://cdn.jsdelivr.net/npm/@scalar/api-reference"></script>
-  <script>Scalar.createApiReference('#app', { url: '/openapi.json' })</script>
-</body></html>`))
+  <script>Scalar.createApiReference('#app', {
+    url: '/openapi.json',
+    authentication: ${authConfig},
+  })</script>
+</body></html>`)
+  })
+
+  // ── 速率限制 ────────────────────────────────────────────────────
+  // 双层策略：
+  //   globalLimiter — 每 IP 300 req/min（含读），防流量风暴
+  //   writeLimiter  — 每 IP 60 req/min（仅写操作），防批量写滥用
+  // 生产建议在反向代理（Nginx / Caddy）层再加一道基于连接数的硬限制。
+  // 通过 RATE_LIMIT_MAX / RATE_LIMIT_WRITE_MAX 环境变量可覆盖默认值。
+  const PROTECTED = ['/entities/*', '/tag-groups/*', '/tags/*', '/entity-types', '/tokens', '/tokens/*']
+  const WRITE_METHODS = ['POST', 'PUT', 'PATCH', 'DELETE']
+
+  const globalLimiter = rateLimit({
+    windowMs: 60_000,
+    max: Number(process.env.RATE_LIMIT_MAX) || 300,
+    label: 'global',
+  })
+  const writeLimiter = rateLimit({
+    windowMs: 60_000,
+    max: Number(process.env.RATE_LIMIT_WRITE_MAX) || 60,
+    methods: WRITE_METHODS,
+    label: 'write',
+  })
+
+  for (const path of PROTECTED) {
+    app.use(path, globalLimiter)
+    app.use(path, writeLimiter)
+  }
 
   // ── 认证保护 ────────────────────────────────────────────────
   // bearerAuth：API_TOKEN 未设置且无 DB token 时跳过（本地开发/测试）
@@ -174,6 +244,7 @@ export function buildApp(opts: AppOptions = {}) {
   app.route('/tags/:tagId/aliases', tagAliases)
   app.route('/tokens',     tokensRouter)
   app.route('/metrics',    dashboardMetrics)
+  app.route('/search',     searchRouter)
 
   // ── Dashboard 布局配置 ──────────────────────────────────────────
   app.get('/dashboard/layout', async (c) => {

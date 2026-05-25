@@ -104,6 +104,8 @@ model EntityTag {
   @@index([tagId])
   @@index([tagId, status])
   @@index([status, entityType])
+  // 审核队列分页：WHERE status=? ORDER BY createdAt DESC
+  @@index([status, createdAt(sort: Desc)])
 }
 
 // ── 标签 ──────────────────────────────────────────────────────

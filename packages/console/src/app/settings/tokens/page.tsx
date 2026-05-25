@@ -260,16 +260,16 @@ function TokenRow({
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 mb-0.5">
           <span className="text-sm font-medium text-ink truncate">{token.name}</span>
-          <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded border ${ROLE_STYLE[token.role]}`}>
+          <span className={`text-2xs font-semibold px-1.5 py-0.5 rounded border ${ROLE_STYLE[token.role]}`}>
             {ROLE_LABEL[token.role]}
           </span>
           {token.scopes.length > 0 && (
-            <span className="text-[10px] text-ink-faint font-mono">
+            <span className="text-2xs text-ink-faint font-mono">
               {token.scopes.join(", ")}
             </span>
           )}
         </div>
-        <div className="flex items-center gap-3 text-[11px] text-ink-faint">
+        <div className="flex items-center gap-3 text-xs text-ink-faint">
           <span>创建 {fmt(token.createdAt)}</span>
           {token.lastUsedAt && <span>上次使用 {fmt(token.lastUsedAt)}</span>}
           {token.revokedAt  && <span className="text-red-500">已撤销 {fmt(token.revokedAt)}</span>}

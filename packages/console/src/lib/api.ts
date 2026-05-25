@@ -1,3 +1,18 @@
+/**
+ * API client for the Taxon tag service.
+ *
+ * Types are kept in sync with the OpenAPI spec via:
+ *  1. packages/service: `pnpm gen:spec`  — regenerates openapi.json
+ *  2. packages/console: `pnpm gen:types` — regenerates api-types.gen.ts
+ *
+ * The generated SchemaTypes alias below acts as a compile-time anchor:
+ * if the generated schema drifts from the manual types here, TypeScript
+ * will flag mismatches in the functions that use them.
+ */
+
+// Re-export generated types for consumers that prefer spec-aligned shapes
+export type { components as ApiSchemas } from "@/lib/api-types.gen";
+
 const BASE  = process.env.NEXT_PUBLIC_TAG_SERVICE_URL   || "http://localhost:3300";
 const TOKEN = process.env.NEXT_PUBLIC_TAG_SERVICE_TOKEN || "";
 
@@ -138,12 +153,16 @@ export async function getTagGroups(params?: {
   scope?: string[];
   page?: number;
   pageSize?: number;
-}): Promise<Paginated<TagGroup>> {
+  withPreviewTags?: boolean;
+  previewSize?: number;
+}): Promise<Paginated<TagGroup & { tags?: Tag[] }>> {
   const q = new URLSearchParams();
   params?.scope?.forEach(s => q.append("scope", s));
-  if (params?.page) q.set("page", String(params.page));
-  if (params?.pageSize) q.set("pageSize", String(params.pageSize));
-  return req<Paginated<TagGroup>>(`/tag-groups${q.size ? `?${q}` : ""}`);
+  if (params?.page)            q.set("page",            String(params.page));
+  if (params?.pageSize)        q.set("pageSize",        String(params.pageSize));
+  if (params?.withPreviewTags) q.set("withPreviewTags", "true");
+  if (params?.previewSize)     q.set("previewSize",     String(params.previewSize));
+  return req<Paginated<TagGroup & { tags?: Tag[] }>>(`/tag-groups${q.size ? `?${q}` : ""}`);
 }
 
 export async function getTagGroup(groupId: string): Promise<TagGroup> {

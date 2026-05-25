@@ -6,6 +6,16 @@ import logger from '../lib/logger.js'
 
 export type ApiRole = 'reader' | 'writer' | 'reviewer' | 'admin'
 
+// ── Token 缓存 ───────────────────────────────────────────────────────
+// 模块级标志，进程启动后一次性确认是否存在 DB token。
+// token 创建/撤销时通过 invalidateTokenCache() 使缓存失效（O(1) lookup）。
+let _cachedHasDbToken: boolean | null = null
+
+/** token 创建/撤销后调用，清除缓存以便下次请求重新检测 */
+export function invalidateTokenCache(): void {
+  _cachedHasDbToken = null
+}
+
 const ROLE_LEVEL: Record<ApiRole, number> = {
   reader:   0,
   writer:   1,
@@ -82,10 +92,17 @@ export function getTokenId(c: { get: (key: string) => unknown }): string | null 
   return (c.get('tokenId') as string | undefined) ?? null
 }
 
-// 开发模式兼容：API_TOKEN 未设置且无 DB token 时跳过认证（保持原有行为）。
-// Bypass 时以 admin 身份注入上下文，确保 requireRole 中间件正常放行。
+// 开发模式兼容：仅在 NODE_ENV !== 'production' 且无任何 token 配置时绕过认证。
+// 缓存 DB 查询结果，避免每请求一次 COUNT(*)。
 export const bearerAuth: MiddlewareHandler = async (c, next) => {
-  if (!process.env.API_TOKEN && !(await hasAnyDbToken())) {
+  const isProd = process.env.NODE_ENV === 'production'
+
+  // 生产环境永不 bypass
+  if (!isProd && !process.env.API_TOKEN && !(await hasAnyDbToken())) {
+    logger.warn(
+      { path: c.req.path, method: c.req.method },
+      'dev-bypass: 认证已绕过（开发模式，无 token 配置）— 请勿用于生产'
+    )
     c.set('tokenRole', 'admin' as ApiRole)
     c.set('tokenName',  'dev-bypass')
     return next()
@@ -94,9 +111,11 @@ export const bearerAuth: MiddlewareHandler = async (c, next) => {
 }
 
 async function hasAnyDbToken(): Promise<boolean> {
+  if (_cachedHasDbToken !== null) return _cachedHasDbToken
   try {
     const count = await prisma.apiToken.count()
-    return count > 0
+    _cachedHasDbToken = count > 0
+    return _cachedHasDbToken
   } catch {
     return false
   }

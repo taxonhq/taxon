@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { NavLink } from "@/components/nav-link";
 import { AboutDialog } from "@/components/ui/about-dialog";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
 
 const W_OPEN   = 216;
 const W_CLOSED = 56;
@@ -140,7 +141,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           {open && (
             <div className="flex items-center gap-2 overflow-hidden" title={dotTitle}>
               <span className={`inline-block w-1.5 h-1.5 rounded-full shrink-0 transition-colors duration-500 ${dotClass}`} />
-              <span className="text-[11px] text-ink-sub font-mono whitespace-nowrap truncate">{SERVICE_DISPLAY}</span>
+              <span className="text-xs text-ink-sub font-mono whitespace-nowrap truncate">{SERVICE_DISPLAY}</span>
             </div>
           )}
           <button
@@ -168,14 +169,17 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         )}
       </main>
 
-      {/* ── 右上角关于按钮（固定悬浮）────────────────────────────── */}
-      <button
-        onClick={() => setShowAbout(true)}
-        title="关于"
-        className="fixed top-4 right-5 z-30 p-1.5 rounded-lg text-ink-faint hover:text-ink hover:bg-surface-alt border border-transparent hover:border-edge transition-all"
-      >
-        <HelpCircle size={15} />
-      </button>
+      {/* ── 右上角工具栏（固定悬浮）─────────────────────────────── */}
+      <div className="fixed top-4 right-5 z-30 flex items-center gap-1">
+        <ThemeToggle />
+        <button
+          onClick={() => setShowAbout(true)}
+          title="关于"
+          className="p-1.5 rounded-lg text-ink-faint hover:text-ink hover:bg-surface-alt border border-transparent hover:border-edge transition-all"
+        >
+          <HelpCircle size={15} />
+        </button>
+      </div>
 
       <AboutDialog open={showAbout} onClose={() => setShowAbout(false)} />
     </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef, useId } from "react";
 import { CheckCircle, XCircle, Trash2, RefreshCw, ClipboardCheck } from "lucide-react";
 import {
   getAuditItems, updateEntityTagStatus, removeEntityTag, getEntityTypes,
@@ -13,7 +13,7 @@ import { PageHeader } from "@/components/ui/page-header";
 import { Pagination } from "@/components/ui/pagination";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
-const PAGE_SIZE = 30;
+const PAGE_SIZE_DEFAULT = 30;
 
 type StatusFilter = "pending" | "active" | "rejected";
 
@@ -37,7 +37,7 @@ function formatTime(iso: string) {
   });
 }
 
-// ── 审核操作弹窗（含备注） ────────────────────────────────────────
+// ── 审核操作弹窗（含备注）- 完整 a11y：focus trap / Esc / aria ──────
 function ReviewDialog({
   item,
   action,
@@ -50,31 +50,86 @@ function ReviewDialog({
   onCancel:  () => void;
 }) {
   const [note, setNote] = useState("");
-  const isApprove = action === "active";
+  const isApprove  = action === "active";
+  const dialogRef  = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const titleId    = useId();
+  const descId     = useId();
+
+  // 打开时聚焦 textarea，关闭时还焦
+  useEffect(() => {
+    const prev = document.activeElement as HTMLElement | null;
+    const t = setTimeout(() => textareaRef.current?.focus(), 0);
+    return () => { clearTimeout(t); prev?.focus?.(); };
+  }, []);
+
+  // Esc 关闭
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onCancel(); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onCancel]);
+
+  // Focus trap
+  useEffect(() => {
+    const onTab = (e: KeyboardEvent) => {
+      if (e.key !== "Tab") return;
+      const root = dialogRef.current;
+      if (!root) return;
+      const els = root.querySelectorAll<HTMLElement>(
+        'button:not([disabled]),textarea:not([disabled]),input:not([disabled]),[tabindex]:not([tabindex="-1"])'
+      );
+      if (!els.length) return;
+      const first = els[0], last = els[els.length - 1];
+      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+    };
+    window.addEventListener("keydown", onTab);
+    return () => window.removeEventListener("keydown", onTab);
+  }, []);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-      <div className="bg-surface rounded-xl shadow-xl border border-edge w-full max-w-md p-6">
-        <h2 className="text-base font-semibold text-ink mb-1">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center animate-fade-in"
+      onClick={e => { if (e.target === e.currentTarget) onCancel(); }}
+    >
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" aria-hidden="true" />
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        aria-describedby={descId}
+        className="relative z-10 bg-surface rounded-xl shadow-xl border border-edge w-full max-w-md mx-4 p-6"
+      >
+        <h2 id={titleId} className="text-base font-semibold text-ink mb-1">
           {isApprove ? "通过审核" : "拒绝标签"}
         </h2>
-        <p className="text-xs text-ink-sub mb-4">
+        <p id={descId} className="text-xs text-ink-sub mb-4">
           标签：<span className="font-medium text-ink">{item.tag.name}</span>
           （{item.tag.group.name}）
           &nbsp;·&nbsp;{item.entityType}/{item.entityId}
         </p>
         <div className="mb-4">
-          <label className="block text-xs text-ink-sub mb-1">
+          <label htmlFor="review-note" className="block text-xs text-ink-sub mb-1">
             备注 <span className="text-ink-faint">（可选）</span>
           </label>
           <textarea
+            id="review-note"
+            ref={textareaRef}
             className="w-full border border-edge rounded-lg px-3 py-2 text-sm text-ink bg-surface-alt focus:outline-none focus:ring-1 focus:ring-ink resize-none"
             rows={3}
             placeholder={isApprove ? "说明通过原因…" : "说明拒绝原因…"}
             value={note}
             onChange={e => setNote(e.target.value)}
-            autoFocus
+            onKeyDown={e => {
+              if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+                e.preventDefault();
+                onConfirm(note.trim());
+              }
+            }}
           />
+          <p className="text-2xs text-ink-faint mt-1">⌘Enter 快速提交 · Esc 取消</p>
         </div>
         <div className="flex justify-end gap-2">
           <Button variant="ghost" onClick={onCancel}>取消</Button>
@@ -94,6 +149,7 @@ export default function AuditPage() {
   const [items, setItems] = useState<AuditItem[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(PAGE_SIZE_DEFAULT);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("pending");
@@ -110,7 +166,7 @@ export default function AuditPage() {
       .catch(() => {});
   }, []);
 
-  const load = useCallback(async (pageNum = 1) => {
+  const load = useCallback(async (pageNum = 1, ps?: number) => {
     setLoading(true);
     setError("");
     setSelected(new Set());
@@ -119,7 +175,7 @@ export default function AuditPage() {
         status: statusFilter,
         entityType: entityTypeFilter || undefined,
         page: pageNum,
-        pageSize: PAGE_SIZE,
+        pageSize: ps ?? pageSize,
       });
       setItems(data.items);
       setTotal(data.total);
@@ -128,7 +184,7 @@ export default function AuditPage() {
     } finally {
       setLoading(false);
     }
-  }, [statusFilter, entityTypeFilter]);
+  }, [statusFilter, entityTypeFilter, pageSize]);
 
   useEffect(() => {
     setPage(1);
@@ -259,7 +315,7 @@ export default function AuditPage() {
           {entityTypes.map(et => <option key={et} value={et}>{et}</option>)}
         </Select>
 
-        <span className="ml-auto text-[11px] text-ink-faint tabular-nums">{total} 条记录</span>
+        <span className="ml-auto text-xs text-ink-faint tabular-nums">{total} 条记录</span>
       </div>
 
       {/* Bulk bar */}
@@ -310,11 +366,11 @@ export default function AuditPage() {
             <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-[#161616] to-[#0A0A0A] border border-edge-mid flex items-center justify-center mb-5 shadow-[0_2px_8px_rgba(0,0,0,.4)]">
               <ClipboardCheck size={22} className="text-ink-faint" strokeWidth={1.5} />
             </div>
-            <p className="text-[14px] font-semibold text-ink-sub">
+            <p className="text-md font-semibold text-ink-sub">
               {statusFilter === "pending" ? "暂无待审核记录" : "暂无记录"}
             </p>
             {statusFilter === "pending" && (
-              <p className="text-[12px] text-ink-faint mt-1.5 max-w-[200px] leading-relaxed">
+              <p className="text-sm text-ink-faint mt-1.5 max-w-[200px] leading-relaxed">
                 AI 打标后，新记录会出现在这里
               </p>
             )}
@@ -366,58 +422,58 @@ export default function AuditPage() {
                       />
                     </td>
                     <td className="px-3 py-3">
-                      <p className="text-[13px] font-semibold text-ink">{item.tag.name}</p>
-                      <p className="text-[11px] text-ink-sub mt-0.5">{item.tag.group.name}</p>
+                      <p className="text-base font-semibold text-ink">{item.tag.name}</p>
+                      <p className="text-xs text-ink-sub mt-0.5">{item.tag.group.name}</p>
                     </td>
                     <td className="px-3 py-3">
-                      <p className="text-[11px] font-mono text-ink-dim">{item.entityType}</p>
-                      <p className="text-[10px] font-mono text-ink-sub mt-0.5 max-w-[120px] truncate">{item.entityId}</p>
+                      <p className="text-xs font-mono text-ink-dim">{item.entityType}</p>
+                      <p className="text-2xs font-mono text-ink-sub mt-0.5 max-w-[120px] truncate">{item.entityId}</p>
                     </td>
-                    <td className="px-3 py-3 text-[12px] text-ink-dim">
+                    <td className="px-3 py-3 text-sm text-ink-dim">
                       {SOURCE_LABEL[item.source] ?? item.source}
                     </td>
                     <td className="px-3 py-3">
                       {item.confidence != null ? (
-                        <span className={`text-[12px] font-medium tabular-nums ${
+                        <span className={`text-sm font-medium tabular-nums ${
                           item.confidence >= 0.8 ? "text-ok" :
                           item.confidence >= 0.5 ? "text-warn" : "text-bad"
                         }`}>
                           {Math.round(item.confidence * 100)}%
                         </span>
                       ) : (
-                        <span className="text-[12px] text-ink-faint">—</span>
+                        <span className="text-sm text-ink-faint">—</span>
                       )}
                     </td>
                     <td className="px-3 py-3">
-                      <span className={`inline-flex items-center gap-1.5 text-[11px] font-medium ${statusMeta.text}`}>
+                      <span className={`inline-flex items-center gap-1.5 text-xs font-medium ${statusMeta.text}`}>
                         <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${statusMeta.dot}`} />
                         {statusMeta.label}
                       </span>
                     </td>
                     {showReviewCols && (
                       <>
-                        <td className="px-3 py-3 text-[11px] text-ink-sub max-w-[100px] truncate">
+                        <td className="px-3 py-3 text-xs text-ink-sub max-w-[100px] truncate">
                           {item.reviewerName ?? <span className="text-ink-faint">—</span>}
                         </td>
                         <td className="px-3 py-3 max-w-[160px]">
                           {item.reviewNote ? (
                             <span
-                              className="text-[11px] text-ink-sub truncate block"
+                              className="text-xs text-ink-sub truncate block"
                               title={item.reviewNote}
                             >
                               {item.reviewNote}
                             </span>
                           ) : (
-                            <span className="text-[11px] text-ink-faint">—</span>
+                            <span className="text-xs text-ink-faint">—</span>
                           )}
                         </td>
                       </>
                     )}
-                    <td className="px-3 py-3 text-[11px] text-ink-sub tabular-nums">
+                    <td className="px-3 py-3 text-xs text-ink-sub tabular-nums">
                       {formatTime(item.taggedAt)}
                     </td>
                     <td className="pr-4 py-3">
-                      <div className="flex items-center justify-end gap-0.5 opacity-0 group-hover/row:opacity-100 transition-opacity">
+                      <div className="flex items-center justify-end gap-0.5 opacity-0 group-hover/row:opacity-100 focus-within:opacity-100 transition-opacity">
                         {item.status !== "active" && (
                           <button
                             disabled={busy}
@@ -455,9 +511,11 @@ export default function AuditPage() {
           </table>
           <Pagination
             page={page}
-            pageSize={PAGE_SIZE}
+            pageSize={pageSize}
             total={total}
             onChange={newPage => { setPage(newPage); load(newPage); }}
+            onPageSizeChange={size => { setPageSize(size); setPage(1); load(1, size); }}
+            pageSizes={[20, 30, 50, 100]}
           />
         </div>
       )}

@@ -42,12 +42,12 @@ export function Field({ label, required, hint, children, className, htmlFor }: F
 
   return (
     <div className={cn("flex flex-col gap-1.5", className)}>
-      <label htmlFor={fieldId} className="text-[11px] font-medium text-ink-sub tracking-[0.08em]">
+      <label htmlFor={fieldId} className="text-xs font-medium text-ink-sub tracking-[0.08em]">
         {label}
         {required && <span className="text-bad ml-0.5">*</span>}
       </label>
       {childWithId}
-      {hint && <p id={hintId} className="text-[11px] text-ink-faint leading-relaxed">{hint}</p>}
+      {hint && <p id={hintId} className="text-xs text-ink-faint leading-relaxed">{hint}</p>}
     </div>
   );
 }

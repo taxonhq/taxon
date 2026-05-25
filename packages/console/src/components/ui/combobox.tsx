@@ -182,7 +182,7 @@ export function Combobox({
             highlighted === filtered.length ? "bg-surface-alt text-ink" : "text-ink-dim hover:bg-surface-alt hover:text-ink",
           )}
         >
-          <span className="text-[10px] text-ink-faint uppercase tracking-wider shrink-0">新建</span>
+          <span className="text-2xs text-ink-faint uppercase tracking-wider shrink-0">新建</span>
           <span className="font-mono">{query.trim()}</span>
         </li>
       )}

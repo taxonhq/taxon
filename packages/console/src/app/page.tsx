@@ -107,7 +107,7 @@ export default function DashboardPage() {
             <div className="absolute inset-0 rounded-full border-2 border-white/5" />
             <div className="absolute inset-0 rounded-full border-2 border-transparent border-t-white/40 animate-spin" />
           </div>
-          <p className="text-[11px] tracking-wider" style={{ color: COLORS.ink4 }}>加载仪表盘…</p>
+          <p className="text-xs tracking-wider" style={{ color: COLORS.ink4 }}>加载仪表盘…</p>
         </div>
       </div>
     );
@@ -133,7 +133,7 @@ export default function DashboardPage() {
             }}>
               Taxon Dashboard
             </h1>
-            <p className="text-[11px] mt-1" style={{ color: COLORS.ink4 }}>
+            <p className="text-xs mt-1" style={{ color: COLORS.ink4 }}>
               标签服务运行态全局概览
             </p>
           </div>
@@ -145,7 +145,7 @@ export default function DashboardPage() {
                 <span className="absolute inset-0 rounded-full animate-ping" style={{ background: COLORS.brand1 }} />
                 <span className="absolute inset-0 rounded-full" style={{ background: COLORS.brand1 }} />
               </span>
-              <span className="text-[10px] tabular-nums" style={{ color: COLORS.ink2 }}>
+              <span className="text-2xs tabular-nums" style={{ color: COLORS.ink2 }}>
                 自动刷新 · {countdown}s
               </span>
             </div>
@@ -154,7 +154,7 @@ export default function DashboardPage() {
 
         <div className="flex items-center gap-2">
           {updatedAt && (
-            <span className="text-[11px] tabular-nums mr-2 font-mono" style={{ color: COLORS.ink4 }}>
+            <span className="text-xs tabular-nums mr-2 font-mono" style={{ color: COLORS.ink4 }}>
               {updatedAt.toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
             </span>
           )}
@@ -227,7 +227,7 @@ function ToolBtn({ icon, label, onClick, disabled, active }: {
 }) {
   return (
     <button onClick={onClick} disabled={disabled}
-      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-medium transition-all disabled:opacity-30"
+      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all disabled:opacity-30"
       style={active ? {
         color: COLORS.ink,
         background: COLORS.bg3,
@@ -254,7 +254,7 @@ function EditHeader({ id, item, onSwitchSize }: {
       style={{ borderBottom: `1px solid ${COLORS.edge1}`, background: "rgba(255,255,255,0.02)" }}>
       <div className="flex items-center gap-2 min-w-0">
         <GripHorizontal size={12} style={{ color: COLORS.ink4 }} />
-        <span className="text-[10px] uppercase tracking-[0.1em] truncate" style={{ color: COLORS.ink3 }}>
+        <span className="text-2xs uppercase tracking-[0.1em] truncate" style={{ color: COLORS.ink3 }}>
           {WIDGET_LABELS[id] ?? id}
         </span>
       </div>
@@ -267,7 +267,7 @@ function EditHeader({ id, item, onSwitchSize }: {
             return (
               <button key={size} type="button" onClick={() => onSwitchSize(id, size)}
                 title={SIZE_PRESETS[size].tip}
-                className="text-[10px] font-semibold px-1.5 py-0.5 rounded-md transition-all"
+                className="text-2xs font-semibold px-1.5 py-0.5 rounded-md transition-all"
                 style={active ? {
                   color: COLORS.ink, background: COLORS.bg3, border: `1px solid ${COLORS.edge2}`,
                 } : {

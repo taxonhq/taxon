@@ -79,8 +79,8 @@ export default function EntitiesPage() {
         <div className="card-border overflow-hidden p-5 space-y-4 animate-slide-up">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-[14px] font-semibold text-ink">注册新实体</p>
-              <p className="text-[12px] text-ink-sub mt-0.5">注册后可为实体打标，实体 ID 来自业务系统</p>
+              <p className="text-md font-semibold text-ink">注册新实体</p>
+              <p className="text-sm text-ink-sub mt-0.5">注册后可为实体打标，实体 ID 来自业务系统</p>
             </div>
             <button onClick={() => setShowForm(false)} className="p-1.5 text-ink-faint hover:text-ink transition-colors rounded-lg hover:bg-surface-alt">
               <X size={14} />
@@ -134,11 +134,11 @@ export default function EntitiesPage() {
 
               {/* Info */}
               <div className="flex-1 min-w-0">
-                <p className="text-[13px] font-semibold text-ink font-mono truncate" style={{ letterSpacing: "-0.01em" }}>
+                <p className="text-base font-semibold text-ink font-mono truncate" style={{ letterSpacing: "-0.01em" }}>
                   {t.entityType}
                 </p>
-                <p className="text-[11px] text-ink-sub mt-1">
-                  <span className="text-[15px] font-bold text-ink tabular-nums" style={{ letterSpacing: "-0.03em" }}>{t.count}</span>
+                <p className="text-xs text-ink-sub mt-1">
+                  <span className="text-lg font-bold text-ink tabular-nums" style={{ letterSpacing: "-0.03em" }}>{t.count}</span>
                   {" "}个实体
                 </p>
               </div>
@@ -146,7 +146,7 @@ export default function EntitiesPage() {
               {/* Arrow */}
               <ChevronRight
                 size={14}
-                className="text-ink-faint shrink-0 opacity-0 group-hover/card:opacity-100 transition-opacity -translate-x-1 group-hover/card:translate-x-0 duration-150"
+                className="text-ink-faint shrink-0 opacity-0 group-hover/card:opacity-100 group-focus-within/card:opacity-100 transition-opacity -translate-x-1 group-hover/card:translate-x-0 group-focus-within/card:translate-x-0 duration-150"
               />
             </Link>
           ))}
@@ -179,13 +179,13 @@ function EmptyEntities({ onRegister }: { onRegister: () => void }) {
         <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-[#161616] to-[#0A0A0A] border border-edge-mid flex items-center justify-center mb-5 shadow-[0_2px_8px_rgba(0,0,0,.4)]">
           <Box size={22} className="text-ink-faint" strokeWidth={1.5} />
         </div>
-        <p className="text-[14px] font-semibold text-ink-sub">暂无已注册实体</p>
-        <p className="text-[12px] text-ink-faint mt-1.5 max-w-[220px] leading-relaxed">
+        <p className="text-md font-semibold text-ink-sub">暂无已注册实体</p>
+        <p className="text-sm text-ink-faint mt-1.5 max-w-[220px] leading-relaxed">
           注册第一个实体后，实体类型将自动出现在这里
         </p>
         <button
           onClick={onRegister}
-          className="mt-5 inline-flex items-center gap-1.5 text-[12px] text-ink-dim hover:text-ink border border-edge-mid hover:border-edge-strong px-3 py-1.5 rounded-lg transition-all"
+          className="mt-5 inline-flex items-center gap-1.5 text-sm text-ink-dim hover:text-ink border border-edge-mid hover:border-edge-strong px-3 py-1.5 rounded-lg transition-all"
         >
           <Plus size={12} />
           注册实体

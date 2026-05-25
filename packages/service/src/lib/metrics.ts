@@ -29,12 +29,23 @@ export const dbQueryDuration = new Histogram({
   registers:  [registry],
 })
 
-// 待审核标签数量 Gauge（定时刷新）
+// 待审核标签数量 Gauge
+// 路由层通过 incAuditGauge / decAuditGauge 增量维护，index.ts 每 5 分钟全量同步兜底。
 export const auditPendingCount = new Gauge({
   name:      'audit_pending_count',
   help:      'Number of EntityTag records with status=pending',
   registers: [registry],
 })
+
+/** 新增一条 pending 记录时调用（O(1)，不触发 DB query） */
+export function incAuditGauge(delta = 1): void {
+  auditPendingCount.inc(delta)
+}
+
+/** pending 记录被消耗（active/rejected/deleted）时调用 */
+export function decAuditGauge(delta = 1): void {
+  auditPendingCount.dec(delta)
+}
 
 /**
  * 将请求路径中的动态 ID 段替换为占位符，控制 label 基数。
