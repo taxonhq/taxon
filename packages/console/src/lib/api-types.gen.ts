@@ -2437,7 +2437,26 @@ export interface paths {
         put?: never;
         /**
          * 多维检索（布尔表达式 + 分页 + facet）
-         * @description 基于 BoolExpr DSL 检索实体：支持 and/or/not 嵌套、按 tag/slug/alias/descendantOf 匹配、按 source/confidence/status 过滤。
+         * @description 基于 BoolExpr DSL 检索实体。
+         *
+         *     ### BoolExpr leaf 类型
+         *
+         *     | leaf | 含义 | 备注 |
+         *     |------|------|------|
+         *     | `{ "tag": "<tagId>" }` | 实体持有该 tagId | 精确匹配 |
+         *     | `{ "tagSlug": "<slug>", "groupSlug": "<groupSlug>?" }` | 按 slug 匹配 | 不指定 groupSlug 时跨 group 全部命中 |
+         *     | `{ "tagAlias": "<alias>", "groupSlug": "<groupSlug>?" }` | 经别名匹配 | 依赖 TagAlias 表 |
+         *     | `{ "descendantOf": "<tagId>" }` | 该节点或其任意子孙 | 用 path 前缀匹配 |
+         *     | `{ "source": ["manual","ai",...] }` | 至少有一条 EntityTag 来自指定 source | |
+         *     | `{ "confidence": { "gte": 0.7, "lte": 1 } }` | 至少一条 EntityTag 置信度落区间 | gte / lte 均可缺省 |
+         *     | `{ "status": ["active","pending","rejected"] }` | 状态在列表内 | 其他 leaf 默认 status=active |
+         *     | `{ "and": [...] }` / `{ "or": [...] }` / `{ "not": <expr> }` | 布尔组合 | 可嵌套任意深度 |
+         *
+         *     ### 注意
+         *     - 每个 leaf 是独立 EXISTS 子查询，不要求"同一条 EntityTag 同时满足多个 leaf"。
+         *       例：`and: [{tag:"X"}, {source:["ai"]}]` 表示"既被打过 X 标签，也存在至少一条 AI 来源标签"——可能不是同一条记录。
+         *     - `tagSlug` / `tagAlias` / `descendantOf` 解析后若得不到任何 tagId，正向 leaf 永远不命中；包在 `not` 中时永远命中。
+         *     - 缺省 `filter` 即返回该 entityType 下全部已注册实体（仍受分页限制）。
          */
         post: {
             parameters: {
@@ -2531,6 +2550,131 @@ export interface paths {
                 };
                 /** @description 参数错误 */
                 400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            code: number;
+                            message: string;
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/search/pivot": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 二维标签透视（pivot）
+         * @description 二维标签透视：以两个 TagGroup 作为 X/Y 轴，每个 cell 为"同时持有该 row tag 和 col tag 的 active 实体数"。
+         *
+         *     ### 用法
+         *     - `rowGroupSlug` / `colGroupSlug` 必须是不同的 group
+         *     - `topN` 限制每个维度只返回实体最多的前 N 个标签，避免巨表
+         *     - `filter` 可选，传 BoolExpr 限定子集（例如"只看 AI 标签 且 置信度 >= 0.7"的实体）
+         *
+         *     ### 性能说明
+         *     - 三次 SQL：top-N rows / top-N cols / cells join
+         *     - cells 在 top-N × top-N 的笛卡尔积上聚合（topN=20 时 = 400 cells）
+         *     - 大数据集建议先用 filter 缩小到几千实体内
+         *
+         *     ### 设计意图
+         *     让运营/管理员**一眼看到标签覆盖盲区**：例如"川菜 + 素食 = 3 条" 揭示新菜系覆盖不足。
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        /** @description 实体类型，必填 */
+                        entityType: string;
+                        /** @description 行维度的 TagGroup slug（X 轴） */
+                        rowGroupSlug: string;
+                        /** @description 列维度的 TagGroup slug（Y 轴） */
+                        colGroupSlug: string;
+                        filter?: components["schemas"]["BoolExpr"] & unknown;
+                        /**
+                         * @description 每个维度只取实体数最多的 top-N 标签（避免巨表）
+                         * @default 20
+                         */
+                        topN?: number;
+                    };
+                };
+            };
+            responses: {
+                /** @description 成功 */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            code: number;
+                            data: {
+                                /** @description 行维度 top-N 标签 */
+                                rows: {
+                                    tagId: string;
+                                    slug: string;
+                                    name: string;
+                                    /** @description 该维度上该标签的总实体数（不区分另一维） */
+                                    total: number;
+                                }[];
+                                /** @description 列维度 top-N 标签 */
+                                cols: {
+                                    tagId: string;
+                                    slug: string;
+                                    name: string;
+                                    /** @description 该维度上该标签的总实体数（不区分另一维） */
+                                    total: number;
+                                }[];
+                                /** @description cell 计数，key=`<rowTagId>:<colTagId>`，0 值省略 */
+                                cells: {
+                                    [key: string]: number;
+                                };
+                                /** @description 该 entityType 下的实体总数（含未打这两维标签的） */
+                                grandTotal: number;
+                                uncategorized: {
+                                    /** @description 在 rowGroup 下无标签的实体数 */
+                                    row: number;
+                                    /** @description 在 colGroup 下无标签的实体数 */
+                                    col: number;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description 参数错误 */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            code: number;
+                            message: string;
+                        };
+                    };
+                };
+                /** @description 分组不存在 */
+                404: {
                     headers: {
                         [name: string]: unknown;
                     };

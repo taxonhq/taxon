@@ -1,8 +1,9 @@
 /**
- * 多维检索 POST /search/entities
+ * 多维检索
+ *   POST /search/entities — BoolExpr DSL + 分页 + facet 聚合
+ *   POST /search/pivot    — 二维标签透视（控制台 showcase）
  *
- * 支持布尔表达式（tag/tagSlug/tagAlias/descendantOf/source/confidence/status + and/or/not），
- * 分页、排序、可选 tag 富数据、按 group 聚合 facet。详见 issue #17。
+ * 详见 issue #17。
  */
 import { OpenAPIHono, createRoute } from '@hono/zod-openapi'
 import { Prisma } from '@prisma/client'
@@ -11,6 +12,7 @@ import logger from '../lib/logger.js'
 import { requireRole } from '../middleware/auth.js'
 import {
   SearchEntitiesBody, SearchEntitiesDataSchema,
+  SearchPivotBody, SearchPivotDataSchema,
   ApiError, okData,
 } from '../lib/schemas.js'
 import { compileBoolExpr } from '../lib/search/compile.js'
@@ -372,6 +374,227 @@ searchRouter.openapi(searchEntitiesRoute, async (c) => {
     }, 200)
   } catch (error: unknown) {
     logger.error({ err: error }, 'Search entities error')
+    throw error
+  }
+})
+
+// ── POST /pivot ───────────────────────────────────────────────────────────────
+const PIVOT_DESCRIPTION = `
+二维标签透视：以两个 TagGroup 作为 X/Y 轴，每个 cell 为"同时持有该 row tag 和 col tag 的 active 实体数"。
+
+### 用法
+- \`rowGroupSlug\` / \`colGroupSlug\` 必须是不同的 group
+- \`topN\` 限制每个维度只返回实体最多的前 N 个标签，避免巨表
+- \`filter\` 可选，传 BoolExpr 限定子集（例如"只看 AI 标签 且 置信度 >= 0.7"的实体）
+
+### 性能说明
+- 三次 SQL：top-N rows / top-N cols / cells join
+- cells 在 top-N × top-N 的笛卡尔积上聚合（topN=20 时 = 400 cells）
+- 大数据集建议先用 filter 缩小到几千实体内
+
+### 设计意图
+让运营/管理员**一眼看到标签覆盖盲区**：例如"川菜 + 素食 = 3 条" 揭示新菜系覆盖不足。
+`.trim()
+
+const pivotExampleBasic = {
+  summary: '1. 基础透视：菜系 × 膳食',
+  value: { entityType: 'dish', rowGroupSlug: 'cuisine', colGroupSlug: 'dietary', topN: 20 },
+}
+
+const pivotExampleFiltered = {
+  summary: '2. 限定 AI 高置信度的子集',
+  value: {
+    entityType: 'dish',
+    rowGroupSlug: 'cuisine',
+    colGroupSlug: 'dietary',
+    topN: 10,
+    filter: {
+      and: [
+        { source: ['ai'] },
+        { confidence: { gte: 0.8 } },
+      ],
+    },
+  },
+}
+
+const pivotResponseExample = {
+  code: 0,
+  data: {
+    rows: [
+      { tagId: 't_sichuan', slug: 'sichuan', name: '川菜', total: 87 },
+      { tagId: 't_hunan',   slug: 'hunan',   name: '湘菜', total: 41 },
+    ],
+    cols: [
+      { tagId: 't_vegan',  slug: 'vegan',  name: '素食', total: 13 },
+      { tagId: 't_halal',  slug: 'halal',  name: '清真', total: 14 },
+    ],
+    cells: {
+      't_sichuan:t_vegan': 3, 't_sichuan:t_halal': 8,
+      't_hunan:t_vegan':   1, 't_hunan:t_halal':   4,
+    },
+    grandTotal: 151,
+    uncategorized: { row: 12, col: 124 },
+  },
+}
+
+const pivotRoute = createRoute({
+  method: 'post', path: '/pivot',
+  tags: ['检索'],
+  summary: '二维标签透视（pivot）',
+  description: PIVOT_DESCRIPTION,
+  security: [{ BearerAuth: [] }],
+  request: {
+    body: {
+      required: true,
+      content: {
+        'application/json': {
+          schema: SearchPivotBody,
+          examples: {
+            basic:    pivotExampleBasic,
+            filtered: pivotExampleFiltered,
+          },
+        },
+      },
+    },
+  },
+  responses: {
+    200: {
+      description: '成功',
+      content: {
+        'application/json': {
+          schema: okData(SearchPivotDataSchema),
+          examples: { success: { summary: '透视响应', value: pivotResponseExample } },
+        },
+      },
+    },
+    400: { content: { 'application/json': { schema: ApiError } }, description: '参数错误' },
+    404: { content: { 'application/json': { schema: ApiError } }, description: '分组不存在' },
+  },
+})
+
+searchRouter.use('/pivot', requireRole('reader'))
+searchRouter.openapi(pivotRoute, async (c) => {
+  const { entityType, rowGroupSlug, colGroupSlug, filter, topN } = c.req.valid('json')
+
+  if (rowGroupSlug === colGroupSlug) {
+    return c.json({ code: 400, message: 'rowGroupSlug 与 colGroupSlug 必须不同' }, 400)
+  }
+
+  // 1) 解析 group slug → id
+  const [rowGroup, colGroup] = await Promise.all([
+    prisma.tagGroup.findFirst({ where: { slug: rowGroupSlug, deletedAt: null }, select: { id: true } }),
+    prisma.tagGroup.findFirst({ where: { slug: colGroupSlug, deletedAt: null }, select: { id: true } }),
+  ])
+  if (!rowGroup) return c.json({ code: 404, message: `行维度分组「${rowGroupSlug}」不存在` }, 404)
+  if (!colGroup) return c.json({ code: 404, message: `列维度分组「${colGroupSlug}」不存在` }, 404)
+
+  try {
+    // 2) 编译 filter（缺省=无过滤）
+    const filterSql = filter
+      ? Prisma.sql`AND ${await compileBoolExpr(filter)}`
+      : Prisma.empty
+
+    // 3) 在过滤子集上分别取 top-N 行/列 tag、grand total、uncategorized
+    type AxisRow = { id: string; slug: string; name: string; total: bigint }
+    type CountRow = { count: bigint }
+
+    const axisTopNSql = (groupId: string) => Prisma.sql`
+      SELECT t.id, t.slug, t.name, COUNT(DISTINCT et."entityId")::bigint AS total
+      FROM "EntityTag" et
+      JOIN "Tag" t ON t.id = et."tagId" AND t."deletedAt" IS NULL
+      JOIN "RegisteredEntity" re ON re."entityType" = et."entityType" AND re."entityId" = et."entityId"
+      WHERE re."entityType" = ${entityType}
+        AND et."status" = 'active'
+        AND t."groupId" = ${groupId}
+        ${filterSql}
+      GROUP BY t.id, t.slug, t.name
+      ORDER BY total DESC, t.name ASC
+      LIMIT ${topN}
+    `
+
+    const [rowAxis, colAxis, grandRows, uncatRowRows, uncatColRows] = await Promise.all([
+      prisma.$queryRaw<AxisRow[]>(axisTopNSql(rowGroup.id)),
+      prisma.$queryRaw<AxisRow[]>(axisTopNSql(colGroup.id)),
+      // grand total
+      prisma.$queryRaw<CountRow[]>(Prisma.sql`
+        SELECT COUNT(*)::bigint AS count
+        FROM "RegisteredEntity" re
+        WHERE re."entityType" = ${entityType}
+          ${filterSql}
+      `),
+      // uncategorized row: 该 entityType 实体子集中，没有 rowGroup 任何 active tag 的数量
+      prisma.$queryRaw<CountRow[]>(Prisma.sql`
+        SELECT COUNT(*)::bigint AS count
+        FROM "RegisteredEntity" re
+        WHERE re."entityType" = ${entityType}
+          ${filterSql}
+          AND NOT EXISTS (
+            SELECT 1 FROM "EntityTag" et
+            JOIN "Tag" t ON t.id = et."tagId" AND t."deletedAt" IS NULL
+            WHERE et."entityType" = re."entityType"
+              AND et."entityId"   = re."entityId"
+              AND et."status" = 'active'
+              AND t."groupId" = ${rowGroup.id}
+          )
+      `),
+      prisma.$queryRaw<CountRow[]>(Prisma.sql`
+        SELECT COUNT(*)::bigint AS count
+        FROM "RegisteredEntity" re
+        WHERE re."entityType" = ${entityType}
+          ${filterSql}
+          AND NOT EXISTS (
+            SELECT 1 FROM "EntityTag" et
+            JOIN "Tag" t ON t.id = et."tagId" AND t."deletedAt" IS NULL
+            WHERE et."entityType" = re."entityType"
+              AND et."entityId"   = re."entityId"
+              AND et."status" = 'active'
+              AND t."groupId" = ${colGroup.id}
+          )
+      `),
+    ])
+
+    const rowTagIds = rowAxis.map(r => r.id)
+    const colTagIds = colAxis.map(r => r.id)
+
+    // 4) cells：在 top-N x top-N 上聚合
+    type CellRow = { rowTagId: string; colTagId: string; cnt: bigint }
+    const cellRows = rowTagIds.length > 0 && colTagIds.length > 0
+      ? await prisma.$queryRaw<CellRow[]>(Prisma.sql`
+          SELECT er."tagId" AS "rowTagId", ec."tagId" AS "colTagId",
+                 COUNT(DISTINCT er."entityId")::bigint AS cnt
+          FROM "EntityTag" er
+          JOIN "EntityTag" ec ON ec."entityType" = er."entityType"
+                              AND ec."entityId"   = er."entityId"
+                              AND ec."status" = 'active'
+          JOIN "RegisteredEntity" re ON re."entityType" = er."entityType"
+                                     AND re."entityId"   = er."entityId"
+          WHERE er."entityType" = ${entityType}
+            AND er."status" = 'active'
+            AND er."tagId" = ANY(${rowTagIds}::text[])
+            AND ec."tagId" = ANY(${colTagIds}::text[])
+            ${filterSql}
+          GROUP BY er."tagId", ec."tagId"
+        `)
+      : []
+
+    const cells: Record<string, number> = {}
+    for (const r of cellRows) cells[`${r.rowTagId}:${r.colTagId}`] = Number(r.cnt)
+
+    return c.json({
+      code: 0,
+      data: {
+        rows: rowAxis.map(r => ({ tagId: r.id, slug: r.slug, name: r.name, total: Number(r.total) })),
+        cols: colAxis.map(r => ({ tagId: r.id, slug: r.slug, name: r.name, total: Number(r.total) })),
+        cells,
+        grandTotal: Number(grandRows[0]?.count ?? 0),
+        uncategorized: {
+          row: Number(uncatRowRows[0]?.count ?? 0),
+          col: Number(uncatColRows[0]?.count ?? 0),
+        },
+      },
+    }, 200)
+  } catch (error: unknown) {
+    logger.error({ err: error }, 'Search pivot error')
     throw error
   }
 })

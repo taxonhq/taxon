@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 import {
-  Tag, Layers, ClipboardCheck, Box, LayoutDashboard,
+  Tag, Layers, ClipboardCheck, Box, LayoutDashboard, Search,
   ChevronLeft, ChevronRight, HelpCircle, KeyRound,
 } from "lucide-react";
 import { NavLink } from "@/components/nav-link";
@@ -21,6 +21,7 @@ const NAV_TOP = [
 const NAV = [
   { href: "/groups",   icon: Layers,        label: "分组管理" },
   { href: "/entities", icon: Box,           label: "实体管理" },
+  { href: "/search",   icon: Search,        label: "实体检索" },
   { href: "/audit",    icon: ClipboardCheck, label: "审核队列" },
 ] as const;
 

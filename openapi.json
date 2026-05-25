@@ -6372,6 +6372,315 @@
           }
         }
       }
+    },
+    "/search/pivot": {
+      "post": {
+        "tags": [
+          "检索"
+        ],
+        "summary": "二维标签透视（pivot）",
+        "description": "二维标签透视：以两个 TagGroup 作为 X/Y 轴，每个 cell 为\"同时持有该 row tag 和 col tag 的 active 实体数\"。\n\n### 用法\n- `rowGroupSlug` / `colGroupSlug` 必须是不同的 group\n- `topN` 限制每个维度只返回实体最多的前 N 个标签，避免巨表\n- `filter` 可选，传 BoolExpr 限定子集（例如\"只看 AI 标签 且 置信度 >= 0.7\"的实体）\n\n### 性能说明\n- 三次 SQL：top-N rows / top-N cols / cells join\n- cells 在 top-N × top-N 的笛卡尔积上聚合（topN=20 时 = 400 cells）\n- 大数据集建议先用 filter 缩小到几千实体内\n\n### 设计意图\n让运营/管理员**一眼看到标签覆盖盲区**：例如\"川菜 + 素食 = 3 条\" 揭示新菜系覆盖不足。",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "entityType": {
+                    "type": "string",
+                    "minLength": 1,
+                    "description": "实体类型，必填"
+                  },
+                  "rowGroupSlug": {
+                    "type": "string",
+                    "minLength": 1,
+                    "description": "行维度的 TagGroup slug（X 轴）"
+                  },
+                  "colGroupSlug": {
+                    "type": "string",
+                    "minLength": 1,
+                    "description": "列维度的 TagGroup slug（Y 轴）"
+                  },
+                  "filter": {
+                    "allOf": [
+                      {
+                        "$ref": "#/components/schemas/BoolExpr"
+                      },
+                      {
+                        "description": "可选 BoolExpr 限定子集"
+                      }
+                    ]
+                  },
+                  "topN": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "exclusiveMinimum": true,
+                    "maximum": 50,
+                    "default": 20,
+                    "description": "每个维度只取实体数最多的 top-N 标签（避免巨表）"
+                  }
+                },
+                "required": [
+                  "entityType",
+                  "rowGroupSlug",
+                  "colGroupSlug"
+                ],
+                "description": "Pivot 透视请求"
+              },
+              "examples": {
+                "basic": {
+                  "summary": "1. 基础透视：菜系 × 膳食",
+                  "value": {
+                    "entityType": "dish",
+                    "rowGroupSlug": "cuisine",
+                    "colGroupSlug": "dietary",
+                    "topN": 20
+                  }
+                },
+                "filtered": {
+                  "summary": "2. 限定 AI 高置信度的子集",
+                  "value": {
+                    "entityType": "dish",
+                    "rowGroupSlug": "cuisine",
+                    "colGroupSlug": "dietary",
+                    "topN": 10,
+                    "filter": {
+                      "and": [
+                        {
+                          "source": [
+                            "ai"
+                          ]
+                        },
+                        {
+                          "confidence": {
+                            "gte": 0.8
+                          }
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "rows": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "tagId": {
+                                "type": "string"
+                              },
+                              "slug": {
+                                "type": "string"
+                              },
+                              "name": {
+                                "type": "string"
+                              },
+                              "total": {
+                                "type": "integer",
+                                "description": "该维度上该标签的总实体数（不区分另一维）"
+                              }
+                            },
+                            "required": [
+                              "tagId",
+                              "slug",
+                              "name",
+                              "total"
+                            ]
+                          },
+                          "description": "行维度 top-N 标签"
+                        },
+                        "cols": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "tagId": {
+                                "type": "string"
+                              },
+                              "slug": {
+                                "type": "string"
+                              },
+                              "name": {
+                                "type": "string"
+                              },
+                              "total": {
+                                "type": "integer",
+                                "description": "该维度上该标签的总实体数（不区分另一维）"
+                              }
+                            },
+                            "required": [
+                              "tagId",
+                              "slug",
+                              "name",
+                              "total"
+                            ]
+                          },
+                          "description": "列维度 top-N 标签"
+                        },
+                        "cells": {
+                          "type": "object",
+                          "additionalProperties": {
+                            "type": "integer"
+                          },
+                          "description": "cell 计数，key=`<rowTagId>:<colTagId>`，0 值省略"
+                        },
+                        "grandTotal": {
+                          "type": "integer",
+                          "description": "该 entityType 下的实体总数（含未打这两维标签的）"
+                        },
+                        "uncategorized": {
+                          "type": "object",
+                          "properties": {
+                            "row": {
+                              "type": "integer",
+                              "description": "在 rowGroup 下无标签的实体数"
+                            },
+                            "col": {
+                              "type": "integer",
+                              "description": "在 colGroup 下无标签的实体数"
+                            }
+                          },
+                          "required": [
+                            "row",
+                            "col"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "rows",
+                        "cols",
+                        "cells",
+                        "grandTotal",
+                        "uncategorized"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "data"
+                  ]
+                },
+                "examples": {
+                  "success": {
+                    "summary": "透视响应",
+                    "value": {
+                      "code": 0,
+                      "data": {
+                        "rows": [
+                          {
+                            "tagId": "t_sichuan",
+                            "slug": "sichuan",
+                            "name": "川菜",
+                            "total": 87
+                          },
+                          {
+                            "tagId": "t_hunan",
+                            "slug": "hunan",
+                            "name": "湘菜",
+                            "total": 41
+                          }
+                        ],
+                        "cols": [
+                          {
+                            "tagId": "t_vegan",
+                            "slug": "vegan",
+                            "name": "素食",
+                            "total": 13
+                          },
+                          {
+                            "tagId": "t_halal",
+                            "slug": "halal",
+                            "name": "清真",
+                            "total": 14
+                          }
+                        ],
+                        "cells": {
+                          "t_sichuan:t_vegan": 3,
+                          "t_sichuan:t_halal": 8,
+                          "t_hunan:t_vegan": 1,
+                          "t_hunan:t_halal": 4
+                        },
+                        "grandTotal": 151,
+                        "uncategorized": {
+                          "row": 12,
+                          "col": 124
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "参数错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "分组不存在",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
     }
   }
 }

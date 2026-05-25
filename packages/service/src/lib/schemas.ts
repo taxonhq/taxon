@@ -305,6 +305,38 @@ export const SearchEntitiesDataSchema = z.object({
 
 export type SearchEntitiesInput = z.infer<typeof SearchEntitiesBody>
 
+// ── Pivot 交叉透视 schemas ────────────────────────────────────────────────────
+// 二维标签透视：选两个 group 作为 X/Y 轴，每个 cell 是"同时持有该 row tag 和
+// col tag 的活跃实体数"。详见 #17 设计扩展（控制台 showcase）。
+export const SearchPivotBody = z.object({
+  entityType:   z.string().min(1).openapi({ description: '实体类型，必填' }),
+  rowGroupSlug: z.string().min(1).openapi({ description: '行维度的 TagGroup slug（X 轴）' }),
+  colGroupSlug: z.string().min(1).openapi({ description: '列维度的 TagGroup slug（Y 轴）' }),
+  filter:       BoolExprSchema.optional().openapi({ description: '可选 BoolExpr 限定子集' }),
+  topN:         z.number().int().positive().max(50).default(20).openapi({ description: '每个维度只取实体数最多的 top-N 标签（避免巨表）' }),
+}).openapi({ description: 'Pivot 透视请求' })
+
+export const PivotAxisItemSchema = z.object({
+  tagId:    z.string(),
+  slug:     z.string(),
+  name:     z.string(),
+  total:    z.number().int().openapi({ description: '该维度上该标签的总实体数（不区分另一维）' }),
+})
+
+export const SearchPivotDataSchema = z.object({
+  rows:           z.array(PivotAxisItemSchema).openapi({ description: '行维度 top-N 标签' }),
+  cols:           z.array(PivotAxisItemSchema).openapi({ description: '列维度 top-N 标签' }),
+  // cells: 稀疏存储，key 形如 "<rowTagId>:<colTagId>"
+  cells:          z.record(z.string(), z.number().int()).openapi({ description: 'cell 计数，key=`<rowTagId>:<colTagId>`，0 值省略' }),
+  grandTotal:     z.number().int().openapi({ description: '该 entityType 下的实体总数（含未打这两维标签的）' }),
+  uncategorized:  z.object({
+    row: z.number().int().openapi({ description: '在 rowGroup 下无标签的实体数' }),
+    col: z.number().int().openapi({ description: '在 colGroup 下无标签的实体数' }),
+  }),
+})
+
+export type SearchPivotInput = z.infer<typeof SearchPivotBody>
+
 // ── Token schemas ─────────────────────────────────────────────────────────────
 export const ApiTokenSchema = z.object({
   id:         z.string(),

@@ -261,6 +261,22 @@ export async function getTagGroupTree(groupId: string): Promise<TagTreeNode[]> {
   return req<TagTreeNode[]>(`/tag-groups/${groupId}/tree`);
 }
 
+/** 跨分组搜索标签（用于全局选择器 / 工作台 tag picker）。
+ *  q: 名称模糊匹配；groupId: 限定分组（可选） */
+export async function searchTags(params?: {
+  q?: string;
+  groupId?: string;
+  page?: number;
+  pageSize?: number;
+}): Promise<Paginated<Tag>> {
+  const qs = new URLSearchParams();
+  if (params?.q)        qs.set("q",        params.q);
+  if (params?.groupId)  qs.set("groupId",  params.groupId);
+  if (params?.page)     qs.set("page",     String(params.page));
+  if (params?.pageSize) qs.set("pageSize", String(params.pageSize));
+  return req<Paginated<Tag>>(`/tags${qs.size ? `?${qs}` : ""}`);
+}
+
 // ── Tag Aliases ───────────────────────────────────────────────────
 
 export async function getTagAliases(tagId: string): Promise<TagAlias[]> {
@@ -495,6 +511,86 @@ export async function getMetricsToday(): Promise<TodayResult> {
 }
 export async function getMetricsActivity(limit = 10): Promise<ActivityEvent[]> {
   return req<ActivityEvent[]>(`/metrics/activity?limit=${limit}`);
+}
+
+// ── 多维检索 / 透视 ───────────────────────────────────────────────
+
+// BoolExpr DSL 类型，对齐 service/src/lib/schemas.ts
+export type BoolExpr =
+  | { tag: string }
+  | { tagSlug: string; groupSlug?: string }
+  | { tagAlias: string; groupSlug?: string }
+  | { descendantOf: string }
+  | { source: ("manual" | "ai" | "system" | "import")[] }
+  | { confidence: { gte?: number; lte?: number } }
+  | { status: ("active" | "pending" | "rejected")[] }
+  | { and: BoolExpr[] }
+  | { or:  BoolExpr[] }
+  | { not: BoolExpr };
+
+export interface SearchEntitiesRequest {
+  entityType: string;
+  filter?:    BoolExpr;
+  page?:      number;
+  pageSize?:  number;
+  sort?:      "registeredAt:desc" | "registeredAt:asc" | "taggedAt:desc" | "taggedAt:asc";
+  include?:   ("tags")[];
+  facets?:    ("groupId")[];
+}
+
+export interface FacetTagItem {
+  tagId:    string;
+  tagSlug:  string;
+  tagName:  string;
+  groupId:  string;
+  count:    number;
+}
+
+export interface SearchEntitiesResult {
+  items:    RegisteredEntity[];
+  total:    number;
+  page:     number;
+  pageSize: number;
+  facets?:  Record<string, Record<string, FacetTagItem[]>>;
+}
+
+export async function searchEntities(body: SearchEntitiesRequest): Promise<SearchEntitiesResult> {
+  return req<SearchEntitiesResult>("/search/entities", {
+    method:  "POST",
+    headers: { "Content-Type": "application/json" },
+    body:    JSON.stringify(body),
+  });
+}
+
+export interface PivotAxisItem {
+  tagId: string;
+  slug:  string;
+  name:  string;
+  total: number;
+}
+
+export interface PivotRequest {
+  entityType:   string;
+  rowGroupSlug: string;
+  colGroupSlug: string;
+  filter?:      BoolExpr;
+  topN?:        number;
+}
+
+export interface PivotResult {
+  rows:           PivotAxisItem[];
+  cols:           PivotAxisItem[];
+  cells:          Record<string, number>;
+  grandTotal:     number;
+  uncategorized:  { row: number; col: number };
+}
+
+export async function searchPivot(body: PivotRequest): Promise<PivotResult> {
+  return req<PivotResult>("/search/pivot", {
+    method:  "POST",
+    headers: { "Content-Type": "application/json" },
+    body:    JSON.stringify(body),
+  });
 }
 
 // ── Token 管理 ────────────────────────────────────────────────────

@@ -215,6 +215,7 @@ export function buildApp(opts: AppOptions = {}) {
   app.use('/entity-types', bearerAuth)
   app.use('/tokens',       bearerAuth)
   app.use('/tokens/*',     bearerAuth)
+  app.use('/search/*',     bearerAuth)
 
   // ── 实体路径参数格式校验 ────────────────────────────────────────
   app.use('/entities/:entityType', validateEntityParams)
