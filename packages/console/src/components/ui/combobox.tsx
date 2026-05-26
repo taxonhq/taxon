@@ -195,7 +195,7 @@ export function Combobox({
       <div
         className={cn(
           "flex items-center w-full px-3 py-2 text-sm bg-input border border-edge-mid rounded-lg",
-          "focus-within:border-edge-strong focus-within:ring-2 focus-within:ring-white/[.04]",
+          "focus-within:border-edge-strong focus-within:ring-2 focus-within:ring-brand-1/40",
           "hover:border-edge-strong/60 transition-all duration-150",
         )}
       >
@@ -218,6 +218,7 @@ export function Combobox({
               type="button"
               tabIndex={-1}
               onClick={() => { commit(""); inputRef.current?.focus(); }}
+              aria-label="清除"
               className="text-ink-faint hover:text-ink transition-colors"
             >
               <X size={12} />

@@ -209,29 +209,30 @@ function TagNode({ node, callbacks, draggingId, overId, allNodes }: NodeProps) {
                 ? "text-ink bg-surface-alt"
                 : "text-ink-faint hover:text-ink hover:bg-surface-alt",
             ].join(" ")}
+            aria-label="管理别名"
             title="管理别名"
           >
             <Tag size={11} />
             {aliasCount > 0 && <span>{aliasCount}</span>}
           </button>
 
-          <button onClick={() => callbacks.onAdd(node.id)} className="p-1 rounded text-ink-faint hover:text-ink hover:bg-surface-alt transition-colors" title="新建子标签">
+          <button onClick={() => callbacks.onAdd(node.id)} className="p-1 rounded text-ink-faint hover:text-ink hover:bg-surface-alt transition-colors" aria-label="新建子标签" title="新建子标签">
             <Plus size={12} />
           </button>
           {callbacks.onMerge && (
-            <button onClick={() => callbacks.onMerge!(node)} className="p-1 rounded text-ink-faint hover:text-ink hover:bg-surface-alt transition-colors" title="合并到…">
+            <button onClick={() => callbacks.onMerge!(node)} className="p-1 rounded text-ink-faint hover:text-ink hover:bg-surface-alt transition-colors" aria-label="合并到…" title="合并到…">
               <GitMerge size={12} />
             </button>
           )}
           {callbacks.onMoveGroup && (
-            <button onClick={() => callbacks.onMoveGroup!(node)} className="p-1 rounded text-ink-faint hover:text-ink hover:bg-surface-alt transition-colors" title="移动到分组…">
+            <button onClick={() => callbacks.onMoveGroup!(node)} className="p-1 rounded text-ink-faint hover:text-ink hover:bg-surface-alt transition-colors" aria-label="移动到分组…" title="移动到分组…">
               <FolderInput size={12} />
             </button>
           )}
-          <button onClick={() => callbacks.onEdit(node)} className="p-1 rounded text-ink-faint hover:text-ink hover:bg-surface-alt transition-colors" title="编辑">
+          <button onClick={() => callbacks.onEdit(node)} className="p-1 rounded text-ink-faint hover:text-ink hover:bg-surface-alt transition-colors" aria-label="编辑" title="编辑">
             <Pencil size={12} />
           </button>
-          <button onClick={() => callbacks.onDelete(node)} className="p-1 rounded text-bad/60 hover:text-bad hover:bg-bad/10 transition-colors" title="删除">
+          <button onClick={() => callbacks.onDelete(node)} className="p-1 rounded text-bad/60 hover:text-bad hover:bg-bad/10 transition-colors" aria-label="删除" title="删除">
             <Trash2 size={12} />
           </button>
         </div>

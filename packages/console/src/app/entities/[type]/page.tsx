@@ -192,11 +192,12 @@ export default function EntityTypePage() {
             value={search}
             onChange={e => handleSearchChange(e.target.value)}
             placeholder="搜索实体 ID…"
-            className="w-full pl-8 pr-8 py-2 text-sm bg-input border border-edge-mid rounded-lg text-ink placeholder:text-ink-faint focus:outline-none focus:border-edge-strong focus:ring-2 focus:ring-white/[.04] hover:border-edge-strong/60 transition-all font-mono"
+            className="w-full pl-8 pr-8 py-2 text-sm bg-input border border-edge-mid rounded-lg text-ink placeholder:text-ink-faint focus:outline-none focus:border-edge-strong focus:ring-2 focus:ring-brand-1/40 hover:border-edge-strong/60 transition-all font-mono"
           />
           {search && (
             <button
               onClick={() => handleSearchChange("")}
+              aria-label="清除搜索"
               className="absolute right-2.5 top-1/2 -translate-y-1/2 text-ink-faint hover:text-ink transition-colors"
             >
               <X size={12} />

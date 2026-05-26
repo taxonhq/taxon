@@ -25,19 +25,33 @@ import { PageHeader } from "@/components/ui/page-header";
 import { useDashboardData } from "@/components/dashboard/use-dashboard-data";
 import { renderWidget } from "@/components/dashboard/widgets";
 import {
-  CANVAS_W, COLS, ROW_H, MARGIN, PAD,
-  LAYOUT_VERSION, DEFAULT_LAYOUT,
+  ROW_H, MARGIN, PAD,
+  LAYOUT_VERSION,
   SIZE_PRESETS, WIDGET_PRESETS, WIDGET_LABELS,
-  currentPreset, type SizeKey,
+  currentPreset,
+  getBreakpoint, getCols, getCanvasWidth, getDefaultLayout,
+  type SizeKey, type BreakpointKey,
 } from "@/components/dashboard/layout-config";
 
 type PersistedLayout = PersistedDashboardLayout & { items: LayoutItem[] };
 
 export default function DashboardPage() {
-  const [layout,      setLayout]      = useState<LayoutItem[]>(DEFAULT_LAYOUT);
+  const [layout,      setLayout]      = useState<LayoutItem[]>([]);
   const [editMode,    setEditMode]    = useState(false);
   const [layoutReady, setLayoutReady] = useState(false);
+  const [breakpoint,  setBreakpoint]  = useState<BreakpointKey>("xl");
   const saveTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+
+  // ── 响应式断点检测 ────────────────────────────────────────────────
+  useEffect(() => {
+    const updateBreakpoint = () => {
+      const bp = getBreakpoint(window.innerWidth);
+      setBreakpoint(prev => prev !== bp ? bp : prev);
+    };
+    updateBreakpoint();
+    window.addEventListener("resize", updateBreakpoint);
+    return () => window.removeEventListener("resize", updateBreakpoint);
+  }, []);
 
   // 数据：编辑态暂停自动刷新（避免数据跳变干扰拖拽）
   const { data, loading, refreshing, updatedAt, refresh } = useDashboardData({
@@ -53,11 +67,16 @@ export default function DashboardPage() {
         if (saved && !Array.isArray(saved) && saved.version === LAYOUT_VERSION
             && Array.isArray(saved.items) && saved.items.length > 0) {
           setLayout(saved.items as LayoutItem[]);
+        } else {
+          // 无有效保存布局时使用当前断点的默认布局
+          setLayout(getDefaultLayout(breakpoint));
         }
       })
-      .catch(() => { /* 静默 */ })
+      .catch(() => {
+        setLayout(getDefaultLayout(breakpoint));
+      })
       .finally(() => setLayoutReady(true));
-  }, []);
+  }, [breakpoint]);
 
   // ── 持久化（防抖）─────────────────────────────────────────────────
   const persist = useCallback((items: LayoutItem[]) => {
@@ -86,9 +105,10 @@ export default function DashboardPage() {
 
   const resetLayout = useCallback(() => {
     if (!confirm("确认重置布局为默认？")) return;
-    setLayout(DEFAULT_LAYOUT);
-    persist(DEFAULT_LAYOUT);
-  }, [persist]);
+    const defaultLayout = getDefaultLayout(breakpoint);
+    setLayout(defaultLayout);
+    persist(defaultLayout);
+  }, [persist, breakpoint]);
 
   // ── 倒计时刷新指示（仅展示模式）────────────────────────────────
   const [countdown, setCountdown] = useState(10);
@@ -165,9 +185,9 @@ export default function DashboardPage() {
       >
         <ReactGridLayout
           layout={layout}
-          cols={COLS}
+          cols={getCols(breakpoint)}
           rowHeight={ROW_H}
-          width={CANVAS_W}
+          width={getCanvasWidth(breakpoint)}
           margin={MARGIN}
           containerPadding={PAD}
           isDraggable={editMode}
