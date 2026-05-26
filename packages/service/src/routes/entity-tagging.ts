@@ -125,11 +125,15 @@ taggingRouter.openapi(replaceEntityTagsRoute, async (c) => {
 })
 
 // ── POST /:entityType/:entityId/tags/:tagId ───────────────────────────────────
+// 打标 (writer)、审核 (reviewer)、摘标 (writer) 三种操作共享同一路径，
+// 但权限要求不同。这里用 createRoute 的 middleware 字段做 per-route
+// 精细化授权，避免 path-level .use() 把所有方法收敛到同一最低门槛。
 const addEntityTagRoute = createRoute({
   method: 'post', path: '/{entityType}/{entityId}/tags/{tagId}',
   tags: ['实体标签'],
   summary: '增量打标（单个）',
   security: [{ BearerAuth: [] }],
+  middleware: [requireRole('writer')] as const,
   request: {
     params: EntityTagWithTagIdParams,
     body: { content: { 'application/json': { schema: AddEntityTagBody } }, required: false },
@@ -137,13 +141,13 @@ const addEntityTagRoute = createRoute({
   responses: {
     200: { content: { 'application/json': { schema: OkMessage } }, description: '成功' },
     400: { content: { 'application/json': { schema: ApiError } }, description: '参数错误' },
+    403: { content: { 'application/json': { schema: ApiError } }, description: '权限不足' },
     404: { content: { 'application/json': { schema: ApiError } }, description: '标签不存在' },
     409: { content: { 'application/json': { schema: ApiError } }, description: '已打标' },
     422: { content: { 'application/json': { schema: ApiError } }, description: '不允许多选' },
   },
 })
 
-taggingRouter.use('/:entityType/:entityId/tags/:tagId', requireRole('writer'))
 taggingRouter.openapi(addEntityTagRoute, async (c) => {
   const { entityType, entityId, tagId } = c.req.valid('param')
   let body: { source?: string; confidence?: number | null; note?: string } = {}
@@ -200,11 +204,14 @@ taggingRouter.openapi(addEntityTagRoute, async (c) => {
 })
 
 // ── PATCH /:entityType/:entityId/tags/:tagId ──────────────────────────────────
+// 审核动作（通过 / 拒绝 / 重置 status，写 reviewer / reviewNote）属于 reviewer
+// 专属职权，writer 不应越权改变 EntityTag.status。
 const updateEntityTagRoute = createRoute({
   method: 'patch', path: '/{entityType}/{entityId}/tags/{tagId}',
   tags: ['实体标签'],
   summary: '审核标签状态',
   security: [{ BearerAuth: [] }],
+  middleware: [requireRole('reviewer')] as const,
   request: {
     params: EntityTagWithTagIdParams,
     body: { content: { 'application/json': { schema: UpdateEntityTagBody } }, required: true },
@@ -212,6 +219,7 @@ const updateEntityTagRoute = createRoute({
   responses: {
     200: { content: { 'application/json': { schema: OkMessage } }, description: '成功' },
     400: { content: { 'application/json': { schema: ApiError } }, description: '参数错误' },
+    403: { content: { 'application/json': { schema: ApiError } }, description: '权限不足（需要 reviewer 或更高）' },
     404: { content: { 'application/json': { schema: ApiError } }, description: '关联不存在' },
   },
 })
@@ -247,6 +255,8 @@ taggingRouter.openapi(updateEntityTagRoute, async (c) => {
 })
 
 // ── GET /:entityType/:entityId/tags/:tagId/history ────────────────────────────
+// 读操作：bearerAuth 已确保认证，所有角色（reader+）均可查看审核历史以保
+// 障可观测性 / 透明度。无需额外 requireRole。
 const getTagHistoryRoute = createRoute({
   method: 'get', path: '/{entityType}/{entityId}/tags/{tagId}/history',
   tags: ['实体标签'],
@@ -272,14 +282,17 @@ taggingRouter.openapi(getTagHistoryRoute, async (c) => {
 })
 
 // ── DELETE /:entityType/:entityId/tags/:tagId ─────────────────────────────────
+// 摘标是打标的逆向，业务系统日常清理误打标记或回退标签，writer 即可。
 const removeEntityTagRoute = createRoute({
   method: 'delete', path: '/{entityType}/{entityId}/tags/{tagId}',
   tags: ['实体标签'],
   summary: '摘标',
   security: [{ BearerAuth: [] }],
+  middleware: [requireRole('writer')] as const,
   request: { params: EntityTagWithTagIdParams },
   responses: {
     200: { content: { 'application/json': { schema: OkMessage } }, description: '成功' },
+    403: { content: { 'application/json': { schema: ApiError } }, description: '权限不足' },
     404: { content: { 'application/json': { schema: ApiError } }, description: '关联不存在' },
   },
 })
