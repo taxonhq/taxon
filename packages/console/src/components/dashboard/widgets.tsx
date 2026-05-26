@@ -23,31 +23,32 @@ import type { ActivityEvent, HealthInfo, TrendPoint } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
 // ═══════════════════════════════════════════════════════════════
-// 设计 tokens
+// 设计 tokens — 仅保留 recharts 必须用字符串 fill / stroke 的场景
 // ═══════════════════════════════════════════════════════════════
 /**
- * 设计 token — 全部引用 CSS 变量，自动适配 dark/light 主题。
- * CSS 变量在 globals.css :root / [data-theme="light"] 中定义。
+ * recharts 的 <Area>/<Line>/<Pie> stroke / fill / Tooltip cursor 等 prop
+ * 只接受字符串色值，不接受 Tailwind class。这些场景下用 CSS 变量字符串
+ * 直接引用，自动适配 dark/light 主题。
+ *
+ * 其余所有 UI 部分（文字色、背景、边框）请使用 Tailwind class
+ * （bg-card / text-ink / border-edge ...），不要再走 COLORS 映射。
  */
-export const COLORS = {
-  brand1:  "var(--color-brand-1)",
-  brand2:  "var(--color-brand-2)",
-  cyan:    "var(--color-cyan)",
-  amber:   "var(--color-amber)",
-  ok:      "var(--color-ok)",
-  bad:     "var(--color-bad)",
-  // 文本灰阶
-  ink:     "var(--color-ink)",
-  ink2:    "var(--color-ink-dim)",
-  ink3:    "var(--color-ink-sub)",
-  ink4:    "var(--color-ink-faint)",
-  // 表面 elevation
-  bg1:     "var(--color-surface)",
-  bg2:     "var(--color-row-head)",
-  bg3:     "var(--color-overlay)",
-  edge1:   "var(--color-edge)",
-  edge2:   "var(--color-edge-mid)",
-};
+const CHART = {
+  brand1: "var(--color-brand-1)",
+  brand2: "var(--color-brand-2)",
+  cyan:   "var(--color-cyan)",
+  amber:  "var(--color-amber)",
+  ok:     "var(--color-ok)",
+  bad:    "var(--color-bad)",
+  ink:    "var(--color-ink)",
+  ink3:   "var(--color-ink-sub)",
+  ink4:   "var(--color-ink-faint)",
+  card:   "var(--color-card)",
+  overlay:"var(--color-overlay)",
+  edge:   "var(--color-edge)",
+  edge2:  "var(--color-edge-mid)",
+} as const;
+
 
 const PIE_COLORS = [
   "#6366f1", "#a855f7", "#06b6d4", "#f59e0b", "#22c55e",
@@ -77,16 +78,17 @@ export function WidgetHeader({ icon, title, href, sub }: {
   icon?: React.ReactNode; title: string; href?: string; sub?: string;
 }) {
   return (
-    <div className="flex items-center justify-between px-5 py-3 shrink-0"
-      style={{ borderBottom: `1px solid ${COLORS.edge1}` }}>
+    <div className="flex items-center justify-between px-5 py-3 shrink-0 border-b border-edge">
       <div className="flex items-center gap-2 min-w-0">
-        {icon && <span style={{ color: COLORS.ink3 }}>{icon}</span>}
-        <p className="text-sm font-semibold truncate" style={{ color: COLORS.ink2 }}>{title}</p>
-        {sub && <span className="text-2xs" style={{ color: COLORS.ink4 }}>· {sub}</span>}
+        {icon && <span className="text-ink-sub">{icon}</span>}
+        <p className="text-sm font-semibold truncate text-ink-dim">{title}</p>
+        {sub && <span className="text-2xs text-ink-faint">· {sub}</span>}
       </div>
       {href && (
-        <Link href={href} className="flex items-center gap-0.5 text-2xs hover:opacity-100 transition-opacity"
-          style={{ color: COLORS.ink3, textDecoration: "none" }}>
+        <Link
+          href={href}
+          className="flex items-center gap-0.5 text-2xs text-ink-sub no-underline hover:opacity-100 transition-opacity"
+        >
           全部 <ChevronRight size={10} />
         </Link>
       )}
@@ -96,7 +98,7 @@ export function WidgetHeader({ icon, title, href, sub }: {
 
 export function WidgetEmpty({ text }: { text: string }) {
   return (
-    <div className="flex-1 flex items-center justify-center text-sm" style={{ color: COLORS.ink4 }}>
+    <div className="flex-1 flex items-center justify-center text-sm text-ink-faint">
       {text}
     </div>
   );
@@ -115,8 +117,8 @@ export function KpiHero({ data }: { data: DashboardData }) {
       {/* 标题 */}
       <div className="flex items-center justify-between shrink-0">
         <div className="flex items-center gap-2">
-          <Sparkles size={14} style={{ color: COLORS.brand2 }} />
-          <span className="text-xs font-semibold uppercase tracking-[0.15em]" style={{ color: COLORS.ink3 }}>
+          <Sparkles size={14} className="text-brand-2" />
+          <span className="text-xs font-semibold uppercase tracking-[0.15em] text-ink-sub">
             核心指标 · 标签总数
           </span>
         </div>
@@ -125,16 +127,12 @@ export function KpiHero({ data }: { data: DashboardData }) {
             className={cn(
               "flex items-center gap-1.5 px-2 py-0.5 rounded-full border",
               todayTags.comparePct >= 0
-                ? "bg-ok/10 border-ok/25"
-                : "bg-bad/10 border-bad/25",
+                ? "bg-ok/10 border-ok/25 text-ok"
+                : "bg-bad/10 border-bad/25 text-bad",
             )}
           >
-            {todayTags.comparePct >= 0
-              ? <TrendingUp size={10} style={{ color: COLORS.ok }} />
-              : <TrendingDown size={10} style={{ color: COLORS.bad }} />}
-            <span className="text-2xs font-bold tabular-nums" style={{
-              color: todayTags.comparePct >= 0 ? COLORS.ok : COLORS.bad,
-            }}>
+            {todayTags.comparePct >= 0 ? <TrendingUp size={10} /> : <TrendingDown size={10} />}
+            <span className="text-2xs font-bold tabular-nums">
               {pctSign(todayTags.comparePct)}
             </span>
           </div>
@@ -143,18 +141,21 @@ export function KpiHero({ data }: { data: DashboardData }) {
 
       {/* 大数字 */}
       <div className="mt-6">
-        <p className="font-extrabold leading-none tabular-nums"
-          style={{ fontSize: 88, letterSpacing: "-0.05em", color: COLORS.ink,
-                   background: `linear-gradient(135deg, ${COLORS.ink} 0%, ${COLORS.brand2} 120%)`,
-                   WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent",
-                   backgroundClip: "text" }}>
+        <p
+          className="font-extrabold leading-none tabular-nums text-display-2xl bg-clip-text"
+          style={{
+            letterSpacing: "-0.05em",
+            backgroundImage: `linear-gradient(135deg, ${CHART.ink} 0%, ${CHART.brand2} 120%)`,
+            WebkitTextFillColor: "transparent",
+          }}
+        >
           {fmt(stats.tags)}
         </p>
         <div className="flex items-baseline gap-3 mt-2">
-          <span className="text-sm" style={{ color: COLORS.ink3 }}>标签实例总数</span>
+          <span className="text-sm text-ink-sub">标签实例总数</span>
           {todayTags && (
-            <span className="text-xs tabular-nums" style={{ color: COLORS.ink3 }}>
-              今日 <span className="font-semibold" style={{ color: COLORS.ink }}>+{todayTags.today}</span>
+            <span className="text-xs tabular-nums text-ink-sub">
+              今日 <span className="font-semibold text-ink">+{todayTags.today}</span>
             </span>
           )}
         </div>
@@ -167,18 +168,18 @@ export function KpiHero({ data }: { data: DashboardData }) {
             <AreaChart data={series} margin={{ top: 0, right: 0, bottom: 0, left: 0 }}>
               <defs>
                 <linearGradient id="kpi-grad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%"   stopColor={COLORS.brand2} stopOpacity={0.5} />
-                  <stop offset="100%" stopColor={COLORS.brand2} stopOpacity={0}   />
+                  <stop offset="0%"   stopColor={CHART.brand2} stopOpacity={0.5} />
+                  <stop offset="100%" stopColor={CHART.brand2} stopOpacity={0}   />
                 </linearGradient>
               </defs>
-              <Tooltip content={<TrendTooltip />} cursor={{ stroke: COLORS.edge2 }} />
-              <Area type="monotone" dataKey="tags" stroke={COLORS.brand2} strokeWidth={2}
+              <Tooltip content={<TrendTooltip />} cursor={{ stroke: CHART.edge2 }} />
+              <Area type="monotone" dataKey="tags" stroke={CHART.brand2} strokeWidth={2}
                 fill="url(#kpi-grad)" />
             </AreaChart>
           </ResponsiveContainer>
         )}
       </div>
-      <p className="text-2xs mt-1 tabular-nums" style={{ color: COLORS.ink4 }}>
+      <p className="text-2xs mt-1 tabular-nums text-ink-faint">
         过去 7 天新增标签趋势
       </p>
     </div>
@@ -217,10 +218,14 @@ export function EntityPie({ entityTypes }: { entityTypes: EntityTypeStat[] }) {
               </PieChart>
             </ResponsiveContainer>
             <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-              <p className="text-2xs uppercase tracking-wider" style={{ color: COLORS.ink4 }}>总计</p>
-              <p className="font-extrabold tabular-nums leading-none mt-1"
-                style={{ fontSize: 30, color: COLORS.ink, letterSpacing: "-0.04em" }}>{fmt(total)}</p>
-              <p className="text-2xs mt-1" style={{ color: COLORS.ink3 }}>
+              <p className="text-2xs uppercase tracking-wider text-ink-faint">总计</p>
+              <p
+                className="font-extrabold tabular-nums leading-none mt-1 text-display-lg text-ink"
+                style={{ letterSpacing: "-0.04em" }}
+              >
+                {fmt(total)}
+              </p>
+              <p className="text-2xs mt-1 text-ink-sub">
                 {entityTypes.length} 种类型
               </p>
             </div>
@@ -232,8 +237,8 @@ export function EntityPie({ entityTypes }: { entityTypes: EntityTypeStat[] }) {
               return (
                 <div key={t.entityType} className="flex items-center gap-2 text-xs">
                   <span className="w-2 h-2 rounded-sm shrink-0" style={{ background: PIE_COLORS[i % PIE_COLORS.length] }} />
-                  <span className="flex-1 truncate font-mono" style={{ color: COLORS.ink2 }}>{t.entityType}</span>
-                  <span className="tabular-nums shrink-0" style={{ color: COLORS.ink3 }}>{pct}%</span>
+                  <span className="flex-1 truncate font-mono text-ink-dim">{t.entityType}</span>
+                  <span className="tabular-nums shrink-0 text-ink-sub">{pct}%</span>
                 </div>
               );
             })}
@@ -251,16 +256,13 @@ function TrendTooltip({ active, payload }: { active?: boolean; payload?: Array<{
   if (!active || !payload?.length) return null;
   const p = payload[0].payload;
   return (
-    <div
-      className="text-xs px-3 py-2 rounded-lg border border-edge-mid shadow-lg shadow-black/40"
-      style={{ background: COLORS.bg3 }}
-    >
-      <p className="font-mono mb-1" style={{ color: COLORS.ink3 }}>{p.date.slice(5)}</p>
+    <div className="text-xs px-3 py-2 rounded-lg border border-edge-mid shadow-lg shadow-black/40 bg-overlay">
+      <p className="font-mono mb-1 text-ink-sub">{p.date.slice(5)}</p>
       {payload.map((it, i) => (
         <div key={i} className="flex items-center gap-2">
           <span className="w-2 h-2 rounded-sm" style={{ background: it.color }} />
-          <span style={{ color: COLORS.ink2 }}>{it.name}</span>
-          <span className="font-mono tabular-nums" style={{ color: COLORS.ink }}>{it.value}</span>
+          <span className="text-ink-dim">{it.name}</span>
+          <span className="font-mono tabular-nums text-ink">{it.value}</span>
         </div>
       ))}
     </div>
@@ -276,14 +278,14 @@ export function TrendChart({ data }: { data: DashboardData }) {
         <div className="flex-1 min-h-0 p-3">
           <ResponsiveContainer width="100%" height="100%" minHeight={80}>
             <LineChart data={series} margin={{ top: 12, right: 16, bottom: 8, left: 0 }}>
-              <XAxis dataKey="date" tickFormatter={d => d.slice(5)} stroke={COLORS.ink4}
-                tick={{ fontSize: 10, fill: COLORS.ink3 }} axisLine={false} tickLine={false} />
-              <YAxis stroke={COLORS.ink4} tick={{ fontSize: 10, fill: COLORS.ink3 }}
+              <XAxis dataKey="date" tickFormatter={d => d.slice(5)} stroke={CHART.ink4}
+                tick={{ fontSize: 10, fill: CHART.ink3 }} axisLine={false} tickLine={false} />
+              <YAxis stroke={CHART.ink4} tick={{ fontSize: 10, fill: CHART.ink3 }}
                 axisLine={false} tickLine={false} width={30} />
-              <Tooltip content={<TrendTooltip />} cursor={{ stroke: COLORS.edge2, strokeDasharray: 4 }} />
-              <Line type="monotone" dataKey="tags"     name="标签" stroke={COLORS.brand2} strokeWidth={2} dot={false} />
-              <Line type="monotone" dataKey="entities" name="实体" stroke={COLORS.cyan}   strokeWidth={2} dot={false} />
-              <Line type="monotone" dataKey="reviews"  name="审核" stroke={COLORS.amber}  strokeWidth={2} dot={false} />
+              <Tooltip content={<TrendTooltip />} cursor={{ stroke: CHART.edge2, strokeDasharray: 4 }} />
+              <Line type="monotone" dataKey="tags"     name="标签" stroke={CHART.brand2} strokeWidth={2} dot={false} />
+              <Line type="monotone" dataKey="entities" name="实体" stroke={CHART.cyan}   strokeWidth={2} dot={false} />
+              <Line type="monotone" dataKey="reviews"  name="审核" stroke={CHART.amber}  strokeWidth={2} dot={false} />
             </LineChart>
           </ResponsiveContainer>
         </div>
@@ -291,11 +293,11 @@ export function TrendChart({ data }: { data: DashboardData }) {
       {/* 图例 */}
       <div className="flex items-center justify-center gap-4 px-4 pb-3 shrink-0">
         {[
-          { c: COLORS.brand2, l: "新增标签" },
-          { c: COLORS.cyan,   l: "新增实体" },
-          { c: COLORS.amber,  l: "审核操作" },
+          { c: CHART.brand2, l: "新增标签" },
+          { c: CHART.cyan,   l: "新增实体" },
+          { c: CHART.amber,  l: "审核操作" },
         ].map(x => (
-          <div key={x.l} className="flex items-center gap-1.5 text-2xs" style={{ color: COLORS.ink3 }}>
+          <div key={x.l} className="flex items-center gap-1.5 text-2xs text-ink-sub">
             <span className="w-3 h-[2px] rounded-full" style={{ background: x.c }} />
             {x.l}
           </div>
@@ -327,8 +329,7 @@ export function StatMini({ id, data }: { id: keyof typeof STAT_THEME; data: Dash
   const isAlert = id === "stat-pending" && value > 0;
 
   return (
-    <Link href={theme.href} className="flex flex-col h-full p-4 group relative overflow-hidden"
-      style={{ textDecoration: "none" }}>
+    <Link href={theme.href} className="flex flex-col h-full p-4 group relative overflow-hidden no-underline">
       {/* 角落淡色装饰 */}
       <div className="absolute -top-8 -right-8 w-24 h-24 rounded-full pointer-events-none transition-opacity duration-300 opacity-30 group-hover:opacity-50"
         style={{ background: `radial-gradient(circle, ${theme.color}40, transparent 70%)` }} />
@@ -336,18 +337,19 @@ export function StatMini({ id, data }: { id: keyof typeof STAT_THEME; data: Dash
       {/* 顶部：图标 + 标签 + 同比 */}
       <div className="flex items-start justify-between gap-2 shrink-0 relative z-10">
         <div className="flex items-center gap-2">
-          <span className="p-1.5 rounded-lg"
-            style={{ background: `${theme.color}1F`, color: theme.color, border: `1px solid ${theme.color}33` }}>
+          <span className="p-1.5 rounded-lg border"
+            style={{ background: `${theme.color}1F`, color: theme.color, borderColor: `${theme.color}33` }}>
             <Icon size={13} strokeWidth={1.8} />
           </span>
-          <span className="text-2xs font-semibold uppercase tracking-[0.1em]" style={{ color: COLORS.ink3 }}>
+          <span className="text-2xs font-semibold uppercase tracking-[0.1em] text-ink-sub">
             {theme.label}
           </span>
         </div>
         {today && today.comparePct !== 0 && (
-          <span className="text-2xs font-bold tabular-nums flex items-center gap-0.5" style={{
-            color: today.comparePct >= 0 ? COLORS.ok : COLORS.bad,
-          }}>
+          <span className={cn(
+            "text-2xs font-bold tabular-nums flex items-center gap-0.5",
+            today.comparePct >= 0 ? "text-ok" : "text-bad",
+          )}>
             {today.comparePct >= 0 ? <TrendingUp size={9} /> : <TrendingDown size={9} />}
             {pctSign(today.comparePct)}
           </span>
@@ -356,13 +358,20 @@ export function StatMini({ id, data }: { id: keyof typeof STAT_THEME; data: Dash
 
       {/* 大数字 */}
       <div className="flex-1 flex flex-col justify-center relative z-10">
-        <p className="font-extrabold tabular-nums leading-none"
-          style={{ fontSize: 44, letterSpacing: "-0.04em",
-            color: isAlert ? theme.color : COLORS.ink }}>
+        <p
+          className={cn(
+            "font-extrabold tabular-nums leading-none text-display-xl",
+            !isAlert && "text-ink",
+          )}
+          style={{
+            letterSpacing: "-0.04em",
+            ...(isAlert && { color: theme.color }),
+          }}
+        >
           {fmt(value)}
         </p>
         {today && (
-          <p className="text-2xs mt-1.5 tabular-nums" style={{ color: COLORS.ink3 }}>
+          <p className="text-2xs mt-1.5 tabular-nums text-ink-sub">
             今日 +{today.today}
           </p>
         )}
@@ -406,34 +415,38 @@ export function ActivityFeed({ activity }: { activity: ActivityEvent[] }) {
       {activity.length === 0 ? <WidgetEmpty text="暂无活动记录" /> : (
         <ul className="flex-1 overflow-y-auto px-2 py-2 space-y-0.5">
           {activity.map((ev, i) => (
-            <li key={`${ev.kind}-${ev.time}-${i}`}
-              className="px-3 py-2 rounded-md text-xs transition-colors hover:bg-white/[0.025] animate-slide-up"
-              style={{ animationDelay: `${i * 25}ms` }}>
+            <li
+              key={`${ev.kind}-${ev.time}-${i}`}
+              className="px-3 py-2 rounded-md text-xs transition-colors hover:bg-surface-alt animate-slide-up"
+              style={{ animationDelay: `${Math.min(i, 7) * 25}ms` }}
+            >
               <div className="flex items-center gap-2">
                 {ev.kind === "tag-added" ? (
-                  <span className="text-[9px] font-bold px-1.5 py-0.5 rounded font-mono shrink-0"
+                  <span
+                    className="text-2xs font-bold px-1.5 py-0.5 rounded font-mono shrink-0"
                     style={{
                       background: `${SOURCE_LABEL[ev.source]?.color ?? "#fff"}1F`,
                       color: SOURCE_LABEL[ev.source]?.color ?? "#fff",
-                    }}>
+                    }}
+                  >
                     {SOURCE_LABEL[ev.source]?.label ?? ev.source}
                   </span>
                 ) : (
                   <span
                     className={cn(
-                      "text-[9px] font-bold px-1.5 py-0.5 rounded font-mono shrink-0",
+                      "text-2xs font-bold px-1.5 py-0.5 rounded font-mono shrink-0",
                       ev.toStatus === "active" ? "bg-ok/15 text-ok" : "bg-bad/15 text-bad",
                     )}
                   >
                     {ev.toStatus === "active" ? "通过" : "拒绝"}
                   </span>
                 )}
-                <span className="font-mono text-2xs truncate" style={{ color: COLORS.ink }}>{ev.tagName}</span>
-                <span className="text-2xs ml-auto shrink-0 tabular-nums" style={{ color: COLORS.ink4 }}>
+                <span className="font-mono text-2xs truncate text-ink">{ev.tagName}</span>
+                <span className="text-2xs ml-auto shrink-0 tabular-nums text-ink-faint">
                   {timeAgo(ev.time)}
                 </span>
               </div>
-              <p className="text-2xs mt-0.5 truncate font-mono" style={{ color: COLORS.ink3 }}>
+              <p className="text-2xs mt-0.5 truncate font-mono text-ink-sub">
                 {ev.entityType}/{ev.entityId.slice(0, 8)}
               </p>
             </li>
@@ -459,13 +472,13 @@ export function HealthBar({ health }: { health: HealthInfo | null }) {
     },
     {
       label: "服务版本",
-      value: <span className="font-mono text-base font-semibold" style={{ color: COLORS.ink }}>
+      value: <span className="font-mono text-base font-semibold text-ink">
         {health?.version ? `v${health.version}` : "—"}
       </span>,
     },
     {
       label: "Node.js",
-      value: <span className="font-mono text-sm" style={{ color: COLORS.ink2 }}>
+      value: <span className="font-mono text-sm text-ink-dim">
         {health?.nodeVersion ?? "—"}
       </span>,
     },
@@ -476,9 +489,14 @@ export function HealthBar({ health }: { health: HealthInfo | null }) {
       <WidgetHeader icon={<CheckCircle2 size={13} strokeWidth={1.5} />} title="服务健康" />
       <div className="flex-1 grid grid-cols-4 min-h-0">
         {cells.map((c, i) => (
-          <div key={c.label} className="flex flex-col justify-center gap-1 px-4"
-            style={{ borderRight: i < cells.length - 1 ? `1px solid ${COLORS.edge1}` : "none" }}>
-            <p className="text-2xs font-semibold uppercase tracking-[0.1em]" style={{ color: COLORS.ink4 }}>
+          <div
+            key={c.label}
+            className={cn(
+              "flex flex-col justify-center gap-1 px-4",
+              i < cells.length - 1 && "border-r border-edge",
+            )}
+          >
+            <p className="text-2xs font-semibold uppercase tracking-[0.1em] text-ink-faint">
               {c.label}
             </p>
             <div>{c.value}</div>
@@ -490,11 +508,17 @@ export function HealthBar({ health }: { health: HealthInfo | null }) {
 }
 
 function Dot({ ok, text }: { ok: boolean; text: string }) {
-  const color = ok ? COLORS.ok : COLORS.bad;
   return (
-    <span className="inline-flex items-center gap-1.5 text-sm font-semibold" style={{ color }}>
-      <span className="inline-block w-1.5 h-1.5 rounded-full"
-        style={{ background: color, boxShadow: `0 0 6px ${color}` }} />
+    <span className={cn(
+      "inline-flex items-center gap-1.5 text-sm font-semibold",
+      ok ? "text-ok" : "text-bad",
+    )}>
+      <span
+        className={cn(
+          "inline-block w-1.5 h-1.5 rounded-full",
+          ok ? "bg-ok shadow-[0_0_6px_var(--color-ok)]" : "bg-bad shadow-[0_0_6px_var(--color-bad)]",
+        )}
+      />
       {text}
     </span>
   );
@@ -512,13 +536,12 @@ function PieTooltip({ active, payload, total }: {
   const p = payload[0];
   const pct = total ? Math.round((p.value / total) * 100) : 0;
   return (
-    <div className="text-xs px-3 py-2 rounded-lg"
-      style={{ background: COLORS.bg3, border: `1px solid ${COLORS.edge2}` }}>
+    <div className="text-xs px-3 py-2 rounded-lg bg-overlay border border-edge-mid">
       <div className="flex items-center gap-2">
         <span className="w-2 h-2 rounded-sm" style={{ background: p.payload.fill }} />
-        <span className="font-mono" style={{ color: COLORS.ink }}>{p.name}</span>
+        <span className="font-mono text-ink">{p.name}</span>
       </div>
-      <p className="font-mono tabular-nums mt-0.5" style={{ color: COLORS.ink2 }}>
+      <p className="font-mono tabular-nums mt-0.5 text-ink-dim">
         {p.value.toLocaleString()} · {pct}%
       </p>
     </div>

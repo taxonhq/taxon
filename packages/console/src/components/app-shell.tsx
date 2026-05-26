@@ -69,6 +69,17 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   const w = ready ? (open ? W_OPEN : W_CLOSED) : W_OPEN;
 
+  // ── 内容容器宽度分级 ─────────────────────────────────────────────
+  // 不同页面对宽度需求差异显著：
+  //  - 表格密集页（audit / entities/[type] / entities/[type]/[id]）→ 1200px
+  //    审核队列正常 7-9 列，880 会强迫截断 ID、压缩备注列
+  //  - 列表卡片 / 表单 / 详情（默认）→ 880px
+  //  - Dashboard 全宽（自管）
+  const isWide =
+    pathname.startsWith("/audit") ||
+    pathname.startsWith("/entities/");   // 注意末尾 / —— 排除 /entities 本身（卡片网格用 880）
+  const containerClass = isWide ? "max-w-[1200px]" : "max-w-[880px]";
+
   const dotClass =
     health === "ok"       ? "bg-ok" :
     health === "degraded" ? "bg-bad" :
@@ -93,7 +104,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               <Tag size={14} className="text-surface" strokeWidth={2.5} />
             </div>
             {open && (
-              <p className="text-[17px] font-bold text-ink whitespace-nowrap" style={{ letterSpacing: "-0.03em" }}>Taxcon</p>
+              <p className="text-lg font-bold text-ink whitespace-nowrap" style={{ letterSpacing: "-0.03em" }}>Taxcon</p>
             )}
           </Link>
         </div>
@@ -110,7 +121,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
           {/* 分隔 */}
           {open
-            ? <p className="px-3 pt-4 pb-1.5 text-[9px] font-semibold text-ink-faint uppercase whitespace-nowrap" style={{ letterSpacing: "0.16em" }}>管理</p>
+            ? <p className="px-3 pt-4 pb-1.5 text-2xs font-semibold text-ink-faint uppercase whitespace-nowrap" style={{ letterSpacing: "0.16em" }}>管理</p>
             : <div className="mx-2 my-2 h-px bg-edge" />
           }
 
@@ -123,7 +134,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
           {/* 分隔 */}
           {open
-            ? <p className="px-3 pt-4 pb-1.5 text-[9px] font-semibold text-ink-faint uppercase whitespace-nowrap" style={{ letterSpacing: "0.16em" }}>设置</p>
+            ? <p className="px-3 pt-4 pb-1.5 text-2xs font-semibold text-ink-faint uppercase whitespace-nowrap" style={{ letterSpacing: "0.16em" }}>设置</p>
             : <div className="mx-2 my-2 h-px bg-edge" />
           }
 
@@ -165,7 +176,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           // 仪表盘：全宽画布，自身管理 padding 与 overflow
           children
         ) : (
-          <div className="px-10 py-9 max-w-[880px] mx-auto">
+          <div className={`px-10 py-9 ${containerClass} mx-auto`}>
             {children}
           </div>
         )}

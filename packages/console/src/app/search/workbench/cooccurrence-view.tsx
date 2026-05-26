@@ -116,7 +116,7 @@ export function CooccurrenceView({ entityType, filter, topN = 15 }: Cooccurrence
                 >
                   <div className="flex flex-col items-center gap-0.5">
                     <span className="max-w-[80px] truncate">{t.name}</span>
-                    <span className="text-ink-faint text-[10px]">{t.total}</span>
+                    <span className="text-ink-faint text-2xs">{t.total}</span>
                   </div>
                 </th>
               ))}
@@ -130,7 +130,7 @@ export function CooccurrenceView({ entityType, filter, topN = 15 }: Cooccurrence
                     <span className="truncate max-w-[120px]" title={`${rowTag.groupName} · ${rowTag.name}`}>
                       {rowTag.name}
                     </span>
-                    <span className="text-ink-faint text-[10px]">{rowTag.total}</span>
+                    <span className="text-ink-faint text-2xs">{rowTag.total}</span>
                   </div>
                 </th>
                 {tags.map((colTag, j) => {

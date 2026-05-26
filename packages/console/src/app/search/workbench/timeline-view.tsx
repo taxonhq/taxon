@@ -253,7 +253,7 @@ export function TimelineView({ entityType, filter }: TimelineViewProps) {
             const h = (b.total / maxBucket) * 100;
             return (
               <div key={b.key} className="flex flex-col items-center gap-1.5 group" style={{ minWidth: 28 }}>
-                <span className="text-[10px] text-ink-faint opacity-0 group-hover:opacity-100 transition-opacity">
+                <span className="text-2xs text-ink-faint opacity-0 group-hover:opacity-100 transition-opacity">
                   {b.total}
                 </span>
                 <div
@@ -277,7 +277,7 @@ export function TimelineView({ entityType, filter }: TimelineViewProps) {
                     );
                   })}
                 </div>
-                <span className="text-[10px] text-ink-sub rotate-45 origin-top-left whitespace-nowrap" style={{ width: 20 }}>
+                <span className="text-2xs text-ink-sub rotate-45 origin-top-left whitespace-nowrap" style={{ width: 20 }}>
                   {b.key}
                 </span>
               </div>

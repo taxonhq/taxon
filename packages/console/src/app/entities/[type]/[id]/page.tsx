@@ -320,7 +320,7 @@ export default function EntityDetailPage() {
                   <tr
                     key={`${tag.id}-${idx}`}
                     className={`group/row transition-colors animate-fade-in ${busy ? "opacity-40 pointer-events-none" : "hover:bg-row-hover"}`}
-                    style={{ animationDelay: `${idx * 20}ms` }}
+                    style={{ animationDelay: `${Math.min(idx, 9) * 20}ms` }}
                   >
                     <td className="pl-5 pr-3 py-3">
                       <span className="text-base font-semibold text-ink">

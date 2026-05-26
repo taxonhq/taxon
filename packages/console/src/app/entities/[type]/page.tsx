@@ -264,7 +264,7 @@ export default function EntityTypePage() {
                   <tr
                     key={item.entityId}
                     className="group/row hover:bg-row-hover transition-colors animate-fade-in"
-                    style={{ animationDelay: `${idx * 20}ms` }}
+                    style={{ animationDelay: `${Math.min(idx, 9) * 20}ms` }}
                   >
                     {/* Entity ID */}
                     <td className="pl-5 pr-3 py-3.5">
