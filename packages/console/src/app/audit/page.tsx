@@ -289,14 +289,14 @@ export default function AuditPage() {
 
       {/* Toolbar */}
       <div className="flex items-center gap-3">
-        <div className="flex items-center p-0.5 bg-[#111] border border-edge rounded-lg gap-px">
+        <div className="flex items-center p-0.5 bg-surface-alt border border-edge rounded-lg gap-px">
           {(["pending", "active", "rejected"] as StatusFilter[]).map(s => (
             <button
               key={s}
               onClick={() => setStatusFilter(s)}
               className={`flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-md transition-all ${
                 statusFilter === s
-                  ? "bg-[#1E1E1E] text-ink font-medium shadow-sm border border-edge-mid"
+                  ? "bg-overlay text-ink font-medium shadow-sm border border-edge-mid"
                   : "text-ink-dim hover:text-ink"
               }`}
             >
@@ -320,7 +320,7 @@ export default function AuditPage() {
 
       {/* Bulk bar */}
       {selected.size > 0 && (
-        <div className="flex items-center gap-3 px-4 py-2.5 bg-[#111] border border-edge-mid rounded-lg">
+        <div className="flex items-center gap-3 px-4 py-2.5 bg-surface-alt border border-edge-mid rounded-lg">
           <span className="text-xs text-ink-dim">
             已选 <span className="text-ink font-medium tabular-nums">{selected.size}</span> 条
           </span>
@@ -363,7 +363,7 @@ export default function AuditPage() {
       ) : items.length === 0 ? (
         <div className="card-border overflow-hidden animate-fade-in">
           <div className="py-28 flex flex-col items-center text-center">
-            <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-[#161616] to-[#0A0A0A] border border-edge-mid flex items-center justify-center mb-5 shadow-[0_2px_8px_rgba(0,0,0,.4)]">
+            <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-surface-alt to-surface border border-edge-mid flex items-center justify-center mb-5 shadow-md">
               <ClipboardCheck size={22} className="text-ink-faint" strokeWidth={1.5} />
             </div>
             <p className="text-md font-semibold text-ink-sub">

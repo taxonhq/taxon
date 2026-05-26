@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { createElement, useState } from "react";
 import {
   Tag as TagIcon, GitBranch, Languages, Cpu, CheckCircle2, Gauge,
   X, Slash, Plus,
@@ -29,7 +29,8 @@ export function LeafChip({
   onRemove: () => void;
   onToggleNot: () => void;
 }) {
-  const Icon = leafIcon(node.value);
+  // 用 createElement 而非 `const Icon = leafIcon(...)` + `<Icon />`，
+  // 避免 react-hooks/static-components 把这种"渲染期定义组件"的模式判错。
   return (
     <span className={cn(
       "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md border text-sm transition-colors",
@@ -37,7 +38,9 @@ export function LeafChip({
         ? "border-bad/40 bg-bad/5 text-bad"
         : "border-edge-mid bg-overlay text-ink",
     )}>
-      <Icon className={cn("size-3.5 shrink-0", node.negate ? "text-bad" : "text-ink-sub")} />
+      {createElement(leafIcon(node.value), {
+        className: cn("size-3.5 shrink-0", node.negate ? "text-bad" : "text-ink-sub"),
+      })}
       {node.negate && <span className="text-xs font-semibold tracking-tight">NOT</span>}
       <span className="truncate max-w-[260px]">{describeLeaf(node.value)}</span>
       <button

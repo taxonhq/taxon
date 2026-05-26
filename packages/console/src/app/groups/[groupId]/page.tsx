@@ -2,8 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useParams } from "next/navigation";
-import Link from "next/link";
-import { ArrowLeft, Plus, Save, X } from "lucide-react";
+import { Plus, Save, X } from "lucide-react";
 import {
   getTagGroup, getTagGroupTree, createTag, updateTag, deleteTag,
   updateTagGroup, setEntityRules, getEntityTypes, getTagGroups,
@@ -16,6 +15,7 @@ import { Card } from "@/components/ui/card";
 import { Field, Input, Select, Textarea } from "@/components/ui/field";
 import { Combobox } from "@/components/ui/combobox";
 import { ErrorBanner } from "@/components/ui/error-banner";
+import { PageHeader } from "@/components/ui/page-header";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { TagTree, type TagTreeCallbacks } from "@/components/ui/tag-tree";
 
@@ -305,23 +305,27 @@ export default function GroupDetailPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center gap-3 pb-6 border-b border-edge">
-        <Link href="/groups" className="p-2 rounded-lg hover:bg-[#1A1A1A] transition-colors text-ink-faint hover:text-ink">
-          <ArrowLeft size={15} />
-        </Link>
-        <div className="flex-1 min-w-0">
-          <h1 className="text-xl font-semibold text-ink leading-tight">{group?.name ?? "标签分组"}</h1>
-          <p className="text-xs text-ink-faint font-mono mt-0.5">{group?.slug}</p>
-        </div>
-        <Button variant="outline" size="sm" onClick={() => setShowGroupEdit(v => !v)}>
-          编辑分组
-        </Button>
-        <Button size="sm" onClick={() => openCreateForm(null)}>
-          <Plus size={13} />
-          新增标签
-        </Button>
-      </div>
+      <PageHeader
+        back={{ href: "/groups", label: "返回分组列表" }}
+        title={group?.name ?? "标签分组"}
+        size="compact"
+        description={
+          group?.slug ? (
+            <code className="text-xs font-mono text-ink-faint">{group.slug}</code>
+          ) : undefined
+        }
+        action={
+          <>
+            <Button variant="outline" size="sm" onClick={() => setShowGroupEdit(v => !v)}>
+              编辑分组
+            </Button>
+            <Button size="sm" onClick={() => openCreateForm(null)}>
+              <Plus size={13} />
+              新增标签
+            </Button>
+          </>
+        }
+      />
 
       <ErrorBanner message={error} />
 

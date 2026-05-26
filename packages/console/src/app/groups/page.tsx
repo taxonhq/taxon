@@ -280,7 +280,7 @@ function GroupCard({
 
           <div className="flex items-center gap-2 flex-wrap">
             {/* slug */}
-            <code className="text-xs font-mono text-ink-sub bg-[#1A1A1A] border border-edge-mid px-1.5 py-0.5 rounded">
+            <code className="text-xs font-mono text-ink-sub bg-overlay border border-edge-mid px-1.5 py-0.5 rounded">
               {group.slug}
             </code>
             {/* entity scope */}
@@ -409,7 +409,7 @@ function AddTagInput({ onAdd }: { onAdd: (name: string) => Promise<void> }) {
         onBlur={discard}
         placeholder="输入名称…"
         title="Enter 确认 · Esc 取消"
-        className="inline-flex px-2 py-1 text-xs border border-edge-mid bg-[#1A1A1A] text-ink rounded-md focus:outline-none focus:border-edge-strong w-32 disabled:opacity-50"
+        className="inline-flex px-2 py-1 text-xs border border-edge-mid bg-overlay text-ink rounded-md focus:outline-none focus:border-edge-strong w-32 disabled:opacity-50"
       />
       <button
         onMouseDown={e => { e.preventDefault(); submit(); }} // mousedown 防止 input blur 先于 click 触发
@@ -454,7 +454,7 @@ function EmptyGroups() {
   return (
     <div className="card-border overflow-hidden animate-fade-in">
       <div className="py-28 flex flex-col items-center text-center">
-        <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-[#161616] to-[#0A0A0A] border border-edge-mid flex items-center justify-center mb-5 shadow-[0_2px_8px_rgba(0,0,0,.4)]">
+        <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-surface-alt to-surface border border-edge-mid flex items-center justify-center mb-5 shadow-md">
           <Layers size={22} className="text-ink-faint" strokeWidth={1.5} />
         </div>
         <p className="text-md font-semibold text-ink-sub">暂无标签分组</p>

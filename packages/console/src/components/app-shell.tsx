@@ -89,7 +89,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         {/* Brand */}
         <div className="flex items-center border-b border-edge shrink-0" style={{ height: 60, padding: open ? "0 16px" : "0 12px" }}>
           <Link href="/" className="flex items-center gap-3 min-w-0">
-            <div className="w-8 h-8 rounded-xl bg-ink flex items-center justify-center shrink-0 shadow-[0_2px_4px_rgba(0,0,0,.4)]">
+            <div className="w-8 h-8 rounded-xl bg-ink flex items-center justify-center shrink-0 shadow-md">
               <Tag size={14} className="text-surface" strokeWidth={2.5} />
             </div>
             {open && (

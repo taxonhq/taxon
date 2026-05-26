@@ -23,8 +23,8 @@ export function NavLink({ href, children, collapsed, title }: NavLinkProps) {
         "relative flex items-center py-2 text-[12.5px] rounded-lg transition-all duration-150",
         collapsed ? "justify-center px-2" : "gap-3 px-3",
         active
-          ? "bg-[#1C1C1C] text-ink font-medium"
-          : "text-ink-faint hover:text-ink-dim hover:bg-[#111111]",
+          ? "bg-overlay text-ink font-medium"
+          : "text-ink-faint hover:text-ink-dim hover:bg-surface-alt",
       )}
     >
       {/* left accent — visible only in expanded mode */}

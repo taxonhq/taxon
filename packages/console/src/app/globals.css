@@ -37,6 +37,32 @@
   --brand-2: #a855f7;
   --cyan:    #06b6d4;
   --amber:   #f59e0b;
+
+  /* ── 主按钮 ink hover/active（用于 bg-ink 类按钮的反馈态）─────────────
+     dark 模式：ink=#F2F2F2，hover 更亮 → #FFFFFF；active 更暗 → #E8E8E8
+     light 模式：ink=#111111，hover 更暗 → #000；active 更亮 → #1F1F1F  */
+  --ink-hover:   #FFFFFF;
+  --ink-active:  #E8E8E8;
+
+  /* ── 细微背景 tint（替换散落的 rgba(255,255,255,0.0X)）────────────────
+     subtle：极淡 hover / 非激活态
+     soft：  hover 强调
+     strong：分隔 / 选区强调                                              */
+  --tint-subtle: rgba(255, 255, 255, 0.025);
+  --tint-soft:   rgba(255, 255, 255, 0.05);
+  --tint-strong: rgba(255, 255, 255, 0.08);
+
+  /* ── Hashable tag palette（8 色，按 groupId 哈希到固定色相位）─────────
+     替换 entities/[type] 中 bg-blue-500/10 等硬编码 Tailwind 调色板，
+     bg / border / text 由组件用 color-mix 派生，自动适配 light/dark。 */
+  --palette-1: #6366f1;  /* indigo  */
+  --palette-2: #a855f7;  /* purple  */
+  --palette-3: #10b981;  /* emerald */
+  --palette-4: #f59e0b;  /* amber   */
+  --palette-5: #ec4899;  /* pink    */
+  --palette-6: #06b6d4;  /* cyan    */
+  --palette-7: #f97316;  /* orange  */
+  --palette-8: #14b8a6;  /* teal    */
 }
 
 @theme inline {
@@ -59,6 +85,9 @@
   --color-edge:         var(--border-faint);
   --color-edge-mid:     var(--border-base);
   --color-edge-strong:  var(--border-strong);
+
+  --color-ink-hover:    var(--ink-hover);
+  --color-ink-active:   var(--ink-active);
 
   --color-ok:    var(--ok);
   --color-warn:  var(--warn);
@@ -122,6 +151,15 @@
   --color-row-head:    #F4F4F8;
   --color-row-hover:   #F0F0F4;
   --color-overlay:     #FFFFFF;
+
+  /* Ink hover/active 在 light 下反转方向 */
+  --ink-hover:   #000000;
+  --ink-active:  #1F1F1F;
+
+  /* Tint 在 light 下用黑色细微叠层 */
+  --tint-subtle: rgba(0, 0, 0, 0.025);
+  --tint-soft:   rgba(0, 0, 0, 0.05);
+  --tint-strong: rgba(0, 0, 0, 0.08);
 }
 
 /* ── Base ─────────────────────────────────────────────────────────────── */
@@ -233,6 +271,16 @@ body {
     var(--border-strong) 0%,
     var(--border-base)   50%,
     var(--border-faint)  100%);
+}
+
+/* ─────────────────────────────────────────────────────────────────────── */
+/* Bento 编辑态网格点（双主题均可见，替代硬编码 rgba(255,255,255,0.08)）   */
+/* ─────────────────────────────────────────────────────────────────────── */
+:root        { --bento-dot: rgba(255, 255, 255, 0.08); }
+[data-theme="light"] { --bento-dot: rgba(0, 0, 0, 0.10); }
+.bento-grid-dots {
+  background-image: radial-gradient(circle, var(--bento-dot) 1px, transparent 1px);
+  background-size: 24px 24px;
 }
 
 /* ── react-resizable 基础样式（内嵌，避免 pnpm 跨包 CSS 路径问题）── */

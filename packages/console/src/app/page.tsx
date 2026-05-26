@@ -21,8 +21,9 @@ import {
   type PersistedDashboardLayout,
 } from "@/lib/api";
 import { cn } from "@/lib/utils";
+import { PageHeader } from "@/components/ui/page-header";
 import { useDashboardData } from "@/components/dashboard/use-dashboard-data";
-import { COLORS, renderWidget } from "@/components/dashboard/widgets";
+import { renderWidget } from "@/components/dashboard/widgets";
 import {
   CANVAS_W, COLS, ROW_H, MARGIN, PAD,
   LAYOUT_VERSION, DEFAULT_LAYOUT,
@@ -101,83 +102,66 @@ export default function DashboardPage() {
   // ── 加载中骨架 ────────────────────────────────────────────────────
   if (loading || !layoutReady || !data) {
     return (
-      <div className="flex items-center justify-center" style={{ minHeight: "70vh", background: COLORS.bg1 }}>
+      <div className="flex items-center justify-center bg-surface" style={{ minHeight: "70vh" }}>
         <div className="text-center space-y-3">
           <div className="relative mx-auto w-10 h-10">
-            <div className="absolute inset-0 rounded-full border-2 border-white/5" />
-            <div className="absolute inset-0 rounded-full border-2 border-transparent border-t-white/40 animate-spin" />
+            <div className="absolute inset-0 rounded-full border-2 border-edge" />
+            <div className="absolute inset-0 rounded-full border-2 border-transparent border-t-ink-sub animate-spin" />
           </div>
-          <p className="text-xs tracking-wider" style={{ color: COLORS.ink4 }}>加载仪表盘…</p>
+          <p className="text-xs tracking-wider text-ink-faint">加载仪表盘…</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col min-h-screen" style={{ background: COLORS.bg1 }}>
+    <div className="flex flex-col min-h-screen bg-surface">
 
-      {/* ───── 顶栏 ───────────────────────────────────────────────── */}
-      <header
-        className="flex items-center justify-between px-8 py-4 sticky top-0 z-20 shrink-0"
-        style={{
-          borderBottom: `1px solid ${COLORS.edge1}`,
-          background: "rgba(10,10,10,0.85)",
-          backdropFilter: "blur(12px)",
-          WebkitBackdropFilter: "blur(12px)",
-        }}
-      >
-        <div className="flex items-center gap-5">
-          <div>
-            <h1 className="font-extrabold leading-none" style={{
-              fontSize: 24, letterSpacing: "-0.04em", color: COLORS.ink,
-            }}>
-              Taxon Dashboard
-            </h1>
-            <p className="text-xs mt-1" style={{ color: COLORS.ink4 }}>
-              标签服务运行态全局概览
-            </p>
+      <PageHeader
+        sticky
+        title="Taxon Dashboard"
+        description="标签服务运行态全局概览"
+        meta={
+          <>
+            {!editMode && (
+              <div className="flex items-center gap-2 px-2.5 py-1 rounded-full bg-brand-1/10 border border-brand-1/25">
+                <span className="relative w-1.5 h-1.5">
+                  <span className="absolute inset-0 rounded-full animate-ping bg-brand-1" />
+                  <span className="absolute inset-0 rounded-full bg-brand-1" />
+                </span>
+                <span className="text-2xs tabular-nums text-ink-dim">
+                  自动刷新 · {countdown}s
+                </span>
+              </div>
+            )}
+            {updatedAt && (
+              <span className="text-xs tabular-nums font-mono text-ink-faint">
+                {updatedAt.toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+              </span>
+            )}
+          </>
+        }
+        action={
+          <div className="flex items-center gap-2">
+            <ToolBtn onClick={refresh} disabled={refreshing}
+              icon={<RefreshCw size={12} className={refreshing ? "animate-spin" : ""} />} label="刷新" />
+            {editMode && (
+              <ToolBtn onClick={resetLayout} icon={<RotateCcw size={12} />} label="重置" />
+            )}
+            <ToolBtn onClick={() => setEditMode(v => !v)}
+              icon={editMode ? <Check size={12} /> : <Pencil size={12} />}
+              label={editMode ? "完成" : "自定义"}
+              active={editMode} />
           </div>
-          {/* 实时同步状态 */}
-          {!editMode && (
-            <div className="flex items-center gap-2 px-2.5 py-1 rounded-full"
-              style={{ background: `${COLORS.brand1}10`, border: `1px solid ${COLORS.brand1}30` }}>
-              <span className="relative w-1.5 h-1.5">
-                <span className="absolute inset-0 rounded-full animate-ping" style={{ background: COLORS.brand1 }} />
-                <span className="absolute inset-0 rounded-full" style={{ background: COLORS.brand1 }} />
-              </span>
-              <span className="text-2xs tabular-nums" style={{ color: COLORS.ink2 }}>
-                自动刷新 · {countdown}s
-              </span>
-            </div>
-          )}
-        </div>
-
-        <div className="flex items-center gap-2">
-          {updatedAt && (
-            <span className="text-xs tabular-nums mr-2 font-mono" style={{ color: COLORS.ink4 }}>
-              {updatedAt.toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
-            </span>
-          )}
-          <ToolBtn onClick={refresh} disabled={refreshing}
-            icon={<RefreshCw size={12} className={refreshing ? "animate-spin" : ""} />} label="刷新" />
-          {editMode && (
-            <ToolBtn onClick={resetLayout} icon={<RotateCcw size={12} />} label="重置" />
-          )}
-          <ToolBtn onClick={() => setEditMode(v => !v)}
-            icon={editMode ? <Check size={12} /> : <Pencil size={12} />}
-            label={editMode ? "完成" : "自定义"}
-            active={editMode} />
-        </div>
-      </header>
+        }
+      />
 
       {/* ───── 画布 ───────────────────────────────────────────────── */}
       <div
-        className={cn("flex-1 overflow-x-auto overflow-y-hidden relative", editMode && "bento-edit")}
-        style={editMode ? {
-          background: COLORS.bg1,
-          backgroundImage: `radial-gradient(circle, rgba(255,255,255,0.08) 1px, transparent 1px)`,
-          backgroundSize: "24px 24px",
-        } : { background: COLORS.bg1 }}
+        className={cn(
+          "flex-1 overflow-x-auto overflow-y-hidden relative bg-surface",
+          editMode && "bento-edit bento-grid-dots",
+        )}
       >
         <ReactGridLayout
           layout={layout}
@@ -196,18 +180,12 @@ export default function DashboardPage() {
           {layout.map(item => (
             <div
               key={item.i}
-              className={cn("flex flex-col overflow-hidden group/card transition-all duration-300",
-                editMode && "cursor-move")}
-              style={{
-                borderRadius: 20,
-                background: COLORS.bg2,
-                border: editMode
-                  ? `1px solid ${COLORS.edge2}`
-                  : `1px solid ${COLORS.edge1}`,
-                boxShadow: editMode
-                  ? `0 0 0 1px ${COLORS.edge1} inset, 0 24px 60px rgba(0,0,0,0.7)`
-                  : `0 1px 0 0 rgba(255,255,255,0.025) inset, 0 8px 32px rgba(0,0,0,0.5)`,
-              }}
+              className={cn(
+                "flex flex-col overflow-hidden group/card transition-all duration-300 rounded-[20px] bg-card border",
+                editMode
+                  ? "cursor-move border-edge-mid shadow-2xl shadow-black/40"
+                  : "border-edge shadow-lg shadow-black/30",
+              )}
             >
               {editMode && <EditHeader id={item.i} item={item} onSwitchSize={switchSize} />}
               <div className="flex-1 min-h-0">{renderWidget(item.i, data)}</div>
@@ -226,17 +204,17 @@ function ToolBtn({ icon, label, onClick, disabled, active }: {
   icon: React.ReactNode; label: string; onClick: () => void; disabled?: boolean; active?: boolean;
 }) {
   return (
-    <button onClick={onClick} disabled={disabled}
-      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all disabled:opacity-30"
-      style={active ? {
-        color: COLORS.ink,
-        background: COLORS.bg3,
-        border: `1px solid ${COLORS.edge2}`,
-      } : {
-        color: COLORS.ink2,
-        background: "rgba(255,255,255,0.02)",
-        border: `1px solid ${COLORS.edge1}`,
-      }}>
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      className={cn(
+        "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all disabled:opacity-30 border",
+        active
+          ? "text-ink bg-overlay border-edge-mid"
+          : "text-ink-dim border-edge hover:bg-surface-alt",
+      )}
+      style={active ? undefined : { background: "var(--tint-subtle)" }}
+    >
       {icon}{label}
     </button>
   );
@@ -250,11 +228,13 @@ function EditHeader({ id, item, onSwitchSize }: {
 }) {
   const presets = WIDGET_PRESETS[id] ?? [];
   return (
-    <div className="drag-handle flex items-center justify-between gap-2 px-3 py-2 shrink-0 select-none cursor-grab active:cursor-grabbing"
-      style={{ borderBottom: `1px solid ${COLORS.edge1}`, background: "rgba(255,255,255,0.02)" }}>
+    <div
+      className="drag-handle flex items-center justify-between gap-2 px-3 py-2 shrink-0 select-none cursor-grab active:cursor-grabbing border-b border-edge"
+      style={{ background: "var(--tint-subtle)" }}
+    >
       <div className="flex items-center gap-2 min-w-0">
-        <GripHorizontal size={12} style={{ color: COLORS.ink4 }} />
-        <span className="text-2xs uppercase tracking-[0.1em] truncate" style={{ color: COLORS.ink3 }}>
+        <GripHorizontal size={12} className="text-ink-faint" />
+        <span className="text-2xs uppercase tracking-[0.1em] truncate text-ink-sub">
           {WIDGET_LABELS[id] ?? id}
         </span>
       </div>
@@ -265,14 +245,18 @@ function EditHeader({ id, item, onSwitchSize }: {
           {presets.map(size => {
             const active = currentPreset(item) === size;
             return (
-              <button key={size} type="button" onClick={() => onSwitchSize(id, size)}
+              <button
+                key={size}
+                type="button"
+                onClick={() => onSwitchSize(id, size)}
                 title={SIZE_PRESETS[size].tip}
-                className="text-2xs font-semibold px-1.5 py-0.5 rounded-md transition-all"
-                style={active ? {
-                  color: COLORS.ink, background: COLORS.bg3, border: `1px solid ${COLORS.edge2}`,
-                } : {
-                  color: COLORS.ink3, background: "transparent", border: `1px solid ${COLORS.edge1}`,
-                }}>
+                className={cn(
+                  "text-2xs font-semibold px-1.5 py-0.5 rounded-md transition-all border",
+                  active
+                    ? "text-ink bg-overlay border-edge-mid"
+                    : "text-ink-sub bg-transparent border-edge",
+                )}
+              >
                 {SIZE_PRESETS[size].label}
               </button>
             );

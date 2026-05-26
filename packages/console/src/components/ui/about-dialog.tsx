@@ -38,15 +38,15 @@ export function AboutDialog({ open, onClose }: Props) {
 
       {/* Panel */}
       <div
-        className="relative w-[400px] bg-[#111] border border-edge rounded-2xl shadow-[0_24px_64px_rgba(0,0,0,.7)] animate-scale-in overflow-hidden"
+        className="relative w-[400px] bg-overlay border border-edge rounded-2xl shadow-2xl shadow-black/40 animate-scale-in overflow-hidden"
         onClick={e => e.stopPropagation()}
       >
         {/* Top accent line */}
-        <div className="absolute top-0 left-10 right-10 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+        <div className="absolute top-0 left-10 right-10 h-px bg-gradient-to-r from-transparent via-edge-strong to-transparent" />
 
         {/* Header */}
         <div className="flex items-center gap-3 px-6 pt-6 pb-5">
-          <div className="w-9 h-9 rounded-xl bg-ink flex items-center justify-center shrink-0 shadow-[0_2px_4px_rgba(0,0,0,.4)]">
+          <div className="w-9 h-9 rounded-xl bg-ink flex items-center justify-center shrink-0 shadow-md">
             <Tag size={14} className="text-surface" strokeWidth={2.5} />
           </div>
           <div className="flex-1 min-w-0">

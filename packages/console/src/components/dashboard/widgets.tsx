@@ -20,6 +20,7 @@ import type {
   DashboardData, EntityTypeStat,
 } from "./use-dashboard-data";
 import type { ActivityEvent, HealthInfo, TrendPoint } from "@/lib/api";
+import { cn } from "@/lib/utils";
 
 // ═══════════════════════════════════════════════════════════════
 // 设计 tokens
@@ -120,11 +121,14 @@ export function KpiHero({ data }: { data: DashboardData }) {
           </span>
         </div>
         {todayTags && (
-          <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full"
-            style={{
-              background: todayTags.comparePct >= 0 ? "rgba(34,197,94,0.10)" : "rgba(239,68,68,0.10)",
-              border: `1px solid ${todayTags.comparePct >= 0 ? "rgba(34,197,94,0.25)" : "rgba(239,68,68,0.25)"}`,
-            }}>
+          <div
+            className={cn(
+              "flex items-center gap-1.5 px-2 py-0.5 rounded-full border",
+              todayTags.comparePct >= 0
+                ? "bg-ok/10 border-ok/25"
+                : "bg-bad/10 border-bad/25",
+            )}
+          >
             {todayTags.comparePct >= 0
               ? <TrendingUp size={10} style={{ color: COLORS.ok }} />
               : <TrendingDown size={10} style={{ color: COLORS.bad }} />}
@@ -247,8 +251,10 @@ function TrendTooltip({ active, payload }: { active?: boolean; payload?: Array<{
   if (!active || !payload?.length) return null;
   const p = payload[0].payload;
   return (
-    <div className="text-xs px-3 py-2 rounded-lg"
-      style={{ background: COLORS.bg3, border: `1px solid ${COLORS.edge2}`, boxShadow: "0 4px 12px rgba(0,0,0,0.5)" }}>
+    <div
+      className="text-xs px-3 py-2 rounded-lg border border-edge-mid shadow-lg shadow-black/40"
+      style={{ background: COLORS.bg3 }}
+    >
       <p className="font-mono mb-1" style={{ color: COLORS.ink3 }}>{p.date.slice(5)}</p>
       {payload.map((it, i) => (
         <div key={i} className="flex items-center gap-2">
@@ -413,11 +419,12 @@ export function ActivityFeed({ activity }: { activity: ActivityEvent[] }) {
                     {SOURCE_LABEL[ev.source]?.label ?? ev.source}
                   </span>
                 ) : (
-                  <span className="text-[9px] font-bold px-1.5 py-0.5 rounded font-mono shrink-0"
-                    style={{
-                      background: ev.toStatus === "active" ? "rgba(34,197,94,0.15)" : "rgba(239,68,68,0.15)",
-                      color: ev.toStatus === "active" ? COLORS.ok : COLORS.bad,
-                    }}>
+                  <span
+                    className={cn(
+                      "text-[9px] font-bold px-1.5 py-0.5 rounded font-mono shrink-0",
+                      ev.toStatus === "active" ? "bg-ok/15 text-ok" : "bg-bad/15 text-bad",
+                    )}
+                  >
                     {ev.toStatus === "active" ? "通过" : "拒绝"}
                   </span>
                 )}

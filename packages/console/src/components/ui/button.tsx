@@ -7,9 +7,9 @@ type Size = "sm" | "md" | "lg";
 const variantClass: Record<Variant, string> = {
   primary: [
     "bg-ink text-surface font-semibold",
-    "shadow-[0_1px_2px_rgba(0,0,0,.5),inset_0_1px_0_rgba(255,255,255,.08)]",
-    "hover:bg-[#FFFFFF] hover:shadow-[0_2px_8px_rgba(0,0,0,.4),inset_0_1px_0_rgba(255,255,255,.12)]",
-    "active:bg-[#E8E8E8]",
+    "shadow-sm",
+    "hover:bg-ink-hover hover:shadow-md",
+    "active:bg-ink-active",
   ].join(" "),
   outline: [
     "border border-edge-mid text-ink-dim bg-transparent",
