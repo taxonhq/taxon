@@ -186,6 +186,148 @@ export function compileState(state: WorkbenchState): BoolExpr | undefined {
   return { and: exprs };
 }
 
+// ── BoolExpr → WorkbenchState 反编译 ───────────────────────────────────────
+// 用于：NL / DSL 模式生成的 BoolExpr 反向填入工作台 chip 区。
+//
+// 限制：workbench state 只支持 "AND of [Leaf | NegLeaf | OR(Leaves)]" 结构，
+// 因此能反编译的 BoolExpr 形态有限。无法映射时返回 null（调用方应回退到 DSL 模式）。
+//
+// 因为 tag/descendantOf leaf 需要 tagName/groupName 用于 chip 展示，
+// 反编译需要一个 resolver 把 tagId 解析为这些字段。
+//
+// 设计：递归归一化 — 任何根 leaf 先包成 AND([leaf])，然后逐一处理 children。
+export interface TagInfo {
+  tagId:     string
+  tagName:   string
+  groupSlug: string
+  groupName: string
+}
+export type TagResolver = (tagId: string) => TagInfo | undefined
+
+interface RawBoolLeaf {
+  tag?: string
+  tagSlug?: string; groupSlug?: string
+  tagAlias?: string
+  descendantOf?: string
+  source?: ('manual' | 'ai' | 'system' | 'import')[]
+  confidence?: { gte?: number; lte?: number }
+  status?: ('active' | 'pending' | 'rejected')[]
+}
+interface RawBoolExpr extends RawBoolLeaf {
+  and?: RawBoolExpr[]
+  or?:  RawBoolExpr[]
+  not?: RawBoolExpr
+}
+
+function isLeaf(e: RawBoolExpr): boolean {
+  return !('and' in e || 'or' in e || 'not' in e)
+}
+
+/** 把 leaf BoolExpr → LeafValue。tag/descendantOf 优先用 resolver，
+ *  resolver 失败时用 tagId 自身占位（功能保留，只是 chip 显示不完美）。*/
+function leafToValue(e: RawBoolLeaf, resolve: TagResolver): LeafValue | null {
+  if (e.tag) {
+    const info = resolve(e.tag)
+    return {
+      type: 'tag',
+      tagId:     info?.tagId    ?? e.tag,
+      tagName:   info?.tagName  ?? e.tag,
+      groupName: info?.groupName ?? '?',
+    }
+  }
+  if (e.tagSlug) {
+    // tagSlug 没有 tagId，反编译为占位（展示用 slug 本身 + group hint）
+    return { type: 'tag', tagId: '', tagName: e.tagSlug, groupName: e.groupSlug ?? '?' }
+  }
+  if (e.tagAlias) {
+    return { type: 'tagAlias', alias: e.tagAlias, groupSlug: e.groupSlug }
+  }
+  if (e.descendantOf) {
+    const info = resolve(e.descendantOf)
+    return {
+      type: 'descendantOf',
+      tagId:     info?.tagId    ?? e.descendantOf,
+      tagName:   info?.tagName  ?? e.descendantOf,
+      groupName: info?.groupName ?? '?',
+    }
+  }
+  if (e.source && e.source.length > 0) return { type: 'source', values: e.source }
+  if (e.status && e.status.length > 0) return { type: 'status', values: e.status }
+  if (e.confidence) {
+    const c: LeafValue & { type: 'confidence' } = { type: 'confidence' }
+    if (e.confidence.gte !== undefined) c.gte = e.confidence.gte
+    if (e.confidence.lte !== undefined) c.lte = e.confidence.lte
+    return c
+  }
+  return null
+}
+
+let _decompIdSeq = 0
+const decompId = (prefix = 'd') => `${prefix}_${Date.now().toString(36)}_${(++_decompIdSeq).toString(36)}`
+
+/** 把 BoolExpr 根节点归一化为一个 AND children 数组（不改变语义）。 */
+function flattenToAndChildren(expr: RawBoolExpr): RawBoolExpr[] {
+  if (expr.and) return expr.and.flatMap(flattenToAndChildren)
+  return [expr]
+}
+
+/**
+ * 反编译 BoolExpr。
+ * @returns WorkbenchState；遇到无法映射的嵌套结构（如 OR 内嵌 AND）返回 null
+ */
+export function decompileBoolExpr(
+  expr: unknown,
+  resolve: TagResolver,
+): WorkbenchState | null {
+  if (!expr || typeof expr !== 'object') return null
+  const e = expr as RawBoolExpr
+
+  // 把根归一为 AND children 列表
+  const andChildren = flattenToAndChildren(e)
+  const result: ChildNode[] = []
+
+  for (const child of andChildren) {
+    // case 1: leaf
+    if (isLeaf(child)) {
+      const v = leafToValue(child, resolve)
+      if (!v) return null
+      result.push({ kind: 'leaf', id: decompId('l'), value: v, negate: false })
+      continue
+    }
+    // case 2: not(leaf) - 只支持 not 包 leaf
+    if (child.not) {
+      if (!isLeaf(child.not)) return null  // not(or/and) 不支持
+      const v = leafToValue(child.not, resolve)
+      if (!v) return null
+      result.push({ kind: 'leaf', id: decompId('l'), value: v, negate: true })
+      continue
+    }
+    // case 3: or - or 的 children 只能是 leaf 或 not(leaf)
+    if (child.or) {
+      const orChildren: LeafNode[] = []
+      for (const orLeaf of child.or) {
+        if (isLeaf(orLeaf)) {
+          const v = leafToValue(orLeaf, resolve)
+          if (!v) return null
+          orChildren.push({ kind: 'leaf', id: decompId('l'), value: v, negate: false })
+        } else if (orLeaf.not && isLeaf(orLeaf.not)) {
+          const v = leafToValue(orLeaf.not, resolve)
+          if (!v) return null
+          orChildren.push({ kind: 'leaf', id: decompId('l'), value: v, negate: true })
+        } else {
+          return null  // or 内含 and 或更深嵌套，不支持
+        }
+      }
+      result.push({ kind: 'or', id: decompId('g'), children: orChildren })
+      continue
+    }
+    // case 4: nested and inside and（理论上已被 flatten 处理掉）
+    return null
+  }
+
+  return { children: result }
+}
+
 // ── 节点描述（用于 chip 显示）────────────────────────────────────────────
 export function describeLeaf(v: LeafValue): string {
   switch (v.type) {

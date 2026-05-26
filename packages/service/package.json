@@ -10,6 +10,8 @@
     "typecheck": "tsc --noEmit",
     "gen:spec": "tsx scripts/export-spec.ts",
     "check:openapi": "tsx scripts/check-openapi-drift.ts",
+    "seed:demo": "tsx scripts/seed.ts demo",
+    "seed:perf": "tsx scripts/seed.ts perf",
     "postinstall": "prisma generate"
   },
   "dependencies": {

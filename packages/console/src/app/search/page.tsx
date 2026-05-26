@@ -8,7 +8,7 @@ import { WorkbenchMode } from "./workbench/workbench-mode";
 import { PivotMode } from "./pivot-mode";
 import { DslMode } from "./dsl-mode";
 import { NlMode } from "./nl-mode";
-import type { SearchEntitiesRequest } from "@/lib/api";
+import type { SearchEntitiesRequest, BoolExpr } from "@/lib/api";
 
 type Mode = "workbench" | "pivot" | "nl" | "dsl";
 
@@ -22,10 +22,16 @@ const MODES: { id: Mode; label: string; icon: React.ComponentType<{ className?: 
 export default function SearchPage() {
   const [mode, setMode] = useState<Mode>("workbench");
   const [dslPrefill, setDslPrefill] = useState<{ body: SearchEntitiesRequest; ts: number } | null>(null);
+  const [workbenchPrefill, setWorkbenchPrefill] = useState<{ boolExpr: BoolExpr; entityType: string; ts: number } | null>(null);
 
   const drillToDsl = (body: SearchEntitiesRequest) => {
     setDslPrefill({ body, ts: Date.now() });
     setMode("dsl");
+  };
+
+  const sendToWorkbench = (boolExpr: BoolExpr, entityType: string) => {
+    setWorkbenchPrefill({ boolExpr, entityType, ts: Date.now() });
+    setMode("workbench");
   };
 
   return (
@@ -59,9 +65,9 @@ export default function SearchPage() {
 
       {/* Tab 内容 */}
       <div>
-        {mode === "workbench" && <WorkbenchMode onDrillToDsl={drillToDsl} />}
+        {mode === "workbench" && <WorkbenchMode onDrillToDsl={drillToDsl} prefill={workbenchPrefill} />}
         {mode === "pivot"     && <PivotMode onDrill={drillToDsl} />}
-        {mode === "nl"        && <NlMode onApplyToDsl={drillToDsl} />}
+        {mode === "nl"        && <NlMode onApplyToDsl={drillToDsl} onApplyToWorkbench={sendToWorkbench} />}
         {mode === "dsl"       && <DslMode prefill={dslPrefill} />}
       </div>
     </div>

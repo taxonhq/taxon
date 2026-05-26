@@ -593,6 +593,41 @@ export async function searchPivot(body: PivotRequest): Promise<PivotResult> {
   });
 }
 
+// 共现矩阵
+export interface CooccurrenceTag {
+  tagId:     string;
+  slug:      string;
+  name:      string;
+  groupSlug: string;
+  groupName: string;
+  total:     number;
+}
+
+export interface CooccurrenceCell {
+  count: number;
+  lift:  number;
+}
+
+export interface CooccurrenceRequest {
+  entityType: string;
+  filter?:    BoolExpr;
+  topN?:      number;
+}
+
+export interface CooccurrenceResult {
+  tags:          CooccurrenceTag[];
+  cooccurrence:  Record<string, CooccurrenceCell>;
+  totalEntities: number;
+}
+
+export async function searchCooccurrence(body: CooccurrenceRequest): Promise<CooccurrenceResult> {
+  return req<CooccurrenceResult>("/search/co-occurrence", {
+    method:  "POST",
+    headers: { "Content-Type": "application/json" },
+    body:    JSON.stringify(body),
+  });
+}
+
 // ── LLM 配置 + 自然语言查询 ───────────────────────────────────────
 
 export type LlmProvider = "anthropic" | "openai";

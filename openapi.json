@@ -6822,6 +6822,179 @@
         }
       }
     },
+    "/search/co-occurrence": {
+      "post": {
+        "tags": [
+          "检索"
+        ],
+        "summary": "标签共现矩阵",
+        "description": "计算标签共现矩阵 — 在给定子集中，哪些标签倾向于同时出现。\n\n### 用法\n- `entityType`：实体类型\n- `filter`：可选 BoolExpr，限定子集（例如\"只看 AI 高置信度的\"）\n- `topN`：取使用量最大的 N 个标签（控制 N×N 矩阵规模）\n\n### 输出\n- `tags`：参与矩阵的标签数组（含 total 实体数）\n- `cooccurrence`：对称矩阵稀疏存储，key = `<tagAId>:<tagBId>`（字典序），\n  value = `{ count, lift }`\n- `totalEntities`：用于 lift 计算的分母\n\n### lift 含义\n- `lift = (共现数 × 总实体数) / (tagA 总数 × tagB 总数)`\n- > 1：两个标签正相关（同现概率高于随机）\n- = 1：独立\n- < 1：负相关\n\n### 设计意图\n让运营发现\"哪些标签经常一起用\"——可能提示标签冗余、潜在合并机会、或某种内在关联。",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "entityType": {
+                    "type": "string",
+                    "minLength": 1,
+                    "description": "实体类型"
+                  },
+                  "filter": {
+                    "allOf": [
+                      {
+                        "$ref": "#/components/schemas/BoolExpr"
+                      },
+                      {
+                        "description": "可选 BoolExpr 限定子集"
+                      }
+                    ]
+                  },
+                  "topN": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "exclusiveMinimum": true,
+                    "maximum": 30,
+                    "default": 15,
+                    "description": "取使用量最大的 top-N 标签（控制矩阵规模，最大 30×30）"
+                  }
+                },
+                "required": [
+                  "entityType"
+                ],
+                "description": "共现矩阵请求"
+              },
+              "examples": {
+                "basic": {
+                  "summary": "基础查询：dish 实体的共现",
+                  "value": {
+                    "entityType": "dish",
+                    "topN": 15
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "tags": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "tagId": {
+                                "type": "string"
+                              },
+                              "slug": {
+                                "type": "string"
+                              },
+                              "name": {
+                                "type": "string"
+                              },
+                              "groupSlug": {
+                                "type": "string"
+                              },
+                              "groupName": {
+                                "type": "string"
+                              },
+                              "total": {
+                                "type": "integer",
+                                "description": "该 tag 在子集中的活跃实体数"
+                              }
+                            },
+                            "required": [
+                              "tagId",
+                              "slug",
+                              "name",
+                              "groupSlug",
+                              "groupName",
+                              "total"
+                            ]
+                          }
+                        },
+                        "cooccurrence": {
+                          "type": "object",
+                          "additionalProperties": {
+                            "type": "object",
+                            "properties": {
+                              "count": {
+                                "type": "integer",
+                                "description": "同时持有 tagA 与 tagB 的实体数"
+                              },
+                              "lift": {
+                                "type": "number",
+                                "description": "观察共现 / 期望共现；> 1 = 正相关"
+                              }
+                            },
+                            "required": [
+                              "count",
+                              "lift"
+                            ]
+                          }
+                        },
+                        "totalEntities": {
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "tags",
+                        "cooccurrence",
+                        "totalEntities"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "参数错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/settings/llm": {
       "get": {
         "tags": [

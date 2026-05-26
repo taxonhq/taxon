@@ -3,27 +3,44 @@
 import { useState, useReducer, useEffect, useMemo, useCallback } from "react";
 import {
   Plus, Tag as TagIcon, GitBranch, Languages, Sliders, FoldVertical, UnfoldVertical,
-  List, Grid3x3, BarChart3, Loader2, Trash2,
+  List, Grid3x3, BarChart3, Network, CalendarRange, Loader2, Trash2,
 } from "lucide-react";
 import {
-  getEntityTypes, searchEntities,
+  getEntityTypes, searchEntities, searchTags,
   type SearchEntitiesRequest, type SearchEntitiesResult, type RegisteredEntity,
+  type BoolExpr,
 } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { TagPicker, type PickedTag } from "./tag-picker";
 import { LeafChip, OrGroupChip, MetaPicker, AliasPicker } from "./chips";
 import {
-  reducer, INITIAL_STATE, compileState, type LeafValue,
+  reducer, INITIAL_STATE, compileState, decompileBoolExpr,
+  type LeafValue, type TagInfo,
 } from "./state";
 import { PivotMode } from "../pivot-mode";
+import { CooccurrenceView } from "./cooccurrence-view";
+import { TimelineView } from "./timeline-view";
 
-type ViewKind = "list" | "facet" | "pivot";
+type ViewKind = "list" | "facet" | "pivot" | "cooccurrence" | "timeline";
 
 interface WorkbenchModeProps {
   onDrillToDsl: (body: SearchEntitiesRequest) => void;
+  /** NL / DSL 模式 → workbench 的预填，反编译为 chip 树。ts 字段保证 effect 重跑。 */
+  prefill?: { boolExpr: BoolExpr; entityType: string; ts: number } | null;
 }
 
-export function WorkbenchMode({ onDrillToDsl }: WorkbenchModeProps) {
+// 提取 BoolExpr 中所有 tagId / descendantOf 引用，用于预加载 tag 信息
+function collectTagIdRefs(expr: unknown, into: Set<string>): void {
+  if (!expr || typeof expr !== "object") return;
+  const e = expr as Record<string, unknown>;
+  if (typeof e.tag === "string")          into.add(e.tag);
+  if (typeof e.descendantOf === "string") into.add(e.descendantOf);
+  if (Array.isArray(e.and)) e.and.forEach((c) => collectTagIdRefs(c, into));
+  if (Array.isArray(e.or))  e.or .forEach((c) => collectTagIdRefs(c, into));
+  if (e.not) collectTagIdRefs(e.not, into);
+}
+
+export function WorkbenchMode({ onDrillToDsl, prefill }: WorkbenchModeProps) {
   const [entityTypes, setEntityTypes] = useState<{ entityType: string; count: number }[]>([]);
   const [entityType, setEntityType]   = useState<string>("");
   const [state, dispatch] = useReducer(reducer, INITIAL_STATE);
@@ -54,7 +71,7 @@ export function WorkbenchMode({ onDrillToDsl }: WorkbenchModeProps) {
   // 自动查询（list / facet 视图）：entityType + filter 变化时
   const run = useCallback(async () => {
     if (!entityType) return;
-    if (view === "pivot") return;  // pivot 由 PivotMode 内部处理
+    if (view === "pivot" || view === "cooccurrence" || view === "timeline") return;  // 这些视图自己跑请求
     setLoading(true);
     setError(null);
     try {
@@ -75,6 +92,57 @@ export function WorkbenchMode({ onDrillToDsl }: WorkbenchModeProps) {
   }, [entityType, filter, view]);
 
   useEffect(() => { void run(); }, [run]);
+
+  // ── 接收外部 prefill：反编译 BoolExpr 为 chip 树 ────────────────────
+  // 流程：
+  //   1) 切换 entityType
+  //   2) 提取 BoolExpr 中所有 tag/descendantOf 的 tagId 引用
+  //   3) 异步加载这些 tag 的 name/groupName（用 searchTags 找一遍）
+  //   4) 调 decompileBoolExpr 反编译 → dispatch load
+  //   5) 反编译失败时 toast 提示并保持现有 state（用户应该用 DSL 模式）
+  useEffect(() => {
+    if (!prefill) return;
+    let cancelled = false;
+    (async () => {
+      setEntityType(prefill.entityType);
+
+      const tagIdRefs = new Set<string>();
+      collectTagIdRefs(prefill.boolExpr, tagIdRefs);
+      const tagInfoMap = new Map<string, TagInfo>();
+      if (tagIdRefs.size > 0) {
+        // 没有 batch-by-id 接口，先做 best-effort：拉若干 tag 然后过滤
+        // 后端实际 include 了 group 字段，但 Tag 类型没暴露，临时 cast
+        try {
+          const all = await searchTags({ pageSize: 200 });
+          type TagWithGroup = typeof all.items[number] & {
+            group?: { id: string; slug: string; name: string };
+          };
+          for (const tRaw of all.items) {
+            if (!tagIdRefs.has(tRaw.id)) continue;
+            const t = tRaw as TagWithGroup;
+            tagInfoMap.set(t.id, {
+              tagId:     t.id,
+              tagName:   t.name,
+              groupSlug: t.group?.slug ?? "",
+              groupName: t.group?.name ?? "?",
+            });
+          }
+        } catch { /* 失败也继续，用 tagId 占位 */ }
+      }
+
+      const decompiled = decompileBoolExpr(
+        prefill.boolExpr,
+        (tid) => tagInfoMap.get(tid),
+      );
+      if (cancelled) return;
+      if (decompiled) {
+        dispatch({ type: "load", state: decompiled });
+      } else {
+        setError("此 BoolExpr 结构超出工作台的可视化能力（含深层嵌套），请改用 DSL 模式编辑。");
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [prefill]);
 
   // tag picker 选中回调
   const onTagPicked = (t: PickedTag) => {
@@ -115,9 +183,11 @@ export function WorkbenchMode({ onDrillToDsl }: WorkbenchModeProps) {
           <label className="text-xs text-ink-sub">视图</label>
           <div className="inline-flex rounded-md border border-edge overflow-hidden">
             {[
-              { id: "list"  as const, icon: List,      label: "实体列表" },
-              { id: "facet" as const, icon: BarChart3, label: "Facet 分布" },
-              { id: "pivot" as const, icon: Grid3x3,   label: "Pivot 透视" },
+              { id: "list"         as const, icon: List,          label: "实体列表" },
+              { id: "facet"        as const, icon: BarChart3,     label: "Facet 分布" },
+              { id: "pivot"        as const, icon: Grid3x3,       label: "Pivot 透视" },
+              { id: "cooccurrence" as const, icon: Network,       label: "共现矩阵" },
+              { id: "timeline"     as const, icon: CalendarRange, label: "时间线" },
             ].map(v => (
               <button
                 key={v.id}
@@ -241,6 +311,19 @@ export function WorkbenchMode({ onDrillToDsl }: WorkbenchModeProps) {
             onDrill={onDrillToDsl}
             externalFilter={filter}
             embeddedEntityType={entityType}
+          />
+        )}
+        {view === "cooccurrence" && entityType && (
+          <CooccurrenceView
+            entityType={entityType}
+            filter={filter}
+            topN={15}
+          />
+        )}
+        {view === "timeline" && entityType && (
+          <TimelineView
+            entityType={entityType}
+            filter={filter}
           />
         )}
       </div>

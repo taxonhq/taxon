@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Sparkles, Loader2, AlertCircle, Braces, Send, Settings, Lightbulb } from "lucide-react";
+import { Sparkles, Loader2, AlertCircle, Wrench, Braces, Send, Settings, Lightbulb } from "lucide-react";
 import Link from "next/link";
 import {
   getEntityTypes, nlToDsl, getLlmConfig,
@@ -21,9 +21,11 @@ const SUGGESTIONS = [
 interface NlModeProps {
   /** 应用到 DSL tab */
   onApplyToDsl: (body: SearchEntitiesRequest) => void;
+  /** 应用到工作台 tab（反编译 BoolExpr 为 chip 树继续编辑） */
+  onApplyToWorkbench: (boolExpr: BoolExpr, entityType: string) => void;
 }
 
-export function NlMode({ onApplyToDsl }: NlModeProps) {
+export function NlMode({ onApplyToDsl, onApplyToWorkbench }: NlModeProps) {
   const [entityTypes, setEntityTypes] = useState<{ entityType: string; count: number }[]>([]);
   const [entityType,  setEntityType]  = useState<string>("");
   const [text,        setText]        = useState<string>("");
@@ -188,8 +190,18 @@ export function NlMode({ onApplyToDsl }: NlModeProps) {
                   {JSON.stringify(result.boolExpr, null, 2)}
                 </pre>
               </div>
-              <div className="px-5 py-3 border-t border-edge bg-row-head flex items-center gap-2">
+              <div className="px-5 py-3 border-t border-edge bg-row-head flex items-center gap-2 flex-wrap">
                 <span className="text-sm text-ink-sub">应用：</span>
+                <button
+                  type="button"
+                  onClick={() => result.boolExpr && entityType && onApplyToWorkbench(result.boolExpr, entityType)}
+                  disabled={!entityType}
+                  title={!entityType ? "请先选择实体类型" : "把 BoolExpr 反编译为工作台 chip，继续可视化编辑"}
+                  className="px-3 py-1.5 rounded-md border border-edge text-sm text-ink hover:bg-row-hover inline-flex items-center gap-1.5 disabled:opacity-50"
+                >
+                  <Wrench className="size-3.5" />
+                  在工作台编辑
+                </button>
                 <button
                   type="button"
                   onClick={() => result.boolExpr && onApplyToDsl({

@@ -13,6 +13,7 @@ import { requireRole } from '../middleware/auth.js'
 import {
   SearchEntitiesBody, SearchEntitiesDataSchema,
   SearchPivotBody, SearchPivotDataSchema,
+  SearchCooccurrenceBody, SearchCooccurrenceDataSchema,
   NlToDslBody, NlToDslData,
   ApiError, okData,
 } from '../lib/schemas.js'
@@ -699,5 +700,149 @@ searchRouter.openapi(nlToDslRoute, async (c) => {
     }
     logger.error({ err: e }, 'NL→DSL unexpected error')
     throw e
+  }
+})
+
+// ── POST /co-occurrence ───────────────────────────────────────────────────────
+const COOCCUR_DESCRIPTION = `
+计算标签共现矩阵 — 在给定子集中，哪些标签倾向于同时出现。
+
+### 用法
+- \`entityType\`：实体类型
+- \`filter\`：可选 BoolExpr，限定子集（例如"只看 AI 高置信度的"）
+- \`topN\`：取使用量最大的 N 个标签（控制 N×N 矩阵规模）
+
+### 输出
+- \`tags\`：参与矩阵的标签数组（含 total 实体数）
+- \`cooccurrence\`：对称矩阵稀疏存储，key = \`<tagAId>:<tagBId>\`（字典序），
+  value = \`{ count, lift }\`
+- \`totalEntities\`：用于 lift 计算的分母
+
+### lift 含义
+- \`lift = (共现数 × 总实体数) / (tagA 总数 × tagB 总数)\`
+- > 1：两个标签正相关（同现概率高于随机）
+- = 1：独立
+- < 1：负相关
+
+### 设计意图
+让运营发现"哪些标签经常一起用"——可能提示标签冗余、潜在合并机会、或某种内在关联。
+`.trim()
+
+const cooccurExample = {
+  summary: '基础查询：dish 实体的共现',
+  value: { entityType: 'dish', topN: 15 },
+}
+
+const cooccurRoute = createRoute({
+  method: 'post', path: '/co-occurrence',
+  tags: ['检索'],
+  summary: '标签共现矩阵',
+  description: COOCCUR_DESCRIPTION,
+  security: [{ BearerAuth: [] }],
+  request: {
+    body: {
+      required: true,
+      content: { 'application/json': { schema: SearchCooccurrenceBody, examples: { basic: cooccurExample } } },
+    },
+  },
+  responses: {
+    200: { content: { 'application/json': { schema: okData(SearchCooccurrenceDataSchema) } }, description: '成功' },
+    400: { content: { 'application/json': { schema: ApiError } }, description: '参数错误' },
+  },
+})
+
+searchRouter.use('/co-occurrence', requireRole('reader'))
+searchRouter.openapi(cooccurRoute, async (c) => {
+  const { entityType, filter, topN } = c.req.valid('json')
+
+  try {
+    const filterSql = filter
+      ? Prisma.sql`AND ${await compileBoolExpr(filter)}`
+      : Prisma.empty
+
+    type TagRow = {
+      id: string; slug: string; name: string
+      groupSlug: string; groupName: string
+      total: bigint
+    }
+    type CountRow = { count: bigint }
+
+    // top-N tags + 子集总实体数 并行查
+    const [tagRows, totalRows] = await Promise.all([
+      prisma.$queryRaw<TagRow[]>(Prisma.sql`
+        SELECT t.id, t.slug, t.name,
+               g.slug AS "groupSlug", g.name AS "groupName",
+               COUNT(DISTINCT et."entityId")::bigint AS total
+        FROM "EntityTag" et
+        JOIN "Tag" t       ON t.id = et."tagId" AND t."deletedAt" IS NULL
+        JOIN "TagGroup" g  ON g.id = t."groupId" AND g."deletedAt" IS NULL
+        JOIN "RegisteredEntity" re ON re."entityType" = et."entityType" AND re."entityId" = et."entityId"
+        WHERE re."entityType" = ${entityType}
+          AND et."status" = 'active'
+          ${filterSql}
+        GROUP BY t.id, t.slug, t.name, g.slug, g.name
+        ORDER BY total DESC, t.name ASC
+        LIMIT ${topN}
+      `),
+      prisma.$queryRaw<CountRow[]>(Prisma.sql`
+        SELECT COUNT(*)::bigint AS count
+        FROM "RegisteredEntity" re
+        WHERE re."entityType" = ${entityType}
+          ${filterSql}
+      `),
+    ])
+
+    const totalEntities = Number(totalRows[0]?.count ?? 0)
+    const tagIds = tagRows.map(r => r.id)
+    const tagTotals: Record<string, number> = {}
+    for (const r of tagRows) tagTotals[r.id] = Number(r.total)
+
+    type PairRow = { tagA: string; tagB: string; cnt: bigint }
+    const pairs = tagIds.length > 1 && totalEntities > 0
+      ? await prisma.$queryRaw<PairRow[]>(Prisma.sql`
+          SELECT LEAST(er."tagId", ec."tagId") AS "tagA",
+                 GREATEST(er."tagId", ec."tagId") AS "tagB",
+                 COUNT(DISTINCT er."entityId")::bigint AS cnt
+          FROM "EntityTag" er
+          JOIN "EntityTag" ec ON ec."entityType" = er."entityType"
+                              AND ec."entityId"   = er."entityId"
+                              AND ec."status" = 'active'
+                              AND ec."tagId" > er."tagId"
+          JOIN "RegisteredEntity" re ON re."entityType" = er."entityType"
+                                     AND re."entityId"   = er."entityId"
+          WHERE er."entityType" = ${entityType}
+            AND er."status" = 'active'
+            AND er."tagId" = ANY(${tagIds}::text[])
+            AND ec."tagId" = ANY(${tagIds}::text[])
+            ${filterSql}
+          GROUP BY LEAST(er."tagId", ec."tagId"), GREATEST(er."tagId", ec."tagId")
+        `)
+      : []
+
+    const cooccurrence: Record<string, { count: number; lift: number }> = {}
+    for (const p of pairs) {
+      const count = Number(p.cnt)
+      const tA = tagTotals[p.tagA] || 0
+      const tB = tagTotals[p.tagB] || 0
+      const expected = (tA * tB) / totalEntities
+      const lift = expected > 0 ? count / expected : 0
+      cooccurrence[`${p.tagA}:${p.tagB}`] = { count, lift: parseFloat(lift.toFixed(3)) }
+    }
+
+    return c.json({
+      code: 0,
+      data: {
+        tags: tagRows.map(r => ({
+          tagId: r.id, slug: r.slug, name: r.name,
+          groupSlug: r.groupSlug, groupName: r.groupName,
+          total: Number(r.total),
+        })),
+        cooccurrence,
+        totalEntities,
+      },
+    }, 200)
+  } catch (error: unknown) {
+    logger.error({ err: error }, 'Search co-occurrence error')
+    throw error
   }
 })

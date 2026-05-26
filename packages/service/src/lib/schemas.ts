@@ -337,6 +337,39 @@ export const SearchPivotDataSchema = z.object({
 
 export type SearchPivotInput = z.infer<typeof SearchPivotBody>
 
+// ── 共现矩阵 schemas ───────────────────────────────────────────────────────
+// 同一组实体下，"哪些标签倾向同时出现"。对称矩阵，对角线 = 该标签自身总数。
+// lift = (共现实体数 × 总实体数) / (tagA 总数 × tagB 总数)
+//   > 1: 正相关（一起出现的概率高于随机）；= 1: 独立；< 1: 负相关
+export const SearchCooccurrenceBody = z.object({
+  entityType: z.string().min(1).openapi({ description: '实体类型' }),
+  filter:     BoolExprSchema.optional().openapi({ description: '可选 BoolExpr 限定子集' }),
+  topN:       z.number().int().positive().max(30).default(15).openapi({ description: '取使用量最大的 top-N 标签（控制矩阵规模，最大 30×30）' }),
+}).openapi({ description: '共现矩阵请求' })
+
+export const CooccurrenceTagSchema = z.object({
+  tagId:     z.string(),
+  slug:      z.string(),
+  name:      z.string(),
+  groupSlug: z.string(),
+  groupName: z.string(),
+  total:     z.number().int().openapi({ description: '该 tag 在子集中的活跃实体数' }),
+})
+
+export const CooccurrenceCellSchema = z.object({
+  count: z.number().int().openapi({ description: '同时持有 tagA 与 tagB 的实体数' }),
+  lift:  z.number().openapi({ description: '观察共现 / 期望共现；> 1 = 正相关' }),
+})
+
+export const SearchCooccurrenceDataSchema = z.object({
+  tags:          z.array(CooccurrenceTagSchema),
+  // key: "tagAId:tagBId"（tagAId < tagBId 字典序，对称矩阵只存一半）
+  cooccurrence:  z.record(z.string(), CooccurrenceCellSchema),
+  totalEntities: z.number().int(),
+})
+
+export type SearchCooccurrenceInput = z.infer<typeof SearchCooccurrenceBody>
+
 // ── LLM 配置 schemas ──────────────────────────────────────────────────────────
 // 用 SystemConfig 表存储，key='llm-config'，value 为以下结构（apiKey 字段已加密）。
 export const LlmProviderEnum = z.enum(['anthropic', 'openai'])
