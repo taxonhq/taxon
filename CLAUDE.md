@@ -91,12 +91,9 @@ All endpoints return:
 
 ### Soft Delete Pattern
 
-When deleting tags or tag groups:
-1. Set `deletedAt` timestamp
-2. Append `__deleted__${timestamp}` suffix to slug and name
-3. This frees the unique constraint for future recreation
+When deleting tags or tag groups, the route only sets the `deletedAt` timestamp; `slug` and `name` are preserved as-is.
 
-See `packages/service/src/lib/errors.ts` for the `deletedSuffix()` function.
+Uniqueness on `slug` / `[groupId, slug]` / `[groupId, name]` is enforced by **PostgreSQL partial unique indexes** with `WHERE "deletedAt" IS NULL`, so soft-deleted rows do not occupy the active namespace and can coexist (multiple deleted records with the same original slug are allowed). Prisma's schema language can't express partial indexes, so the indexes are maintained by migration `20260521000000_soft_delete_partial_unique_index` — do **not** re-add `@unique` / `@@unique` on those columns.
 
 ### Slug Generation
 
@@ -105,7 +102,7 @@ The `generateSlug()` function in `packages/service/src/lib/slug.ts` handles:
 - English text → lowercase, hyphenated
 - Fallback to timestamp if empty
 
-Manually provided slugs must match `/^[a-z0-9][a-z0-9_-]*$/` (max 100 chars). Auto-generated slugs append a random suffix on collision (distinct from the `__deleted__` pattern).
+Manually provided slugs must match `/^[a-z0-9][a-z0-9_-]*$/` (max 100 chars). Auto-generated slugs append a random suffix on collision.
 
 ### Pagination
 

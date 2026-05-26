@@ -184,7 +184,7 @@ tagsCrud.openapi(deleteTagRoute, async (c) => {
   const { tagId } = c.req.valid('param')
   const force = c.req.query('force') === 'true' || c.req.query('force') === '1'
 
-  const tag = await prisma.tag.findUnique({ where: { id: tagId, deletedAt: null }, select: { id: true, slug: true, name: true } })
+  const tag = await prisma.tag.findUnique({ where: { id: tagId, deletedAt: null }, select: { id: true } })
   if (!tag) return c.json({ code: 404, message: '标签不存在' }, 404)
 
   if (!force) {
@@ -196,10 +196,9 @@ tagsCrud.openapi(deleteTagRoute, async (c) => {
     if (childCount > 0) return c.json({ code: 409, message: `该标签有 ${childCount} 个子标签，如需强制删除请添加 ?force=true` }, 409)
   }
 
-  const suf = `__deleted__${Date.now().toString(36)}`
   await prisma.tag.update({
     where: { id: tagId },
-    data:  { deletedAt: new Date(), slug: tag.slug + suf, name: tag.name + suf },
+    data:  { deletedAt: new Date() },
   })
   return c.json({ code: 0, message: '删除成功' }, 200)
 })

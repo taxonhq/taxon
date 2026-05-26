@@ -260,7 +260,7 @@ tagGroups.openapi(deleteGroupRoute, async (c) => {
   const { groupId } = c.req.valid('param')
   const force = c.req.query('force') === 'true' || c.req.query('force') === '1'
 
-  const group = await prisma.tagGroup.findUnique({ where: { id: groupId, deletedAt: null }, select: { id: true, slug: true, name: true } })
+  const group = await prisma.tagGroup.findUnique({ where: { id: groupId, deletedAt: null }, select: { id: true } })
   if (!group) return c.json({ code: 404, message: '标签分组不存在' }, 404)
 
   if (!force) {
@@ -269,10 +269,9 @@ tagGroups.openapi(deleteGroupRoute, async (c) => {
       return c.json({ code: 409, message: `该分组下共有 ${usageCount} 条实体关联，如需强制删除请添加 ?force=true` }, 409)
   }
 
-  const suf = `__deleted__${Date.now().toString(36)}`
   await prisma.tagGroup.update({
     where: { id: groupId },
-    data:  { deletedAt: new Date(), slug: group.slug + suf, name: group.name + suf },
+    data:  { deletedAt: new Date() },
   })
   return c.json({ code: 0, message: '删除成功' }, 200)
 })
