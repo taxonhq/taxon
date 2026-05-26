@@ -188,8 +188,9 @@ export const RegisteredEntitySchema = z.object({
   tags:         z.array(EntityTagItemSchema).optional(),
 })
 
+// 路由是 POST /entities/:type/:id/tags/:tagId — tagId 在 URL 路径里，
+// 不应再要求 body 也带 tagId（重复 + 阻塞空 body 的合法 POST）。
 export const AddEntityTagBody = z.object({
-  tagId:      CuidId,
   source:     z.enum(['manual', 'ai', 'system', 'import']).default('manual'),
   confidence: z.number().min(0).max(1).nullable().optional(),
   note:       z.string().max(500).optional(),
