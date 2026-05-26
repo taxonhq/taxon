@@ -593,6 +593,54 @@ export async function searchPivot(body: PivotRequest): Promise<PivotResult> {
   });
 }
 
+// ── LLM 配置 + 自然语言查询 ───────────────────────────────────────
+
+export type LlmProvider = "anthropic" | "openai";
+
+export interface LlmConfigPublic {
+  provider?:   LlmProvider;
+  model?:      string;
+  baseUrl?:    string;
+  hasApiKey:   boolean;
+  apiKeyMask?: string;
+  enabled:     boolean;
+}
+
+export interface LlmConfigUpdate {
+  provider: LlmProvider;
+  model:    string;
+  /** 缺省=保持原值；空字符串=清空 */
+  apiKey?:  string;
+  baseUrl?: string;
+  enabled:  boolean;
+}
+
+export async function getLlmConfig(): Promise<LlmConfigPublic> {
+  return req<LlmConfigPublic>("/settings/llm");
+}
+
+export async function updateLlmConfig(body: LlmConfigUpdate): Promise<LlmConfigPublic> {
+  return req<LlmConfigPublic>("/settings/llm", {
+    method:  "PUT",
+    headers: { "Content-Type": "application/json" },
+    body:    JSON.stringify(body),
+  });
+}
+
+export interface NlToDslResult {
+  boolExpr?:   BoolExpr;
+  explanation: string;
+  model:       string;
+}
+
+export async function nlToDsl(text: string, entityType?: string): Promise<NlToDslResult> {
+  return req<NlToDslResult>("/search/nl-to-dsl", {
+    method:  "POST",
+    headers: { "Content-Type": "application/json" },
+    body:    JSON.stringify({ text, entityType }),
+  });
+}
+
 // ── Token 管理 ────────────────────────────────────────────────────
 
 export interface ApiToken {

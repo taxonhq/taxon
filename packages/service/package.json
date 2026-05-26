@@ -13,11 +13,13 @@
     "postinstall": "prisma generate"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.98.0",
     "@hono/node-server": "^1.19.14",
     "@hono/zod-openapi": "^1.4.0",
     "@prisma/client": "^6.19.3",
     "dotenv": "^17.4.2",
     "hono": "^4.12.15",
+    "openai": "^6.39.0",
     "pino": "^10.3.1",
     "pino-http": "^11.0.0",
     "pinyin": "^4.0.0",

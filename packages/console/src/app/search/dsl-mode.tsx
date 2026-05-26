@@ -172,7 +172,7 @@ export function DslMode({ prefill }: DslModeProps) {
             type="button"
             onClick={run}
             disabled={!parsed || loading}
-            className="px-4 py-1.5 rounded-md bg-ink text-bg text-base font-medium hover:opacity-90 disabled:opacity-50 flex items-center gap-1.5"
+            className="px-4 py-1.5 rounded-md bg-ink text-surface text-base font-medium hover:opacity-90 disabled:opacity-50 flex items-center gap-1.5"
           >
             {loading ? <Loader2 className="size-3.5 animate-spin" /> : <Play className="size-3.5" />}
             发送

@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import Link from "next/link";
 import {
   Tag, Layers, ClipboardCheck, Box, LayoutDashboard, Search,
-  ChevronLeft, ChevronRight, HelpCircle, KeyRound,
+  ChevronLeft, ChevronRight, HelpCircle, KeyRound, Sparkles,
 } from "lucide-react";
 import { NavLink } from "@/components/nav-link";
 import { AboutDialog } from "@/components/ui/about-dialog";
@@ -26,6 +26,7 @@ const NAV = [
 ] as const;
 
 const NAV_BOTTOM = [
+  { href: "/settings/llm",    icon: Sparkles, label: "LLM 设置" },
   { href: "/settings/tokens", icon: KeyRound, label: "API Tokens" },
 ] as const;
 

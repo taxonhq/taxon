@@ -337,6 +337,54 @@ export const SearchPivotDataSchema = z.object({
 
 export type SearchPivotInput = z.infer<typeof SearchPivotBody>
 
+// ── LLM 配置 schemas ──────────────────────────────────────────────────────────
+// 用 SystemConfig 表存储，key='llm-config'，value 为以下结构（apiKey 字段已加密）。
+export const LlmProviderEnum = z.enum(['anthropic', 'openai'])
+
+// 内部存储格式（DB 中的 value）
+export const LlmConfigStored = z.object({
+  provider: LlmProviderEnum,
+  model:    z.string().min(1),
+  apiKey:   z.string(),     // 已 AES-256-GCM 加密
+  baseUrl:  z.string().optional(),
+  enabled:  z.boolean(),
+})
+export type LlmConfigStored = z.infer<typeof LlmConfigStored>
+
+// GET 响应：apiKey 用 mask 返回
+export const LlmConfigPublic = z.object({
+  provider:   LlmProviderEnum.optional(),
+  model:      z.string().optional(),
+  baseUrl:    z.string().optional(),
+  hasApiKey:  z.boolean(),
+  apiKeyMask: z.string().optional(),
+  enabled:    z.boolean(),
+})
+
+// PUT 请求：apiKey 可缺省表示保持原值；空字符串表示清空
+export const LlmConfigUpdateBody = z.object({
+  provider: LlmProviderEnum,
+  model:    z.string().min(1),
+  apiKey:   z.string().optional().openapi({ description: '明文 API key；缺省=保持原值；空字符串=清空' }),
+  baseUrl:  z.string().optional(),
+  enabled:  z.boolean(),
+})
+
+// ── NL → BoolExpr 路由 schemas ────────────────────────────────────────────────
+export const NlToDslBody = z.object({
+  text:       z.string().min(1).openapi({ description: '中文自然语言查询，例如：「川菜餐厅但不要素食的，AI 高置信度」' }),
+  entityType: z.string().min(1).optional().openapi({ description: '可选：实体类型上下文，提升翻译准确率' }),
+})
+
+export const NlToDslData = z.object({
+  boolExpr:    BoolExprSchema.optional().openapi({ description: '解析得到的 BoolExpr；空 = 模型未能解析' }),
+  explanation: z.string().openapi({ description: 'AI 对翻译过程的中文解释，便于审计' }),
+  model:       z.string().openapi({ description: '实际使用的模型版本（带 provider 前缀）' }),
+})
+
+export type LlmConfigUpdateInput = z.infer<typeof LlmConfigUpdateBody>
+export type NlToDslInput         = z.infer<typeof NlToDslBody>
+
 // ── Token schemas ─────────────────────────────────────────────────────────────
 export const ApiTokenSchema = z.object({
   id:         z.string(),

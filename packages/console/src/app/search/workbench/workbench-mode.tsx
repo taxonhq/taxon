@@ -125,7 +125,7 @@ export function WorkbenchMode({ onDrillToDsl }: WorkbenchModeProps) {
                 onClick={() => setView(v.id)}
                 className={cn(
                   "px-3 py-2 text-base flex items-center gap-1.5 transition-colors",
-                  view === v.id ? "bg-ink text-bg" : "text-ink hover:bg-row-hover",
+                  view === v.id ? "bg-ink text-surface" : "text-ink hover:bg-row-hover",
                 )}
               >
                 <v.icon className="size-3.5" />

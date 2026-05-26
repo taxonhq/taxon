@@ -25,16 +25,41 @@ NODE_MAJOR=$(node -e "process.stdout.write(process.versions.node.split('.')[0])"
 [[ "$NODE_MAJOR" -lt 20 ]] && error "Node.js 20+ required (found: $(node -v))"
 
 # ─── Free ports ───────────────────────────────────────────────────────────────
+# 逻辑：
+#   1) 先发 SIGTERM 让进程优雅退出
+#   2) 最多等 3 秒（每 0.3s 轮询端口）让端口被释放
+#   3) 还占着就 SIGKILL，再等 0.5s 二次验证
+#   4) 仍占着就报错退出（避免 service 启动遇 EADDRINUSE 才挂掉）
 free_port() {
   local port=$1
   local pids
   pids=$(lsof -ti tcp:"$port" 2>/dev/null | tr '\n' ' ' | xargs || true)
-  if [[ -n "$pids" ]]; then
-    warn "Port $port in use — killing pid $pids"
-    # shellcheck disable=SC2086
-    kill $pids 2>/dev/null || true
+  [[ -z "$pids" ]] && return 0
+
+  warn "Port $port in use (pid $pids) — SIGTERM"
+  # shellcheck disable=SC2086
+  kill $pids 2>/dev/null || true
+
+  local i
+  for i in $(seq 1 10); do
     sleep 0.3
+    pids=$(lsof -ti tcp:"$port" 2>/dev/null | tr '\n' ' ' | xargs || true)
+    if [[ -z "$pids" ]]; then
+      step "port $port freed"
+      return 0
+    fi
+  done
+
+  warn "Port $port still busy (pid $pids) — SIGKILL"
+  # shellcheck disable=SC2086
+  kill -9 $pids 2>/dev/null || true
+  sleep 0.5
+
+  pids=$(lsof -ti tcp:"$port" 2>/dev/null | tr '\n' ' ' | xargs || true)
+  if [[ -n "$pids" ]]; then
+    error "Port $port could not be freed (pid $pids still alive)"
   fi
+  step "port $port freed (forced)"
 }
 
 # ─── Environment detection ────────────────────────────────────────────────────

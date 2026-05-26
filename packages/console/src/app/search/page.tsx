@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import { WorkbenchMode } from "./workbench/workbench-mode";
 import { PivotMode } from "./pivot-mode";
 import { DslMode } from "./dsl-mode";
+import { NlMode } from "./nl-mode";
 import type { SearchEntitiesRequest } from "@/lib/api";
 
 type Mode = "workbench" | "pivot" | "nl" | "dsl";
@@ -60,25 +61,8 @@ export default function SearchPage() {
       <div>
         {mode === "workbench" && <WorkbenchMode onDrillToDsl={drillToDsl} />}
         {mode === "pivot"     && <PivotMode onDrill={drillToDsl} />}
-        {mode === "nl"        && <NlPlaceholder />}
+        {mode === "nl"        && <NlMode onApplyToDsl={drillToDsl} />}
         {mode === "dsl"       && <DslMode prefill={dslPrefill} />}
-      </div>
-    </div>
-  );
-}
-
-function NlPlaceholder() {
-  return (
-    <div className="flex flex-col items-center justify-center gap-4 py-24 text-center">
-      <div className="size-16 rounded-full bg-overlay flex items-center justify-center">
-        <Sparkles className="size-7 text-ink-sub" />
-      </div>
-      <div className="space-y-2">
-        <p className="text-lg font-semibold text-ink">自然语言查询</p>
-        <p className="text-base text-ink-sub max-w-md">
-          用中文描述你想找的东西（例如：「川菜餐厅但不要素食的，AI 高置信度」），
-          系统会自动翻译为 BoolExpr。即将上线。
-        </p>
       </div>
     </div>
   );

@@ -233,7 +233,7 @@ export function MetaPicker({
               (tab === "status" && st.length === 0) ||
               (tab === "confidence" && !gte && !lte)
             }
-            className="px-3 py-1.5 rounded-md bg-ink text-bg text-base font-medium hover:opacity-90 disabled:opacity-50"
+            className="px-3 py-1.5 rounded-md bg-ink text-surface text-base font-medium hover:opacity-90 disabled:opacity-50"
           >
             添加
           </button>
@@ -249,7 +249,7 @@ function Chip({ active, onClick, children }: { active: boolean; onClick: () => v
       className={cn(
         "px-2.5 py-0.5 rounded-full border text-sm transition-colors",
         active
-          ? "border-ink bg-ink text-bg font-medium"
+          ? "border-ink bg-ink text-surface font-medium"
           : "border-edge text-ink-sub hover:text-ink hover:border-edge-mid",
       )}
     >{children}</button>
@@ -319,7 +319,7 @@ export function AliasPicker({
               setAlias(""); setGroupSlug(""); onClose();
             }}
             disabled={!alias.trim()}
-            className="px-3 py-1.5 rounded-md bg-ink text-bg text-base font-medium hover:opacity-90 disabled:opacity-50"
+            className="px-3 py-1.5 rounded-md bg-ink text-surface text-base font-medium hover:opacity-90 disabled:opacity-50"
           >添加</button>
         </div>
       </div>

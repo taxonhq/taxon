@@ -6681,6 +6681,336 @@
           }
         }
       }
+    },
+    "/search/nl-to-dsl": {
+      "post": {
+        "tags": [
+          "检索"
+        ],
+        "summary": "自然语言 → BoolExpr 翻译",
+        "description": "把中文自然语言查询翻译为 BoolExpr。\n\n### 用法\n- `text`：自然语言输入（例：「川菜餐厅但不要素食的，AI 高置信度」）\n- `entityType`：可选实体类型，提供给 LLM 作为上下文，提升翻译准确率\n\n### 行为\n- 使用系统设置中配置的 LLM provider（Anthropic / OpenAI）\n- LLM 强制结构化输出 BoolExpr JSON\n- 服务端做二次 Zod 校验；不合法时返回 `boolExpr=null` + 错误说明\n\n### 配置缺失\n若管理员未在 `/settings/llm` 配置 provider/apiKey，或 enabled=false，返回 400。",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "text": {
+                    "type": "string",
+                    "minLength": 1,
+                    "description": "中文自然语言查询，例如：「川菜餐厅但不要素食的，AI 高置信度」"
+                  },
+                  "entityType": {
+                    "type": "string",
+                    "minLength": 1,
+                    "description": "可选：实体类型上下文，提升翻译准确率"
+                  }
+                },
+                "required": [
+                  "text"
+                ]
+              },
+              "examples": {
+                "basic": {
+                  "summary": "川菜或湘菜，不要素食，AI 高置信度",
+                  "value": {
+                    "text": "川菜或湘菜的菜，但不要素食，要 AI 高置信度的",
+                    "entityType": "dish"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "boolExpr": {
+                          "allOf": [
+                            {
+                              "$ref": "#/components/schemas/BoolExpr"
+                            },
+                            {
+                              "description": "解析得到的 BoolExpr；空 = 模型未能解析"
+                            }
+                          ]
+                        },
+                        "explanation": {
+                          "type": "string",
+                          "description": "AI 对翻译过程的中文解释，便于审计"
+                        },
+                        "model": {
+                          "type": "string",
+                          "description": "实际使用的模型版本（带 provider 前缀）"
+                        }
+                      },
+                      "required": [
+                        "explanation",
+                        "model"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "参数错误 / LLM 未配置",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message"
+                  ]
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "LLM 调用失败",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/settings/llm": {
+      "get": {
+        "tags": [
+          "系统设置"
+        ],
+        "summary": "获取 LLM 配置",
+        "description": "API key 仅以 mask 形式返回（如 sk-x…abcd），明文不外泄。",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "provider": {
+                          "type": "string",
+                          "enum": [
+                            "anthropic",
+                            "openai"
+                          ]
+                        },
+                        "model": {
+                          "type": "string"
+                        },
+                        "baseUrl": {
+                          "type": "string"
+                        },
+                        "hasApiKey": {
+                          "type": "boolean"
+                        },
+                        "apiKeyMask": {
+                          "type": "string"
+                        },
+                        "enabled": {
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "hasApiKey",
+                        "enabled"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "data"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "系统设置"
+        ],
+        "summary": "更新 LLM 配置",
+        "description": "apiKey 字段：缺省=保持原值；空字符串=清空；其他=替换并加密存储。",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "provider": {
+                    "type": "string",
+                    "enum": [
+                      "anthropic",
+                      "openai"
+                    ]
+                  },
+                  "model": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "apiKey": {
+                    "type": "string",
+                    "description": "明文 API key；缺省=保持原值；空字符串=清空"
+                  },
+                  "baseUrl": {
+                    "type": "string"
+                  },
+                  "enabled": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "provider",
+                  "model",
+                  "enabled"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "provider": {
+                          "type": "string",
+                          "enum": [
+                            "anthropic",
+                            "openai"
+                          ]
+                        },
+                        "model": {
+                          "type": "string"
+                        },
+                        "baseUrl": {
+                          "type": "string"
+                        },
+                        "hasApiKey": {
+                          "type": "boolean"
+                        },
+                        "apiKeyMask": {
+                          "type": "string"
+                        },
+                        "enabled": {
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "hasApiKey",
+                        "enabled"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "加密失败 / 主密钥未配置",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
     }
   }
 }

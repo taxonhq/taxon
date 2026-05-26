@@ -23,6 +23,7 @@ import { tagAliases } from './routes/tag-aliases.js'
 import { tokensRouter } from './routes/tokens.js'
 import { dashboardMetrics } from './routes/metrics-dashboard.js'
 import { searchRouter } from './routes/search.js'
+import { llmConfigRouter } from './routes/llm-config.js'
 
 export interface AppOptions {
   /** Service version for /health output (defaults to "unknown" if not provided). */
@@ -216,6 +217,7 @@ export function buildApp(opts: AppOptions = {}) {
   app.use('/tokens',       bearerAuth)
   app.use('/tokens/*',     bearerAuth)
   app.use('/search/*',     bearerAuth)
+  app.use('/settings/*',   bearerAuth)
 
   // ── 实体路径参数格式校验 ────────────────────────────────────────
   app.use('/entities/:entityType', validateEntityParams)
@@ -246,6 +248,7 @@ export function buildApp(opts: AppOptions = {}) {
   app.route('/tokens',     tokensRouter)
   app.route('/metrics',    dashboardMetrics)
   app.route('/search',     searchRouter)
+  app.route('/settings',   llmConfigRouter)
 
   // ── Dashboard 布局配置 ──────────────────────────────────────────
   app.get('/dashboard/layout', async (c) => {

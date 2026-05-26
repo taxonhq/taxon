@@ -13,9 +13,13 @@ import { requireRole } from '../middleware/auth.js'
 import {
   SearchEntitiesBody, SearchEntitiesDataSchema,
   SearchPivotBody, SearchPivotDataSchema,
+  NlToDslBody, NlToDslData,
   ApiError, okData,
 } from '../lib/schemas.js'
 import { compileBoolExpr } from '../lib/search/compile.js'
+import { loadActiveLlmConfig } from './llm-config.js'
+import { buildProvider, LlmError } from '../lib/llm/index.js'
+import { translateNlToDsl, validateBoolExpr } from '../lib/nl-to-dsl.js'
 
 export const searchRouter = new OpenAPIHono()
 
@@ -596,5 +600,104 @@ searchRouter.openapi(pivotRoute, async (c) => {
   } catch (error: unknown) {
     logger.error({ err: error }, 'Search pivot error')
     throw error
+  }
+})
+
+// ── POST /nl-to-dsl ───────────────────────────────────────────────────────────
+const NL_DESCRIPTION = `
+把中文自然语言查询翻译为 BoolExpr。
+
+### 用法
+- \`text\`：自然语言输入（例：「川菜餐厅但不要素食的，AI 高置信度」）
+- \`entityType\`：可选实体类型，提供给 LLM 作为上下文，提升翻译准确率
+
+### 行为
+- 使用系统设置中配置的 LLM provider（Anthropic / OpenAI）
+- LLM 强制结构化输出 BoolExpr JSON
+- 服务端做二次 Zod 校验；不合法时返回 \`boolExpr=null\` + 错误说明
+
+### 配置缺失
+若管理员未在 \`/settings/llm\` 配置 provider/apiKey，或 enabled=false，返回 400。
+`.trim()
+
+const nlExample = {
+  summary: '川菜或湘菜，不要素食，AI 高置信度',
+  value: {
+    text: '川菜或湘菜的菜，但不要素食，要 AI 高置信度的',
+    entityType: 'dish',
+  },
+}
+
+const nlToDslRoute = createRoute({
+  method: 'post', path: '/nl-to-dsl',
+  tags: ['检索'],
+  summary: '自然语言 → BoolExpr 翻译',
+  description: NL_DESCRIPTION,
+  security: [{ BearerAuth: [] }],
+  request: {
+    body: {
+      required: true,
+      content: {
+        'application/json': {
+          schema: NlToDslBody,
+          examples: { basic: nlExample },
+        },
+      },
+    },
+  },
+  responses: {
+    200: { content: { 'application/json': { schema: okData(NlToDslData) } }, description: '成功' },
+    400: { content: { 'application/json': { schema: ApiError } }, description: '参数错误 / LLM 未配置' },
+    502: { content: { 'application/json': { schema: ApiError } }, description: 'LLM 调用失败' },
+  },
+})
+
+searchRouter.use('/nl-to-dsl', requireRole('reader'))
+searchRouter.openapi(nlToDslRoute, async (c) => {
+  const body = c.req.valid('json')
+
+  const cfg = await loadActiveLlmConfig()
+  if (!cfg) {
+    return c.json({
+      code: 400,
+      message: 'LLM 未配置或未启用。请管理员前往 /settings/llm 配置 provider 和 API key。',
+    }, 400)
+  }
+
+  let provider
+  try {
+    provider = buildProvider(cfg)
+  } catch (e) {
+    return c.json({ code: 400, message: `LLM provider 初始化失败：${(e as Error).message}` }, 400)
+  }
+
+  try {
+    const translated = await translateNlToDsl(provider, body)
+    const validated  = validateBoolExpr(translated.boolExpr)
+
+    logger.info({
+      input:    body.text,
+      model:    translated.model,
+      hasExpr:  validated !== null,
+    }, 'NL→DSL translation')
+
+    const explanation = validated || translated.boolExpr === null || translated.boolExpr === undefined
+      ? translated.explanation
+      : `${translated.explanation}\n\n（注意：LLM 返回的结构未通过 schema 校验，已置为空）`
+    return c.json({
+      code: 0,
+      data: {
+        boolExpr:    validated ?? undefined,
+        explanation,
+        model:       translated.model,
+      },
+    }, 200)
+  } catch (e) {
+    if (e instanceof LlmError) {
+      logger.warn({ err: e }, 'NL→DSL LLM error')
+      return c.json({ code: 502, message: e.message }, 502)
+    }
+    logger.error({ err: e }, 'NL→DSL unexpected error')
+    throw e
   }
 })
