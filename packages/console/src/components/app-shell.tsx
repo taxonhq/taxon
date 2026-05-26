@@ -10,6 +10,7 @@ import {
 import { NavLink } from "@/components/nav-link";
 import { AboutDialog } from "@/components/ui/about-dialog";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
+import { OnboardingTour, useOnboarding } from "@/components/ui/onboarding";
 
 const W_OPEN   = 216;
 const W_CLOSED = 56;
@@ -42,6 +43,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [ready, setReady] = useState(false);
   const [health, setHealth] = useState<HealthStatus>("checking");
   const [showAbout, setShowAbout] = useState(false);
+
+  // Onboarding
+  const { showOnboarding, completeOnboarding, mounted: onboardingMounted } = useOnboarding();
 
   useEffect(() => {
     const saved = localStorage.getItem("sidebar-open");
@@ -224,6 +228,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       </div>
 
       <AboutDialog open={showAbout} onClose={() => setShowAbout(false)} />
+
+      {/* Onboarding Tour */}
+      {onboardingMounted && showOnboarding && (
+        <OnboardingTour onComplete={completeOnboarding} />
+      )}
     </div>
   );
 }
