@@ -1,9 +1,8 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { useParams } from "next/navigation";
-import Link from "next/link";
-import { ArrowLeft, Plus, Trash2, CheckCircle, XCircle, ChevronDown, X } from "lucide-react";
+import { useParams, useRouter } from "next/navigation";
+import { Plus, Trash2, CheckCircle, XCircle, ChevronDown, X } from "lucide-react";
 import {
   getEntityTags, addEntityTag, removeEntityTag, updateEntityTagStatus,
   unregisterEntity, getTagGroups, getGroupTags,
@@ -11,9 +10,9 @@ import {
 } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { ErrorBanner } from "@/components/ui/error-banner";
+import { PageHeader } from "@/components/ui/page-header";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Pagination } from "@/components/ui/pagination";
-import { useRouter } from "next/navigation";
 
 const TAGS_PAGE_SIZE_DEFAULT = 20;
 
@@ -172,34 +171,24 @@ export default function EntityDetailPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center gap-3 pb-6 border-b border-edge animate-fade-in">
-        <Link
-          href={`/entities/${encodeURIComponent(entityType)}`}
-          className="p-2 rounded-lg hover:bg-surface-alt transition-colors text-ink-faint hover:text-ink shrink-0"
-        >
-          <ArrowLeft size={15} />
-        </Link>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
-            <span className="text-base font-mono text-ink-sub">{entityType}</span>
-            <span className="text-ink-faint">/</span>
-            <h1
-              className="text-lg font-bold text-ink font-mono truncate"
-              style={{ letterSpacing: "-0.02em" }}
-            >
-              {entityId}
-            </h1>
-          </div>
-          <p className="text-xs text-ink-faint mt-1">
+      <PageHeader
+        back={{ href: `/entities/${encodeURIComponent(entityType)}`, label: "返回实体列表" }}
+        breadcrumb={[{ label: entityType, mono: true, href: `/entities/${encodeURIComponent(entityType)}` }]}
+        title={entityId}
+        mono
+        size="compact"
+        description={
+          <span className="text-ink-faint">
             <span className="tabular-nums">{tags.length}</span> 个标签
-          </p>
-        </div>
-        <Button size="sm" onClick={() => setShowAddForm(v => !v)}>
-          <Plus size={13} />
-          添加标签
-        </Button>
-      </div>
+          </span>
+        }
+        action={
+          <Button size="sm" onClick={() => setShowAddForm(v => !v)}>
+            <Plus size={13} />
+            添加标签
+          </Button>
+        }
+      />
 
       <ErrorBanner message={error} />
 

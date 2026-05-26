@@ -2,36 +2,41 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams } from "next/navigation";
-import Link from "next/link";
-import { ArrowLeft, Plus, Trash2, Search, X, ExternalLink } from "lucide-react";
+import { Plus, Trash2, Search, X, ExternalLink } from "lucide-react";
 import {
   getEntitiesByType, registerEntity, unregisterEntity,
   type RegisteredEntity, type EntityTagItem,
 } from "@/lib/api";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Field, Input } from "@/components/ui/field";
 import { ErrorBanner } from "@/components/ui/error-banner";
+import { PageHeader } from "@/components/ui/page-header";
 import { Pagination } from "@/components/ui/pagination";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
 const PAGE_SIZE_DEFAULT = 20;
 
-// 根据分组 ID 哈希到固定调色板，同一分组在所有实体行中颜色一致
-const TAG_PALETTES = [
-  { bg: "bg-blue-500/10",   border: "border-blue-500/20",   group: "text-blue-400/70",   name: "text-blue-200"   },
-  { bg: "bg-violet-500/10", border: "border-violet-500/20", group: "text-violet-400/70", name: "text-violet-200" },
-  { bg: "bg-emerald-500/10",border: "border-emerald-500/20",group: "text-emerald-400/70",name: "text-emerald-200"},
-  { bg: "bg-amber-500/10",  border: "border-amber-500/20",  group: "text-amber-400/70",  name: "text-amber-200"  },
-  { bg: "bg-rose-500/10",   border: "border-rose-500/20",   group: "text-rose-400/70",   name: "text-rose-200"   },
-  { bg: "bg-cyan-500/10",   border: "border-cyan-500/20",   group: "text-cyan-400/70",   name: "text-cyan-200"   },
-  { bg: "bg-orange-500/10", border: "border-orange-500/20", group: "text-orange-400/70", name: "text-orange-200" },
-  { bg: "bg-teal-500/10",   border: "border-teal-500/20",   group: "text-teal-400/70",   name: "text-teal-200"   },
-] as const;
-
-function tagPalette(groupId: string) {
+// 根据分组 ID 哈希到固定色相位（globals.css 中 --palette-1..8），
+// 通过 color-mix 派生 bg / border / 双层文字，light/dark 主题自动适配。
+function tagPaletteStyle(groupId: string): {
+  chip:  React.CSSProperties;
+  group: React.CSSProperties;
+  name:  React.CSSProperties;
+} {
   let h = 0;
   for (let i = 0; i < groupId.length; i++) h = (h * 31 + groupId.charCodeAt(i)) & 0xffff;
-  return TAG_PALETTES[h % TAG_PALETTES.length];
+  const hue = `var(--palette-${(h % 8) + 1})`;
+  return {
+    chip: {
+      background: `color-mix(in srgb, ${hue} 12%, transparent)`,
+      borderColor: `color-mix(in srgb, ${hue} 25%, transparent)`,
+    },
+    // group 二级标签（低饱和、与 ink-faint 接近的派生）
+    group: { color: `color-mix(in srgb, ${hue} 55%, var(--text-subtle) 45%)` },
+    // tag 名（更接近主色调，但仍混合 ink 保持可读）
+    name:  { color: `color-mix(in srgb, ${hue} 70%, var(--text-primary) 30%)` },
+  };
 }
 
 function formatTime(iso: string) {
@@ -137,30 +142,23 @@ export default function EntityTypePage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center gap-3 pb-6 border-b border-edge animate-fade-in">
-        <Link
-          href="/entities"
-          className="p-2 rounded-lg hover:bg-surface-alt transition-colors text-ink-faint hover:text-ink shrink-0"
-        >
-          <ArrowLeft size={15} />
-        </Link>
-        <div className="flex-1 min-w-0">
-          <h1
-            className="text-[26px] font-extrabold text-ink leading-none font-mono"
-            style={{ letterSpacing: "-0.03em" }}
-          >
-            {entityType}
-          </h1>
-          <p className="text-sm text-ink-sub mt-1.5 tabular-nums">
+      <PageHeader
+        back={{ href: "/entities", label: "返回实体类型列表" }}
+        title={entityType}
+        mono
+        size="compact"
+        description={
+          <span className="tabular-nums">
             共 <span className="text-ink font-medium">{total}</span> 个已注册实体
-          </p>
-        </div>
-        <Button size="sm" onClick={() => setShowForm(v => !v)}>
-          <Plus size={13} />
-          注册实体
-        </Button>
-      </div>
+          </span>
+        }
+        action={
+          <Button size="sm" onClick={() => setShowForm(v => !v)}>
+            <Plus size={13} />
+            注册实体
+          </Button>
+        }
+      />
 
       <ErrorBanner message={error} />
 
@@ -290,22 +288,23 @@ export default function EntityTypePage() {
                       ) : visible.length > 0 ? (
                         <div className="flex items-center gap-1.5 overflow-hidden">
                           {visible.map(tag => {
-                            const p = tagPalette(tag.groupId);
+                            const p = tagPaletteStyle(tag.groupId);
                             return (
                               <span
                                 key={tag.id}
                                 title={`${tag.group.name} · ${tag.name}`}
-                                className={`inline-flex items-baseline gap-1 px-2 py-[3px] rounded border text-xs leading-none whitespace-nowrap shrink-0 ${p.bg} ${p.border}`}
+                                style={p.chip}
+                                className="inline-flex items-baseline gap-1 px-2 py-[3px] rounded border text-xs leading-none whitespace-nowrap shrink-0"
                               >
-                                <span className={`text-2xs ${p.group}`}>{tag.group.name}</span>
-                                <span className={`font-medium ${p.name}`}>{tag.name}</span>
+                                <span className="text-2xs" style={p.group}>{tag.group.name}</span>
+                                <span className="font-medium" style={p.name}>{tag.name}</span>
                               </span>
                             );
                           })}
                           {overflow > 0 && (
                             <Link
                               href={`/entities/${encodeURIComponent(entityType)}/${encodeURIComponent(item.entityId)}`}
-                              className="px-1.5 py-[3px] rounded text-xs text-ink-faint hover:text-ink border border-white/[.1] hover:border-white/25 transition-colors leading-none shrink-0 bg-white/[.03]"
+                              className="px-1.5 py-[3px] rounded text-xs text-ink-faint hover:text-ink border border-edge hover:border-edge-mid transition-colors leading-none shrink-0 bg-surface-alt"
                             >
                               +{overflow}
                             </Link>
