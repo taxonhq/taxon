@@ -46,6 +46,13 @@ export default async function setup() {
   const baseUrl = requireEnv('TEST_DATABASE_URL')
   const schema  = newSchemaName()
 
+  // Rate limiter 在 in-memory sliding window 中共享 bucket（pool=forks, singleFork
+  // 让所有测试共一个进程），生产默认 60 writes/min 会被多个 POST-heavy 测试
+  // 累积击穿，导致后续测试随机拿到 429。测试时把上限调成天文数字让限流不再生效。
+  // 生产代码本身的限流逻辑由专门的限流测试覆盖（若需要）。
+  process.env.RATE_LIMIT_MAX       = '1000000'
+  process.env.RATE_LIMIT_WRITE_MAX = '1000000'
+
   // 1. CREATE SCHEMA via raw pg client (Prisma can't create schemas)
   const admin = new Client({ connectionString: baseUrl })
   await admin.connect()

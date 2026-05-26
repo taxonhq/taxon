@@ -97,7 +97,9 @@ const listEntitiesRoute = createRoute({
   request: {
     params: z.object({ entityType: z.string().min(1) }),
     query: PaginationQuery.extend({
-      tagId:    z.string().optional().openapi({ description: '标签 ID 过滤（可多个）' }),
+      // tagId 支持 ?tagId=A 或 ?tagId=A&tagId=B 两种形式 — Hono 对重复 query
+      // 参数会给 Zod 一个 string[]，单值情况下是 string。
+      tagId:    z.union([z.string(), z.array(z.string())]).optional().openapi({ description: '标签 ID 过滤（可多个，AND 语义）' }),
       q:        z.string().optional().openapi({ description: '按标签名称模糊过滤' }),
       search:   z.string().optional().openapi({ description: '按 entityId 模糊搜索' }),
       withTags: z.enum(['true', 'false']).optional(),
