@@ -228,7 +228,7 @@ export default function GroupsPage() {
         <>
           <div className="space-y-3">
             {groups.map((group, i) => (
-              <div key={group.id} className="animate-slide-up" style={{ animationDelay: `${i * 30}ms` }}>
+              <div key={group.id} className="animate-slide-up" style={{ animationDelay: `${Math.min(i, 7) * 30}ms` }}>
                 <GroupCard
                   group={group}
                   onDelete={() => handleDeleteGroup(group)}
@@ -307,10 +307,10 @@ function GroupCard({
 
         {/* Tag count — numeric anchor */}
         <div className="shrink-0 text-right leading-none pt-0.5 min-w-[44px]">
-          <p className="text-[24px] font-bold text-ink tabular-nums" style={{ letterSpacing: "-0.04em" }}>
+          <p className="text-display-sm font-bold text-ink tabular-nums" style={{ letterSpacing: "-0.04em" }}>
             {group.tagTotal}
           </p>
-          <p className="text-[9px] text-ink-faint uppercase mt-2" style={{ letterSpacing: "0.18em" }}>标签</p>
+          <p className="text-2xs text-ink-faint uppercase mt-2" style={{ letterSpacing: "0.18em" }}>标签</p>
         </div>
 
         {/* Actions — appear on hover or keyboard focus */}

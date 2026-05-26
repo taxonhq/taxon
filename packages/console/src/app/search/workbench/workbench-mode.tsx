@@ -3,7 +3,7 @@
 import { useState, useReducer, useEffect, useMemo, useCallback } from "react";
 import {
   Plus, Tag as TagIcon, GitBranch, Languages, Sliders, FoldVertical, UnfoldVertical,
-  List, Grid3x3, BarChart3, Network, CalendarRange, Loader2, Trash2,
+  List, Grid3x3, BarChart3, Network, CalendarRange, Loader2, Trash2, Copy, ExternalLink,
 } from "lucide-react";
 import {
   getEntityTypes, searchEntities, searchTags,
@@ -20,6 +20,7 @@ import {
 import { PivotMode } from "../pivot-mode";
 import { CooccurrenceView } from "./cooccurrence-view";
 import { TimelineView } from "./timeline-view";
+import { useRouter } from "next/navigation";
 
 type ViewKind = "list" | "facet" | "pivot" | "cooccurrence" | "timeline";
 
@@ -160,6 +161,8 @@ export function WorkbenchMode({ onDrillToDsl, prefill }: WorkbenchModeProps) {
     });
   };
 
+  const router = useRouter();
+
   return (
     <div className="space-y-5 animate-fade-in">
       {/* ── 顶部控制：entityType + 视图切换 ─────────────────────── */}
@@ -179,38 +182,40 @@ export function WorkbenchMode({ onDrillToDsl, prefill }: WorkbenchModeProps) {
           </select>
         </div>
 
-        <div className="flex flex-col gap-1.5">
-          <label className="text-xs text-ink-sub">视图</label>
-          <div className="inline-flex rounded-md border border-edge overflow-hidden">
-            {[
-              { id: "list"         as const, icon: List,          label: "实体列表" },
-              { id: "facet"        as const, icon: BarChart3,     label: "Facet 分布" },
-              { id: "pivot"        as const, icon: Grid3x3,       label: "Pivot 透视" },
-              { id: "cooccurrence" as const, icon: Network,       label: "共现矩阵" },
-              { id: "timeline"     as const, icon: CalendarRange, label: "时间线" },
-            ].map(v => (
-              <button
-                key={v.id}
-                type="button"
-                onClick={() => setView(v.id)}
-                className={cn(
-                  "px-3 py-2 text-base flex items-center gap-1.5 transition-colors",
-                  view === v.id ? "bg-ink text-surface" : "text-ink hover:bg-row-hover",
-                )}
-              >
-                <v.icon className="size-3.5" />
-                {v.label}
-              </button>
-            ))}
-          </div>
+        {/* 视图切换器 — 紧凑图标模式 */}
+        <div className="flex items-center gap-0.5 p-1 rounded-lg bg-surface-alt border border-edge">
+          {[
+            { id: "list"         as const, icon: List,          label: "列表" },
+            { id: "facet"        as const, icon: BarChart3,     label: "Facet" },
+            { id: "pivot"        as const, icon: Grid3x3,       label: "透视" },
+            { id: "cooccurrence" as const, icon: Network,       label: "共现" },
+            { id: "timeline"     as const, icon: CalendarRange, label: "时间线" },
+          ].map(v => (
+            <button
+              key={v.id}
+              type="button"
+              onClick={() => setView(v.id)}
+              title={v.label}
+              aria-label={v.label}
+              className={cn(
+                "p-2 rounded-md transition-colors",
+                view === v.id
+                  ? "bg-ink text-surface"
+                  : "text-ink-faint hover:text-ink hover:bg-row-hover",
+              )}
+            >
+              <v.icon className="size-4" />
+            </button>
+          ))}
         </div>
 
+        {/* 结果数 KPI badge */}
         {data && view !== "pivot" && (
-          <div className="ml-auto self-end pb-1">
-            <span className="text-base text-ink">
-              <strong className="text-2xl font-bold">{data.total}</strong>
-              <span className="text-ink-sub ml-1.5">条结果</span>
-            </span>
+          <div className="ml-auto self-end pb-1 flex items-center gap-2">
+            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-brand-1/10 border border-brand-1/25">
+              <span className="text-lg font-bold text-ink tabular-nums">{data.total.toLocaleString()}</span>
+              <span className="text-xs text-ink-sub">条结果</span>
+            </div>
           </div>
         )}
         {loading && <Loader2 className="size-4 text-ink-sub animate-spin mb-3" />}
@@ -285,7 +290,36 @@ export function WorkbenchMode({ onDrillToDsl, prefill }: WorkbenchModeProps) {
         {/* DSL 镜像 */}
         {showDsl && (
           <div className="mt-3 pt-3 border-t border-edge/50">
-            <p className="text-xs text-ink-sub mb-1.5">实时编译的 BoolExpr：</p>
+            <div className="flex items-center justify-between mb-1.5">
+              <p className="text-xs text-ink-sub">实时编译的 BoolExpr</p>
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const json = filter ? JSON.stringify(filter, null, 2) : "// 空 — 无过滤";
+                    navigator.clipboard.writeText(json);
+                  }}
+                  title="复制 JSON"
+                  className="flex items-center gap-1 px-2 py-1 text-xs text-ink-faint hover:text-ink hover:bg-surface-alt rounded transition-colors"
+                >
+                  <Copy size={10} />
+                  复制
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    // 跳转到 DSL 模式并带上当前的 filter
+                    const query = filter ? encodeURIComponent(JSON.stringify(filter)) : "";
+                    router.push(`/search?mode=dsl&filter=${query}`);
+                  }}
+                  title="在 DSL 模式中打开"
+                  className="flex items-center gap-1 px-2 py-1 text-xs text-ink-faint hover:text-ink hover:bg-surface-alt rounded transition-colors"
+                >
+                  <ExternalLink size={10} />
+                  DSL 模式
+                </button>
+              </div>
+            </div>
             <pre className="text-xs font-mono text-ink bg-input rounded-md p-3 overflow-auto max-h-48">
               {filter
                 ? JSON.stringify(filter, null, 2)

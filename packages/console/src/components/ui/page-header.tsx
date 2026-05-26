@@ -44,8 +44,8 @@ export interface PageHeaderProps {
 }
 
 const titleSize: Record<PageHeaderSize, string> = {
-  default: "text-[28px]",
-  compact: "text-[20px]",
+  default: "text-display-md",
+  compact: "text-display-xs",
 };
 
 const titleWeight: Record<PageHeaderSize, string> = {

@@ -504,7 +504,7 @@ function PivotTable({
               )} title={`${c.name} (${c.total} 条)`}>
                 <div className="flex flex-col items-center gap-0.5">
                   <span>{c.name}</span>
-                  <span className="text-ink-faint text-[10px]">{c.total}</span>
+                  <span className="text-ink-faint text-2xs">{c.total}</span>
                 </div>
               </th>
             ))}
@@ -519,7 +519,7 @@ function PivotTable({
               )} title={`${r.name} (${r.total} 条)`}>
                 <div className="flex items-baseline justify-between gap-3">
                   <span>{r.name}</span>
-                  <span className="text-ink-faint text-[10px]">{r.total}</span>
+                  <span className="text-ink-faint text-2xs">{r.total}</span>
                 </div>
               </th>
               {data.cols.map(c => {

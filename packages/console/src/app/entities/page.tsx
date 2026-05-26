@@ -125,7 +125,7 @@ export default function EntitiesPage() {
               key={t.entityType}
               href={`/entities/${encodeURIComponent(t.entityType)}`}
               className="card-border overflow-hidden p-5 flex items-center gap-4 group/card animate-slide-up"
-              style={{ animationDelay: `${i * 30}ms` }}
+              style={{ animationDelay: `${Math.min(i, 7) * 30}ms` }}
             >
               {/* Icon */}
               <div className="w-9 h-9 rounded-xl bg-surface-alt border border-edge-mid flex items-center justify-center shrink-0">

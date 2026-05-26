@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 import {
@@ -10,6 +10,7 @@ import {
 import { NavLink } from "@/components/nav-link";
 import { AboutDialog } from "@/components/ui/about-dialog";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
+import { OnboardingTour, useOnboarding } from "@/components/ui/onboarding";
 
 const W_OPEN   = 216;
 const W_CLOSED = 56;
@@ -43,13 +44,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [health, setHealth] = useState<HealthStatus>("checking");
   const [showAbout, setShowAbout] = useState(false);
 
+  // Onboarding
+  const { showOnboarding, completeOnboarding, mounted: onboardingMounted } = useOnboarding();
+
   useEffect(() => {
     const saved = localStorage.getItem("sidebar-open");
     if (saved === "false") setOpen(false);
     setReady(true);
   }, []);
 
-  // Live health check — poll every 30 s
+  // Live health check — poll every 30 s ± 5s jitter
   useEffect(() => {
     const check = () => {
       fetch(`${BASE}/health`, { signal: AbortSignal.timeout(4000) })
@@ -57,17 +61,43 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         .catch(() => setHealth("degraded"));
     };
     check();
-    const id = setInterval(check, 30_000);
+    // Add jitter to prevent thundering herd when multiple consoles are open
+    const jitter = Math.random() * 10000 - 5000; // ±5s
+    const id = setInterval(check, 30_000 + jitter);
     return () => clearInterval(id);
   }, []);
 
-  const toggle = () =>
+  const toggle = useCallback(() => {
     setOpen(v => {
       localStorage.setItem("sidebar-open", String(!v));
       return !v;
     });
+  }, []);
+
+  // ⌘B / Ctrl+B shortcut to toggle sidebar
+  useEffect(() => {
+    const handleKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "b") {
+        e.preventDefault();
+        toggle();
+      }
+    };
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
+  }, [toggle]);
 
   const w = ready ? (open ? W_OPEN : W_CLOSED) : W_OPEN;
+
+  // ── 内容容器宽度分级 ─────────────────────────────────────────────
+  // 不同页面对宽度需求差异显著：
+  //  - 表格密集页（audit / entities/[type] / entities/[type]/[id]）→ 1200px
+  //    审核队列正常 7-9 列，880 会强迫截断 ID、压缩备注列
+  //  - 列表卡片 / 表单 / 详情（默认）→ 880px
+  //  - Dashboard 全宽（自管）
+  const isWide =
+    pathname.startsWith("/audit") ||
+    pathname.startsWith("/entities/");   // 注意末尾 / —— 排除 /entities 本身（卡片网格用 880）
+  const containerClass = isWide ? "max-w-[1200px]" : "max-w-[880px]";
 
   const dotClass =
     health === "ok"       ? "bg-ok" :
@@ -81,25 +111,41 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="flex min-h-screen">
+      {/* ── Skip-link for a11y ───────────────────────────────────── */}
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-50 focus:px-3 focus:py-2 focus:bg-ink focus:text-surface focus:rounded-lg focus:text-sm focus:font-medium"
+      >
+        跳转到主内容
+      </a>
+
       {/* ── Sidebar ──────────────────────────────────────────────── */}
       <aside
         style={{ width: w, background: "var(--sidebar-bg)" }}
         className="h-screen fixed left-0 top-0 flex flex-col border-r border-edge z-40 overflow-hidden transition-[width] duration-200 ease-in-out"
       >
-        {/* Brand */}
+        {/* Brand with collapse button */}
         <div className="flex items-center border-b border-edge shrink-0" style={{ height: 60, padding: open ? "0 16px" : "0 12px" }}>
-          <Link href="/" className="flex items-center gap-3 min-w-0">
+          <Link href="/" className="flex items-center gap-3 min-w-0 flex-1">
             <div className="w-8 h-8 rounded-xl bg-ink flex items-center justify-center shrink-0 shadow-md">
               <Tag size={14} className="text-surface" strokeWidth={2.5} />
             </div>
             {open && (
-              <p className="text-[17px] font-bold text-ink whitespace-nowrap" style={{ letterSpacing: "-0.03em" }}>Taxcon</p>
+              <p className="text-lg font-bold text-ink whitespace-nowrap" style={{ letterSpacing: "-0.03em" }}>Taxcon</p>
             )}
           </Link>
+          {/* Collapse button moved to header (industry convention) */}
+          <button
+            onClick={toggle}
+            aria-label={open ? "收起侧边栏" : "展开侧边栏"}
+            className="p-1.5 rounded-lg text-ink-faint hover:text-ink hover:bg-surface-alt transition-colors shrink-0"
+          >
+            {open ? <ChevronLeft size={14} /> : <ChevronRight size={14} />}
+          </button>
         </div>
 
         {/* Nav */}
-        <nav className="flex-1 px-2 pt-4 pb-2 overflow-hidden space-y-0.5">
+        <nav aria-label="主导航" className="flex-1 px-2 pt-4 pb-2 overflow-hidden space-y-0.5">
           {/* 仪表盘 */}
           {NAV_TOP.map(({ href, icon: Icon, label }) => (
             <NavLink key={href} href={href} collapsed={!open} title={open ? undefined : label}>
@@ -110,7 +156,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
           {/* 分隔 */}
           {open
-            ? <p className="px-3 pt-4 pb-1.5 text-[9px] font-semibold text-ink-faint uppercase whitespace-nowrap" style={{ letterSpacing: "0.16em" }}>管理</p>
+            ? <p className="px-3 pt-4 pb-1.5 text-2xs font-semibold text-ink-faint uppercase whitespace-nowrap" style={{ letterSpacing: "0.16em" }}>管理</p>
             : <div className="mx-2 my-2 h-px bg-edge" />
           }
 
@@ -123,7 +169,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
           {/* 分隔 */}
           {open
-            ? <p className="px-3 pt-4 pb-1.5 text-[9px] font-semibold text-ink-faint uppercase whitespace-nowrap" style={{ letterSpacing: "0.16em" }}>设置</p>
+            ? <p className="px-3 pt-4 pb-1.5 text-2xs font-semibold text-ink-faint uppercase whitespace-nowrap" style={{ letterSpacing: "0.16em" }}>设置</p>
             : <div className="mx-2 my-2 h-px bg-edge" />
           }
 
@@ -135,10 +181,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           ))}
         </nav>
 
-        {/* Footer */}
+        {/* Footer — service status only */}
         <div
           className="border-t border-edge shrink-0 flex items-center"
-          style={{ padding: open ? "10px 16px" : "10px 0", justifyContent: open ? "space-between" : "center" }}
+          style={{ padding: open ? "10px 16px" : "10px 0", justifyContent: open ? "flex-start" : "center" }}
         >
           {open && (
             <div className="flex items-center gap-2 overflow-hidden" title={dotTitle}>
@@ -146,18 +192,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               <span className="text-xs text-ink-sub font-mono whitespace-nowrap truncate">{SERVICE_DISPLAY}</span>
             </div>
           )}
-          <button
-            onClick={toggle}
-            title={open ? "收起侧边栏" : "展开侧边栏"}
-            className="p-1.5 rounded-lg text-ink-faint hover:text-ink hover:bg-surface-alt transition-colors shrink-0"
-          >
-            {open ? <ChevronLeft size={14} /> : <ChevronRight size={14} />}
-          </button>
+          {!open && (
+            <span className={`inline-block w-1.5 h-1.5 rounded-full shrink-0 transition-colors duration-500 ${dotClass}`} title={dotTitle} />
+          )}
         </div>
       </aside>
 
       {/* ── Main ─────────────────────────────────────────────────── */}
       <main
+        id="main-content"
+        aria-label="主内容"
         style={{ marginLeft: w }}
         className="flex-1 min-h-screen transition-[margin-left] duration-200 ease-in-out"
       >
@@ -165,7 +209,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           // 仪表盘：全宽画布，自身管理 padding 与 overflow
           children
         ) : (
-          <div className="px-10 py-9 max-w-[880px] mx-auto">
+          <div className={`px-10 py-9 ${containerClass} mx-auto`}>
             {children}
           </div>
         )}
@@ -184,6 +228,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       </div>
 
       <AboutDialog open={showAbout} onClose={() => setShowAbout(false)} />
+
+      {/* Onboarding Tour */}
+      {onboardingMounted && showOnboarding && (
+        <OnboardingTour onComplete={completeOnboarding} />
+      )}
     </div>
   );
 }
