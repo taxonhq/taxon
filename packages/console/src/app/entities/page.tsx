@@ -176,7 +176,7 @@ function EmptyEntities({ onRegister }: { onRegister: () => void }) {
   return (
     <div className="card-border overflow-hidden animate-fade-in">
       <div className="py-28 flex flex-col items-center text-center">
-        <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-[#161616] to-[#0A0A0A] border border-edge-mid flex items-center justify-center mb-5 shadow-[0_2px_8px_rgba(0,0,0,.4)]">
+        <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-surface-alt to-surface border border-edge-mid flex items-center justify-center mb-5 shadow-md">
           <Box size={22} className="text-ink-faint" strokeWidth={1.5} />
         </div>
         <p className="text-md font-semibold text-ink-sub">暂无已注册实体</p>

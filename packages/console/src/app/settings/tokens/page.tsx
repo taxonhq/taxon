@@ -10,12 +10,12 @@ import { PageHeader } from "@/components/ui/page-header";
 import { Button }     from "@/components/ui/button";
 import { ErrorBanner } from "@/components/ui/error-banner";
 
-// ── 角色标签样式 ─────────────────────────────────────────────────
+// ── 角色标签样式 — 使用语义 token，自动适配 light/dark ────────────
 const ROLE_STYLE: Record<ApiToken["role"], string> = {
-  reader:   "bg-blue-50 text-blue-700 border-blue-200",
-  writer:   "bg-green-50 text-green-700 border-green-200",
-  reviewer: "bg-amber-50 text-amber-700 border-amber-200",
-  admin:    "bg-red-50 text-red-700 border-red-200",
+  reader:   "bg-brand-1/10 text-brand-1 border-brand-1/25",
+  writer:   "bg-ok/10     text-ok     border-ok/25",
+  reviewer: "bg-warn/10   text-warn   border-warn/25",
+  admin:    "bg-bad/10    text-bad    border-bad/25",
 };
 
 const ROLE_LABEL: Record<ApiToken["role"], string> = {
@@ -62,7 +62,7 @@ function CreateDialog({
         {error && <ErrorBanner message={error} />}
         <form onSubmit={submit} className="space-y-4">
           <div>
-            <label className="block text-xs text-ink-sub mb-1">名称 <span className="text-red-500">*</span></label>
+            <label className="block text-xs text-ink-sub mb-1">名称 <span className="text-bad">*</span></label>
             <input
               className="w-full border border-edge rounded-lg px-3 py-2 text-sm text-ink bg-surface-alt focus:outline-none focus:ring-1 focus:ring-ink"
               placeholder="restaurant-service"
@@ -272,13 +272,13 @@ function TokenRow({
         <div className="flex items-center gap-3 text-xs text-ink-faint">
           <span>创建 {fmt(token.createdAt)}</span>
           {token.lastUsedAt && <span>上次使用 {fmt(token.lastUsedAt)}</span>}
-          {token.revokedAt  && <span className="text-red-500">已撤销 {fmt(token.revokedAt)}</span>}
+          {token.revokedAt  && <span className="text-bad">已撤销 {fmt(token.revokedAt)}</span>}
         </div>
       </div>
       {!revoked && onRevoke && (
         <button
           onClick={onRevoke}
-          className="shrink-0 p-1.5 rounded-lg text-ink-faint hover:text-red-600 hover:bg-red-50 transition-colors"
+          className="shrink-0 p-1.5 rounded-lg text-ink-faint hover:text-bad hover:bg-bad/10 transition-colors"
           title="撤销"
         >
           <Trash2 size={14} />

@@ -137,7 +137,7 @@ export function Combobox({
   const dropdown = (
     <ul
       style={dropdownStyle}
-      className="bg-[#111] border border-edge-mid rounded-lg shadow-2xl shadow-black/70 overflow-auto max-h-52 py-1 animate-fade-in"
+      className="bg-overlay border border-edge-mid rounded-lg shadow-2xl shadow-black/40 overflow-auto max-h-52 py-1 animate-fade-in"
     >
       {emptyLabel && (
         <li
