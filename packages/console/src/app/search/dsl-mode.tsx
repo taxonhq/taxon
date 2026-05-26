@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo } from "react";
 import { Play, FileText, Loader2, Copy, Check } from "lucide-react";
 import {
   searchEntities, getEntityTypes,
-  type BoolExpr, type SearchEntitiesRequest, type SearchEntitiesResult,
+  type SearchEntitiesRequest, type SearchEntitiesResult,
 } from "@/lib/api";
 import { cn } from "@/lib/utils";
 

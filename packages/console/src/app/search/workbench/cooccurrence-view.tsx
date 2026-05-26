@@ -206,7 +206,6 @@ function CooccurrenceCell({
     );
   }
 
-  const val = colorBy === "lift" ? cell.lift : cell.count;
   // 色阶：lift 用红 / 蓝双色（< 1 红 / >= 1 蓝）；count 单色蓝
   let bg = "transparent";
   if (colorBy === "lift") {

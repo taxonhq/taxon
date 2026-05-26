@@ -1,0 +1,22 @@
+# Lefthook 配置 — 本地 git hooks 拦截
+#
+# 目标：把 lint / typecheck 错误拦在 push 前，让 CI 不再是唯一看门人。
+#       绕过方式：`git push --no-verify`（仅限紧急修复）。
+#
+# 安装：`pnpm install` 后由 root 的 `prepare` script 自动 `lefthook install`。
+#       若 hooks 没生效，手动 `pnpm exec lefthook install`。
+#
+# 设计取舍：
+# - 不挂 pre-commit：lint 整包跑会拖慢每次 commit，开发者会受不了 --no-verify 习惯化。
+# - pre-push 跑全量 lint + typecheck：push 频率比 commit 低 ~10×，体感可接受。
+# - 不跑 test：service test 需 Postgres，本地不一定就绪；交给 CI。
+
+pre-push:
+  parallel: true
+  commands:
+    console-lint:
+      glob: "packages/console/**/*.{ts,tsx}"
+      run: pnpm -F tag-console lint
+    service-typecheck:
+      glob: "packages/service/**/*.ts"
+      run: pnpm -F tag-service typecheck

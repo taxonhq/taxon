@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import Link from "next/link";
 import { X, ChevronRight, ChevronLeft, Terminal, Layers, Tag, Box, ClipboardCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -238,12 +239,12 @@ export function SeedCTA({ onDismiss }: SeedCTAProps) {
         </button>
       </div>
       <div className="flex items-center gap-3 pt-1">
-        <a
+        <Link
           href="/groups?new"
           className="text-xs text-brand-1 hover:underline"
         >
           创建第一个分组 →
-        </a>
+        </Link>
       </div>
     </div>
   );

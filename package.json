@@ -8,9 +8,22 @@
     "build": "pnpm -r build",
     "gen:spec": "pnpm --filter tag-service gen:spec",
     "gen:types": "pnpm gen:spec && pnpm --filter tag-console gen:types",
-    "check:openapi": "pnpm --filter tag-service check:openapi"
+    "check:openapi": "pnpm --filter tag-service check:openapi",
+    "prepare": "lefthook install || true"
   },
   "devDependencies": {
-    "concurrently": "^9.0.0"
+    "concurrently": "^9.0.0",
+    "lefthook": "^2.1.8"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "@prisma/client",
+      "@prisma/engines",
+      "esbuild",
+      "lefthook",
+      "prisma",
+      "sharp",
+      "unrs-resolver"
+    ]
   }
 }

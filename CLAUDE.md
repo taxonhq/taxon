@@ -35,6 +35,16 @@ cd packages/service && npx prisma migrate dev
 docker-compose up
 ```
 
+### Git Hooks (Lefthook)
+
+`pnpm install` 会自动通过 root 的 `prepare` script 安装 lefthook 到 `.git/hooks/`。配置见 `lefthook.yml`：
+
+- **pre-push**：并行跑 `tag-console lint` 和 `tag-service typecheck`
+- 不挂 pre-commit（避免每次 commit 都跑全量 lint）
+- 紧急绕过：`git push --no-verify`
+
+如果新克隆后 hooks 未生效（例如 prepare 被跳过），手动 `pnpm exec lefthook install`。
+
 ## Core Architecture
 
 ### Data Model (Prisma Schema)

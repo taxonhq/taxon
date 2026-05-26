@@ -28,7 +28,6 @@ const themeScript = `
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="zh-CN" data-theme="dark" className={`h-full ${GeistSans.variable} ${GeistMono.variable}`}>
-      {/* eslint-disable-next-line @next/next/no-sync-scripts */}
       <head>
         {/* 防 FOUC 主题脚本：必须是同步脚本，放在 <head> 最前面 */}
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />

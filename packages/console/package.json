@@ -6,7 +6,7 @@
     "dev": "NODE_NO_WARNINGS=1 next dev -p 3400",
     "build": "next build",
     "start": "next start -p 3400",
-    "lint": "eslint",
+    "lint": "eslint --max-warnings 0",
     "gen:types": "openapi-typescript ../../openapi.json -o src/lib/api-types.gen.ts"
   },
   "dependencies": {

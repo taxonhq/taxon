@@ -3,7 +3,6 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import { Search, X, Tag as TagIcon, GitBranch } from "lucide-react";
 import { searchTags, getTagGroups, type Tag, type TagGroup } from "@/lib/api";
-import { cn } from "@/lib/utils";
 
 interface PickedTag {
   tagId:     string;
