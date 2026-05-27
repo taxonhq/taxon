@@ -54,17 +54,20 @@ model ApiToken {
 
 // ── 实体注册表 ────────────────────────────────────────────────
 // tag-service 的实体生命周期登记簿。业务服务在创建实体时注册，删除时注销。
-// tag-service 对实体的了解仅限于 entityType + entityId，不存储业务字段。
+// tag-service 对实体的了解仅限于 entityType + entityId + 可选的 metadata。
 // 实体注销时通过 CASCADE 自动清除所有 EntityTag 关联。
 //
 // 字段说明：
 //   entityType   — 实体类型标识，如 "dish"、"dining"
 //   entityId     — 业务主键（cuid），字符串引用，无跨库 FK 约束
 //   registeredAt — 首次注册时间
+//   metadata     — 可选的业务元数据（JSON），用于 AI 打标建议的上下文输入
+//                  典型字段：name、description、imageUrl 等（由调用方自定义）
 model RegisteredEntity {
   entityType   String
   entityId     String
   registeredAt DateTime    @default(now())
+  metadata     Json?
   entityTags   EntityTag[]
 
   @@id([entityType, entityId])

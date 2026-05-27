@@ -181,11 +181,23 @@ export const EntityTagItemSchema = z.object({
   taggedAt:   DateTimeStr,
 })
 
+// metadata: 业务方自定义的实体元数据，string 值的 KV map（name、description、imageUrl 等）
+// 设计为 Record<string,string> 而非任意 JSON，便于 LLM prompt 序列化且不引入嵌套复杂度
+export const EntityMetadata = z.record(z.string(), z.string())
+  .openapi({ description: '实体元数据（name、description、imageUrl 等），由调用方自定义' })
+
 export const RegisteredEntitySchema = z.object({
   entityType:   z.string(),
   entityId:     z.string(),
   registeredAt: DateTimeStr.optional(),  // タグフィルタパスでは返さない場合がある
+  metadata:     EntityMetadata.nullable().optional(),
   tags:         z.array(EntityTagItemSchema).optional(),
+})
+
+// POST /entities/:type/:id 注册 / PATCH 更新 body
+export const RegisterEntityBody = z.object({
+  metadata: EntityMetadata.optional()
+    .openapi({ description: '实体元数据，首次注册时提供；PATCH 时传入会覆盖全量替换' }),
 })
 
 // 路由是 POST /entities/:type/:id/tags/:tagId — tagId 在 URL 路径里，

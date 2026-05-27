@@ -274,3 +274,143 @@ describe('POST /entities/:type/:id/suggest', () => {
     expect(data.suggestions).toHaveLength(0)
   })
 })
+
+// ── metadata 集成测试 ─────────────────────────────────────────────────────────
+
+describe('RegisteredEntity metadata', () => {
+  let app2: ReturnType<typeof buildApp>
+  beforeAll(() => { app2 = buildApp({ silent: true }) })
+
+  async function registerEntity(entityType: string, entityId: string, body: Record<string, unknown> = {}) {
+    return app2.request(`/entities/${entityType}/${entityId}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    })
+  }
+
+  async function patchEntity(entityType: string, entityId: string, body: Record<string, unknown>) {
+    return app2.request(`/entities/${entityType}/${entityId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    })
+  }
+
+  async function getEntity(entityType: string, entityId: string) {
+    return app2.request(`/entities/${entityType}/${entityId}`)
+  }
+
+  it('POST /entities/:type/:id stores metadata', async () => {
+    const res = await registerEntity('dish', 'dish-meta-001', {
+      metadata: { name: '宫保鸡丁', description: '川菜，花生辣椒' },
+    })
+    expect(res.status).toBe(200)
+
+    const get = await getEntity('dish', 'dish-meta-001')
+    const { data } = await get.json() as { data: { metadata: Record<string, string> } }
+    expect(data.metadata).toEqual({ name: '宫保鸡丁', description: '川菜，花生辣椒' })
+  })
+
+  it('POST without metadata leaves metadata null', async () => {
+    await registerEntity('dish', 'dish-no-meta')
+    const get = await getEntity('dish', 'dish-no-meta')
+    const { data } = await get.json() as { data: { metadata: unknown } }
+    expect(data.metadata).toBeNull()
+  })
+
+  it('POST idempotent: re-registering without metadata preserves existing metadata', async () => {
+    await registerEntity('dish', 'dish-idem', { metadata: { name: '北京烤鸭' } })
+    // 第二次不带 metadata
+    await registerEntity('dish', 'dish-idem')
+    const get = await getEntity('dish', 'dish-idem')
+    const { data } = await get.json() as { data: { metadata: Record<string, string> } }
+    expect(data.metadata?.name).toBe('北京烤鸭')
+  })
+
+  it('PATCH updates metadata', async () => {
+    await registerEntity('dish', 'dish-patch', { metadata: { name: '旧名字' } })
+    const patch = await patchEntity('dish', 'dish-patch', { metadata: { name: '新名字', description: '补充说明' } })
+    expect(patch.status).toBe(200)
+
+    const get = await getEntity('dish', 'dish-patch')
+    const { data } = await get.json() as { data: { metadata: Record<string, string> } }
+    expect(data.metadata).toEqual({ name: '新名字', description: '补充说明' })
+  })
+
+  it('PATCH with null metadata clears it', async () => {
+    await registerEntity('dish', 'dish-clear', { metadata: { name: '有元数据' } })
+    const patch = await patchEntity('dish', 'dish-clear', {})
+    expect(patch.status).toBe(200)
+
+    const get = await getEntity('dish', 'dish-clear')
+    const { data } = await get.json() as { data: { metadata: unknown } }
+    expect(data.metadata).toBeNull()
+  })
+
+  it('PATCH on non-existent entity returns 404', async () => {
+    const res = await patchEntity('dish', 'ghost-entity', { metadata: { name: '幽灵' } })
+    expect(res.status).toBe(404)
+  })
+
+  it('suggest uses entity metadata as context when no body context provided', async () => {
+    const group  = await makeGroup({ slug: 'ctx-cuisine', name: '菜系' })
+    const tag    = await makeTag({ groupId: group.id, slug: 'beijing', name: '北京菜' })
+
+    // 注册时带入 metadata
+    await registerEntity('dish', 'dish-with-meta', {
+      metadata: { name: '北京烤鸭', description: '北京名菜，皮脆肉嫩' },
+    })
+
+    // 验证 LLM 收到的 userPrompt 包含 metadata 内容
+    let capturedUserPrompt = ''
+    mockCall.mockImplementationOnce(async (input: { userPrompt: string }) => {
+      capturedUserPrompt = input.userPrompt
+      return {
+        output: { suggestions: [{ tagId: tag.id, confidence: 0.9, reasoning: '北京菜' }] },
+        text: '',
+        model: 'anthropic/claude-3-haiku-20240307',
+      }
+    })
+
+    const res = await app2.request('/entities/dish/dish-with-meta/suggest', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({}),
+    })
+    expect(res.status).toBe(200)
+    // metadata 应已出现在 prompt 里
+    expect(capturedUserPrompt).toContain('北京烤鸭')
+    expect(capturedUserPrompt).toContain('皮脆肉嫩')
+  })
+
+  it('suggest: body context merges with and overrides entity metadata', async () => {
+    const group  = await makeGroup({ slug: 'ovr-cuisine', name: '菜系' })
+    const tag    = await makeTag({ groupId: group.id, slug: 'cantonese', name: '粤菜' })
+
+    await registerEntity('dish', 'dish-override', {
+      metadata: { name: '旧名字', region: '广东' },
+    })
+
+    let capturedUserPrompt = ''
+    mockCall.mockImplementationOnce(async (input: { userPrompt: string }) => {
+      capturedUserPrompt = input.userPrompt
+      return {
+        output: { suggestions: [{ tagId: tag.id, confidence: 0.85, reasoning: '粤菜' }] },
+        text: '',
+        model: 'anthropic/claude-3-haiku-20240307',
+      }
+    })
+
+    const res = await app2.request('/entities/dish/dish-override/suggest', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      // body.context 的 name 应覆盖 metadata 的 name
+      body: JSON.stringify({ context: { name: '新名字（覆盖）' } }),
+    })
+    expect(res.status).toBe(200)
+    expect(capturedUserPrompt).toContain('新名字（覆盖）')   // body context 优先
+    expect(capturedUserPrompt).toContain('广东')              // metadata 其余字段保留
+    expect(capturedUserPrompt).not.toContain('旧名字')        // 被覆盖
+  })
+})

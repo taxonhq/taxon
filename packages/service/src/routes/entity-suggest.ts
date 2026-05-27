@@ -119,12 +119,18 @@ suggestRouter.openapi(suggestRoute, async (c) => {
     }, 503)
   }
 
-  // ── 2. 检查实体是否已注册 ────────────────────────────────────────────────
+  // ── 2. 检查实体是否已注册，顺带读取 metadata ────────────────────────────
   const entity = await prisma.registeredEntity.findUnique({
     where: { entityType_entityId: { entityType, entityId } },
-    select: { entityType: true },
+    select: { entityType: true, metadata: true },
   })
   if (!entity) return c.json({ code: 404, message: '实体未注册，请先调用 POST /entities/:type/:id 注册' }, 404)
+
+  // body.context 覆盖/补充 entity.metadata：
+  //   - 未传 context → 完全使用 metadata
+  //   - 传了 context → merge（context 优先），满足"临时覆盖"场景
+  const storedMeta = (entity.metadata ?? {}) as Record<string, string>
+  const effectiveContext: Record<string, string> = { ...storedMeta, ...contextMap }
 
   // ── 3. 加载可用标签 ──────────────────────────────────────────────────────
   // 先确定要查哪些分组的 ID，再查 tag。两步查询比嵌套 where 类型更安全。
@@ -200,8 +206,8 @@ suggestRouter.openapi(suggestRoute, async (c) => {
     null, 2,
   )
 
-  const contextStr = Object.keys(contextMap).length > 0
-    ? `\n上下文信息：\n${JSON.stringify(contextMap, null, 2)}`
+  const contextStr = Object.keys(effectiveContext).length > 0
+    ? `\n上下文信息：\n${JSON.stringify(effectiveContext, null, 2)}`
     : ''
 
   const systemPrompt = `你是一个标签分配专家。你的任务是根据实体信息和可用标签列表，为实体推荐最合适的标签。
