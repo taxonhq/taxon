@@ -33,7 +33,15 @@ export interface AppOptions {
 }
 
 export function buildApp(opts: AppOptions = {}) {
-  const app = new OpenAPIHono()
+  const app = new OpenAPIHono({
+    // 将 @hono/zod-openapi 默认的 {success,error} 校验错误包装为项目统一的 {code,message} 格式
+    defaultHook: (result, c) => {
+      if (!result.success) {
+        const msg = result.error.issues[0]?.message ?? 'Validation error'
+        return c.json({ code: 422, message: msg }, 422)
+      }
+    },
+  })
   const version = opts.version ?? 'unknown'
 
   // BearerAuth セキュリティスキームをレジストリに登録（app.doc の components は Omit されているため）

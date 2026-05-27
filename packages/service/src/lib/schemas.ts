@@ -404,6 +404,42 @@ export const LlmConfigUpdateBody = z.object({
   enabled:  z.boolean(),
 })
 
+// ── AI 标签建议 schemas ────────────────────────────────────────────────────────
+export const SuggestBody = z.object({
+  groups:        z.array(z.string().min(1)).optional()
+                   .openapi({ description: '限定分组 slug 或 ID（缺省=所有对该 entityType 适用的分组）' }),
+  context:       z.record(z.string(), z.string()).optional()
+                   .openapi({ description: '业务上下文键值对（name, description 等），原样传给 LLM' }),
+  model:         z.string().optional()
+                   .openapi({ description: '覆盖 /settings/llm 里配置的模型名称' }),
+  topK:          z.number().int().positive().max(20).default(5).optional()
+                   .openapi({ description: '最多返回几条建议，默认 5，最大 20' }),
+  minConfidence: z.number().min(0).max(1).default(0).optional()
+                   .openapi({ description: '过滤低置信度建议，默认 0（全部返回）' }),
+  apply:         z.boolean().default(false).optional()
+                   .openapi({ description: '为 true 时自动将建议写入为 pending 状态的 EntityTag' }),
+})
+
+export const SuggestionItem = z.object({
+  tagId:      z.string().openapi({ description: '标签 ID' }),
+  tagSlug:    z.string().openapi({ description: '标签 slug' }),
+  tagName:    z.string().openapi({ description: '标签名称' }),
+  groupId:    z.string().openapi({ description: '分组 ID' }),
+  groupSlug:  z.string().openapi({ description: '分组 slug' }),
+  groupName:  z.string().openapi({ description: '分组名称' }),
+  confidence: z.number().min(0).max(1).openapi({ description: '置信度 0~1' }),
+  reasoning:  z.string().openapi({ description: 'LLM 给出的推荐理由' }),
+})
+
+export const SuggestData = z.object({
+  suggestions:  z.array(SuggestionItem),
+  model:        z.string().openapi({ description: '实际生效的模型（带 provider 前缀）' }),
+  appliedCount: z.number().int().optional()
+                  .openapi({ description: '自动写入的 pending EntityTag 数量（apply=true 时有值）' }),
+})
+
+export type SuggestInput = z.infer<typeof SuggestBody>
+
 // ── NL → BoolExpr 路由 schemas ────────────────────────────────────────────────
 export const NlToDslBody = z.object({
   text:       z.string().min(1).openapi({ description: '中文自然语言查询，例如：「川菜餐厅但不要素食的，AI 高置信度」' }),

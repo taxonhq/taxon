@@ -146,30 +146,6 @@ llmConfigRouter.openapi(putRoute, async (c) => {
   }, 200)
 })
 
-/** 内部读取：返回明文 LlmConfig 或 null。给 nl-to-dsl 路由用。 */
-export async function loadActiveLlmConfig(): Promise<{
-  provider: 'anthropic' | 'openai'
-  model:    string
-  apiKey:   string
-  baseUrl?: string
-} | null> {
-  const row = await prisma.systemConfig.findUnique({ where: { key: CONFIG_KEY } })
-  if (!row) return null
-  const parsed = LlmConfigStored.safeParse(row.value)
-  if (!parsed.success) return null
-  const stored = parsed.data
-  if (!stored.enabled) return null
-  if (!stored.apiKey)  return null
-  try {
-    const plain = decryptSecret(stored.apiKey)
-    if (!plain) return null
-    return {
-      provider: stored.provider,
-      model:    stored.model,
-      apiKey:   plain,
-      baseUrl:  stored.baseUrl,
-    }
-  } catch {
-    return null
-  }
-}
+/** 内部读取：返回明文 LlmConfig 或 null。给 nl-to-dsl / entity-suggest 路由用。
+ *  实现已迁移至 lib/load-llm-config.ts，此处仅 re-export 保持向后兼容。 */
+export { loadActiveLlmConfig } from '../lib/load-llm-config.js'
