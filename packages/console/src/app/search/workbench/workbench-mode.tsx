@@ -257,7 +257,11 @@ export function WorkbenchMode({ onDrillToDsl, prefill }: WorkbenchModeProps) {
           )}
           {state.children.map((c, i) => (
             <span key={c.id} className="inline-flex items-center gap-2">
-              {i > 0 && <span className="text-xs text-ink-sub font-semibold tracking-wider">AND</span>}
+              {i > 0 && (
+                <span className="text-2xs font-bold text-ink-faint tracking-[0.1em] uppercase px-1.5 py-0.5 rounded bg-surface-alt border border-edge">
+                  AND
+                </span>
+              )}
               {c.kind === "leaf" ? (
                 <LeafChip
                   node={c}

@@ -78,9 +78,12 @@ export function OrGroupChip({
   onToggleNot: (leafId: string) => void;
   onAddLeaf: () => void;
 }) {
+  // OR 组用 ok 色 ring + 浅背景，与 AND 链清晰区分：
+  // 同一 AND 链上的 chip 是并列条件（AND 文字分隔），
+  // OR 组是一个"子表达式"，整体作为 AND 链的一项。
   return (
-    <div className="inline-flex items-center gap-2 pl-2 pr-1.5 py-1 rounded-lg border border-edge bg-card/60">
-      <span className="text-xs font-semibold text-ok tracking-wide">OR</span>
+    <div className="inline-flex items-center gap-2 pl-2 pr-1.5 py-1 rounded-lg border border-ok/30 bg-ok/5 ring-1 ring-ok/10">
+      <span className="text-2xs font-bold text-ok tracking-[0.1em] uppercase">OR</span>
       <div className="flex items-center gap-1.5 flex-wrap">
         {group.children.length === 0 && (
           <span className="text-xs text-ink-faint italic">空 OR 组</span>

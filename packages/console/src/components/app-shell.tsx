@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import Link from "next/link";
 import {
   Tag, Layers, ClipboardCheck, Box, LayoutDashboard, Search,
-  ChevronLeft, ChevronRight, HelpCircle, KeyRound, Sparkles,
+  ChevronLeft, ChevronRight, HelpCircle, KeyRound, Sparkles, User,
 } from "lucide-react";
 import { NavLink } from "@/components/nav-link";
 import { AboutDialog } from "@/components/ui/about-dialog";
@@ -131,7 +131,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               <Tag size={14} className="text-surface" strokeWidth={2.5} />
             </div>
             {open && (
-              <p className="text-lg font-bold text-ink whitespace-nowrap" style={{ letterSpacing: "-0.03em" }}>Taxcon</p>
+              <p className="text-lg font-bold text-ink whitespace-nowrap" style={{ letterSpacing: "-0.03em" }}>Taxon</p>
             )}
           </Link>
           {/* Collapse button moved to header (industry convention) */}
@@ -181,7 +181,32 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           ))}
         </nav>
 
-        {/* Footer — service status only */}
+        {/* ── User slot — 预留给未来的登录 / 多租户切换 ────────────── */}
+        {/* 当前无身份模型，使用 data-future-user-slot 仅占位以保留视觉布局；
+            登录上线后这里挂 <UserMenu />（头像 + 名 + 角色 chip + 下拉）。 */}
+        <div
+          data-future-user-slot
+          className="border-t border-edge shrink-0 flex items-center"
+          style={{ padding: open ? "10px 12px" : "10px 0", justifyContent: open ? "flex-start" : "center" }}
+        >
+          {open ? (
+            <div className="flex items-center gap-2.5 min-w-0 w-full">
+              <div className="w-7 h-7 rounded-full bg-surface-alt border border-edge-mid flex items-center justify-center shrink-0">
+                <User size={13} className="text-ink-faint" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-medium text-ink-dim truncate">未登录</p>
+                <p className="text-2xs text-ink-faint truncate">本地开发模式</p>
+              </div>
+            </div>
+          ) : (
+            <div className="w-7 h-7 rounded-full bg-surface-alt border border-edge-mid flex items-center justify-center" title="未登录 · 本地开发模式">
+              <User size={13} className="text-ink-faint" />
+            </div>
+          )}
+        </div>
+
+        {/* ── Service status footer ───────────────────────────────── */}
         <div
           className="border-t border-edge shrink-0 flex items-center"
           style={{ padding: open ? "10px 16px" : "10px 0", justifyContent: open ? "flex-start" : "center" }}

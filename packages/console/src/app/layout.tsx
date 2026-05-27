@@ -7,8 +7,8 @@ import { Toaster } from "@/components/ui/toast";
 import { ThemeProvider } from "@/components/theme-provider";
 
 export const metadata: Metadata = {
-  title: "Taxcon",
-  description: "Taxcon 标签平台管理控制台",
+  title: "Taxon",
+  description: "Taxon 标签平台管理控制台",
 };
 
 /** 内联脚本：在 React 水合前读取 localStorage 并写入 data-theme，防止 FOUC */
