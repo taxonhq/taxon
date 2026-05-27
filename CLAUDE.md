@@ -45,6 +45,17 @@ docker-compose up
 
 如果新克隆后 hooks 未生效（例如 prepare 被跳过），手动 `pnpm exec lefthook install`。
 
+### Branch Protection
+
+`main` 分支已开启 GitHub 保护规则（见 #64）：
+
+- 必须通过两个 CI 检查才能合并：`Console — lint & build` + `Service — typecheck & tests`
+- 分支必须 up-to-date 才能合并（防止合入时回归）
+- **`enforce_admins=true`** — 即使 owner 也不能用 `gh pr merge --admin` 绕过，必须等 CI 绿
+- 不允许 force push / 删除 main
+
+如遇 CI 外部故障紧急合入：`gh api -X DELETE repos/taxonhq/taxon/branches/main/protection` 临时关，合完再用 issue #64 评论里的 JSON 还原。
+
 ## Core Architecture
 
 ### Data Model (Prisma Schema)
