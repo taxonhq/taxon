@@ -68,7 +68,7 @@ export default function GroupsPage() {
         tagTotal:    g._count?.tags ?? 0,
       })));
     } catch (err) {
-      setError(err instanceof Error ? `加载失败：${err.message}` : "加载失败，请检查 Taxcon 服务是否正常运行");
+      setError(err instanceof Error ? `加载失败：${err.message}` : "加载失败，请检查 Taxon 服务是否正常运行");
     } finally {
       setLoading(false);
     }
