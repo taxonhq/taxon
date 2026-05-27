@@ -220,6 +220,37 @@ export const ReplaceEntityTagsBody = z.object({
   status:     z.enum(['active', 'pending', 'rejected']).optional(),
 })
 
+// ── Bulk tag schemas (issue #36) ──────────────────────────────────────────────
+// 给一批实体打同一组标签的批量原语。上限 1000 entities × 50 tags 每次。
+// mode=add：在原有标签基础上追加；遇到 allowMultiple=false 且 group 内已有
+// active 标签的实体，跳过并放入 errors。
+// mode=replace：先清掉这些 group 内的所有 active 标签，再写入新标签——避免
+// "替换" 语义被理解为全实体清空，只清涉及到的 group。
+export const BulkTagBody = z.object({
+  entityType: z.string().min(1).openapi({ description: '实体类型' }),
+  entityIds:  z.array(z.string().min(1)).min(1).max(1000)
+              .openapi({ description: '目标实体 id 列表，最多 1000', example: ['dish-001', 'dish-002'] }),
+  tagIds:     z.array(z.string().min(1)).min(1).max(50)
+              .openapi({ description: '要打的标签 id 列表，最多 50' }),
+  source:     z.enum(['manual', 'ai', 'system', 'import']).default('manual'),
+  confidence: z.number().min(0).max(1).nullable().optional(),
+  status:     z.enum(['active', 'pending', 'rejected']).optional()
+              .openapi({ description: '缺省：ai→pending，其他→active' }),
+  mode:       z.enum(['add', 'replace']).default('add')
+              .openapi({ description: 'add=追加，跳过冲突；replace=先清同 group 已有再写' }),
+})
+
+export const BulkTagErrorSchema = z.object({
+  entityId: z.string(),
+  error:    z.string(),
+})
+
+export const BulkTagResponseData = z.object({
+  succeeded: z.number().int().openapi({ description: '成功写入标签的实体数' }),
+  failed:    z.number().int().openapi({ description: '因冲突跳过的实体数（= errors.length）' }),
+  errors:    z.array(BulkTagErrorSchema),
+})
+
 // Audit
 export const AuditItemSchema = z.object({
   tagId:        z.string(),
@@ -499,4 +530,5 @@ export type MoveTagInput           = z.infer<typeof MoveTagBody>
 export type AddEntityTagInput      = z.infer<typeof AddEntityTagBody>
 export type UpdateEntityTagInput   = z.infer<typeof UpdateEntityTagBody>
 export type ReplaceEntityTagsInput = z.infer<typeof ReplaceEntityTagsBody>
+export type BulkTagInput           = z.infer<typeof BulkTagBody>
 export type CreateTokenInput       = z.infer<typeof CreateTokenBody>

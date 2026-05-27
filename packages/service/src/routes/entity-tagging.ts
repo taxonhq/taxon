@@ -10,6 +10,7 @@ import { incAuditGauge, decAuditGauge } from '../lib/metrics.js'
 import {
   EntityTagItemSchema, TagReviewSchema,
   ReplaceEntityTagsBody, AddEntityTagBody, UpdateEntityTagBody,
+  BulkTagBody, BulkTagResponseData,
   ApiError, OkMessage, okData,
 } from '../lib/schemas.js'
 
@@ -308,4 +309,161 @@ taggingRouter.openapi(removeEntityTagRoute, async (c) => {
     logger.error({ err: error, entityType, entityId, tagId }, 'DELETE entity tag error')
     throw error
   }
+})
+
+// ── POST /bulk-tag ────────────────────────────────────────────────────────────
+// 批量打标：给一批实体（≤1000）打一组标签（≤50）。
+//
+// 设计要点：
+// - validateTags() 先做一次全局校验（标签存在、scope 兼容、输入集合内部不违反
+//   allowMultiple）；任一失败 → 422 整批拒绝，不部分成功。
+// - 入库按 entity 分批 100/批跑 $transaction，平衡事务时长与原子性。
+// - add 模式：对 allowMultiple=false 的 group，若实体已有 active 标签则跳过该
+//   实体进 errors；其余实体批量 createMany skipDuplicates，已存在的 (entity,tag)
+//   重复行被静默吞掉。
+// - replace 模式：先删该 entity 在涉及 group 内的全部 active 标签，再写入新集合；
+//   只清涉及到的 group，不影响其他 group 的已有标签。
+//
+// 并发：没有逐实体 SELECT FOR UPDATE（成本太高），允许 add 模式在 race 下偶发
+//   双写——业务侧导入场景可接受。strict 单写场景请用单条 POST 接口。
+const BULK_BATCH_SIZE = 100
+
+const bulkTagRoute = createRoute({
+  method: 'post', path: '/bulk-tag',
+  tags: ['实体标签'],
+  summary: '批量打标',
+  security: [{ BearerAuth: [] }],
+  middleware: [requireRole('writer')] as const,
+  request: {
+    body: { content: { 'application/json': { schema: BulkTagBody } }, required: true },
+  },
+  responses: {
+    200: { content: { 'application/json': { schema: okData(BulkTagResponseData) } }, description: '成功（含 succeeded / failed / errors[]，部分失败也是 200）' },
+    400: { content: { 'application/json': { schema: ApiError } }, description: '参数错误（如 ai 缺 confidence）' },
+    403: { content: { 'application/json': { schema: ApiError } }, description: '权限不足（需 writer）' },
+    422: { content: { 'application/json': { schema: ApiError } }, description: '标签不合法（全局校验失败）' },
+  },
+})
+
+taggingRouter.openapi(bulkTagRoute, async (c) => {
+  const body = c.req.valid('json')
+  const { entityType, entityIds, tagIds, mode } = body
+  const rawSource = body.source
+  const confidence = body.confidence
+  const rawStatus  = body.status ?? (rawSource === 'ai' ? 'pending' : 'active')
+
+  // 1) 参数补充校验（Zod 已覆盖结构、长度、enum）
+  if (rawSource === 'ai' && confidence == null) {
+    return c.json({ code: 400, message: 'AI 来源必须提供 confidence（0~1）' }, 400)
+  }
+  const source = rawSource as TagSource
+  const status = rawStatus as TagStatus
+
+  // 2) 去重输入
+  const uniqEntityIds = [...new Set(entityIds)]
+  const uniqTagIds    = [...new Set(tagIds)]
+
+  // 3) 全局标签校验（存在 / scope / 输入集合内部 allowMultiple）
+  const validationError = await validateTags(uniqTagIds, entityType)
+  if (validationError) return c.json({ code: 422, message: validationError }, 422)
+
+  // 4) 加载 tag → group 信息，用于 per-entity allowMultiple 检查
+  const tags = await prisma.tag.findMany({
+    where: { id: { in: uniqTagIds }, deletedAt: null },
+    select: { id: true, groupId: true, group: { select: { allowMultiple: true, entityRules: { where: { entityType }, select: { allowMultiple: true } } } } },
+  })
+
+  // 涉及到的 group + 每个 group 的 effectiveAllowMultiple
+  type GroupInfo = { groupId: string; effectiveAllowMultiple: boolean }
+  const groupInfoMap = new Map<string, GroupInfo>()
+  for (const t of tags) {
+    const eff = t.group.entityRules.length > 0 ? t.group.entityRules[0].allowMultiple : t.group.allowMultiple
+    if (!groupInfoMap.has(t.groupId)) groupInfoMap.set(t.groupId, { groupId: t.groupId, effectiveAllowMultiple: eff })
+  }
+  const allGroupIds       = [...groupInfoMap.keys()]
+  const singleSelectGroups = [...groupInfoMap.values()].filter(g => !g.effectiveAllowMultiple).map(g => g.groupId)
+
+  // 5) 分批执行
+  const errors: Array<{ entityId: string; error: string }> = []
+  let succeeded = 0
+  let pendingDelta = 0
+
+  for (let off = 0; off < uniqEntityIds.length; off += BULK_BATCH_SIZE) {
+    const batch = uniqEntityIds.slice(off, off + BULK_BATCH_SIZE)
+
+    // 单事务内完成：注册 + 冲突检查（add）/ 清旧（replace）+ 批量插入
+    try {
+      await prisma.$transaction(async (tx) => {
+        // 5.1 注册实体（已存在则 no-op）
+        await tx.registeredEntity.createMany({
+          data: batch.map(entityId => ({ entityType, entityId })),
+          skipDuplicates: true,
+        })
+
+        // 5.2 模式分支
+        let toInsertEntities: string[]
+        if (mode === 'replace') {
+          // 清涉及到的 group 内已有的 active 标签（含 pending —— 全清更符合 "替换" 语义）
+          await tx.entityTag.deleteMany({
+            where: {
+              entityType,
+              entityId: { in: batch },
+              tag: { groupId: { in: allGroupIds } },
+            },
+          })
+          toInsertEntities = batch
+        } else {
+          // add 模式：查 single-select group 上已有的 active 标签，把冲突实体剔出
+          const conflictEntityIds = new Set<string>()
+          if (singleSelectGroups.length > 0) {
+            const conflicts = await tx.entityTag.findMany({
+              where: {
+                entityType,
+                entityId: { in: batch },
+                status: 'active',
+                tag: { groupId: { in: singleSelectGroups } },
+              },
+              select: { entityId: true, tag: { select: { groupId: true } } },
+              distinct: ['entityId', 'tagId'],
+            })
+            for (const c of conflicts) conflictEntityIds.add(c.entityId)
+          }
+          for (const eid of conflictEntityIds) {
+            errors.push({ entityId: eid, error: '分组不允许多选，已有 active 标签' })
+          }
+          toInsertEntities = batch.filter(eid => !conflictEntityIds.has(eid))
+        }
+
+        // 5.3 批量插入；skipDuplicates 让"add 模式下已存在的 (entity, tag) 对" 静默跳过
+        if (toInsertEntities.length > 0) {
+          const rows = toInsertEntities.flatMap(entityId =>
+            uniqTagIds.map(tagId => ({
+              tagId, entityType, entityId,
+              source, status,
+              confidence: confidence ?? null,
+            })),
+          )
+          const result = await tx.entityTag.createMany({ data: rows, skipDuplicates: true })
+          succeeded += toInsertEntities.length
+          // 估算 pending delta：新增的行数 × (status==='pending')
+          if (status === 'pending') pendingDelta += result.count
+        }
+      })
+    } catch (error) {
+      logger.error({ err: error, batchSize: batch.length }, 'bulk-tag transaction error')
+      // 整批失败：把整批进 errors，不算 succeeded
+      for (const eid of batch) errors.push({ entityId: eid, error: '事务失败，请重试' })
+    }
+  }
+
+  if (pendingDelta > 0) incAuditGauge(pendingDelta)
+
+  return c.json({
+    code: 0,
+    data: {
+      succeeded,
+      failed: errors.length,
+      errors,
+    },
+  }, 200)
 })
