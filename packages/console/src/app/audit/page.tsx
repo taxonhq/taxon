@@ -1,12 +1,13 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef, useId } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { CheckCircle, XCircle, Trash2, RefreshCw, ClipboardCheck } from "lucide-react";
 import {
   getAuditItems, updateEntityTagStatus, removeEntityTag, getEntityTypes,
   type AuditItem,
 } from "@/lib/api";
 import { Button } from "@/components/ui/button";
+import { Dialog } from "@/components/ui/dialog";
 import { Select } from "@/components/ui/field";
 import { ErrorBanner } from "@/components/ui/error-banner";
 import { PageHeader } from "@/components/ui/page-header";
@@ -37,7 +38,7 @@ function formatTime(iso: string) {
   });
 }
 
-// ── 审核操作弹窗（含备注）- 完整 a11y：focus trap / Esc / aria ──────
+// ── 审核操作弹窗（含备注）— 基于通用 Dialog 原语 ─────────────────────
 function ReviewDialog({
   item,
   action,
@@ -50,98 +51,59 @@ function ReviewDialog({
   onCancel:  () => void;
 }) {
   const [note, setNote] = useState("");
-  const isApprove  = action === "active";
-  const dialogRef  = useRef<HTMLDivElement>(null);
+  const isApprove = action === "active";
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const titleId    = useId();
-  const descId     = useId();
 
-  // 打开时聚焦 textarea，关闭时还焦
+  // 打开后把焦点移到 textarea（Dialog 默认聚焦第一个按钮）
   useEffect(() => {
-    const prev = document.activeElement as HTMLElement | null;
     const t = setTimeout(() => textareaRef.current?.focus(), 0);
-    return () => { clearTimeout(t); prev?.focus?.(); };
-  }, []);
-
-  // Esc 关闭
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onCancel(); };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [onCancel]);
-
-  // Focus trap
-  useEffect(() => {
-    const onTab = (e: KeyboardEvent) => {
-      if (e.key !== "Tab") return;
-      const root = dialogRef.current;
-      if (!root) return;
-      const els = root.querySelectorAll<HTMLElement>(
-        'button:not([disabled]),textarea:not([disabled]),input:not([disabled]),[tabindex]:not([tabindex="-1"])'
-      );
-      if (!els.length) return;
-      const first = els[0], last = els[els.length - 1];
-      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
-      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
-    };
-    window.addEventListener("keydown", onTab);
-    return () => window.removeEventListener("keydown", onTab);
+    return () => clearTimeout(t);
   }, []);
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center animate-fade-in"
-      onClick={e => { if (e.target === e.currentTarget) onCancel(); }}
+    <Dialog
+      open
+      onClose={onCancel}
+      title={isApprove ? "通过审核" : "拒绝标签"}
+      size="md"
+      showClose={false}
     >
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" aria-hidden="true" />
-      <div
-        ref={dialogRef}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={titleId}
-        aria-describedby={descId}
-        className="relative z-10 bg-surface rounded-xl shadow-xl border border-edge w-full max-w-md mx-4 p-6"
-      >
-        <h2 id={titleId} className="text-base font-semibold text-ink mb-1">
-          {isApprove ? "通过审核" : "拒绝标签"}
-        </h2>
-        <p id={descId} className="text-xs text-ink-sub mb-4">
-          标签：<span className="font-medium text-ink">{item.tag.name}</span>
-          （{item.tag.group.name}）
-          &nbsp;·&nbsp;{item.entityType}/{item.entityId}
-        </p>
-        <div className="mb-4">
-          <label htmlFor="review-note" className="block text-xs text-ink-sub mb-1">
-            备注 <span className="text-ink-faint">（可选）</span>
-          </label>
-          <textarea
-            id="review-note"
-            ref={textareaRef}
-            className="w-full border border-edge rounded-lg px-3 py-2 text-sm text-ink bg-surface-alt focus:outline-none focus:ring-1 focus:ring-ink resize-none"
-            rows={3}
-            placeholder={isApprove ? "说明通过原因…" : "说明拒绝原因…"}
-            value={note}
-            onChange={e => setNote(e.target.value)}
-            onKeyDown={e => {
-              if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
-                e.preventDefault();
-                onConfirm(note.trim());
-              }
-            }}
-          />
-          <p className="text-2xs text-ink-faint mt-1">⌘Enter 快速提交 · Esc 取消</p>
-        </div>
-        <div className="flex justify-end gap-2">
-          <Button variant="ghost" onClick={onCancel}>取消</Button>
-          <Button
-            variant={isApprove ? "primary" : "danger"}
-            onClick={() => onConfirm(note.trim())}
-          >
-            {isApprove ? "确认通过" : "确认拒绝"}
-          </Button>
-        </div>
+      <p className="text-xs text-ink-sub -mt-1 mb-4">
+        标签：<span className="font-medium text-ink">{item.tag.name}</span>
+        （{item.tag.group.name}）
+        &nbsp;·&nbsp;{item.entityType}/{item.entityId}
+      </p>
+      <div className="mb-4">
+        <label htmlFor="review-note" className="block text-xs text-ink-sub mb-1">
+          备注 <span className="text-ink-faint">（可选）</span>
+        </label>
+        <textarea
+          id="review-note"
+          ref={textareaRef}
+          className="w-full border border-edge-mid rounded-lg px-3 py-2 text-sm text-ink bg-input focus:outline-none focus:border-edge-strong focus:ring-2 focus:ring-brand-1/30 resize-none"
+          rows={3}
+          placeholder={isApprove ? "说明通过原因…" : "说明拒绝原因…"}
+          value={note}
+          onChange={e => setNote(e.target.value)}
+          onKeyDown={e => {
+            if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+              e.preventDefault();
+              onConfirm(note.trim());
+            }
+          }}
+        />
+        <p className="text-2xs text-ink-faint mt-1">⌘Enter 快速提交 · Esc 取消</p>
       </div>
-    </div>
+      <div className="flex justify-end gap-2">
+        <Button variant="ghost" onClick={onCancel}>取消</Button>
+        <Button
+          variant={isApprove ? "primary" : "danger"}
+          onClick={() => onConfirm(note.trim())}
+        >
+          {isApprove ? "确认通过" : "确认拒绝"}
+        </Button>
+      </div>
+    </Dialog>
   );
 }
 
@@ -262,7 +224,14 @@ export default function AuditPage() {
 
   const allKeys = items.map(itemKey);
   const allSelected = allKeys.length > 0 && allKeys.every(k => selected.has(k));
+  const someSelected = selected.size > 0 && !allSelected;
 
+  // 部分选中态：用 ref callback 把 indeterminate 写入原生 DOM
+  const headerCheckboxRef = (el: HTMLInputElement | null) => {
+    if (el) el.indeterminate = someSelected;
+  };
+
+  // 部分选中态下点击 → 全选；全选 / 未选状态下切换
   const toggleAll = () => setSelected(allSelected ? new Set() : new Set(allKeys));
   const toggleOne = (key: string) => {
     setSelected(prev => {
@@ -383,11 +352,18 @@ export default function AuditPage() {
               <tr className="border-b border-edge bg-row-head">
                 <th className="pl-5 pr-3 py-3">
                   <input
+                    ref={headerCheckboxRef}
                     type="checkbox"
                     checked={allSelected}
                     onChange={toggleAll}
                     className="accent-ink w-3.5 h-3.5"
-                    aria-label="全选"
+                    aria-label={
+                      allSelected
+                        ? "取消全选"
+                        : someSelected
+                        ? `已选 ${selected.size} 条，点击全选`
+                        : "全选"
+                    }
                   />
                 </th>
                 {["标签", "实体", "来源", "置信度", "状态",
@@ -479,6 +455,7 @@ export default function AuditPage() {
                             disabled={busy}
                             onClick={() => setReviewTarget({ item, action: "active" })}
                             className="p-1.5 rounded-md text-ink-faint hover:text-ok hover:bg-ok/10 transition-all disabled:opacity-40"
+                            aria-label="通过"
                             title="通过"
                           >
                             <CheckCircle size={14} />
@@ -489,6 +466,7 @@ export default function AuditPage() {
                             disabled={busy}
                             onClick={() => setReviewTarget({ item, action: "rejected" })}
                             className="p-1.5 rounded-md text-ink-faint hover:text-warn hover:bg-warn/10 transition-all disabled:opacity-40"
+                            aria-label="拒绝"
                             title="拒绝"
                           >
                             <XCircle size={14} />
@@ -498,6 +476,7 @@ export default function AuditPage() {
                           disabled={busy}
                           onClick={() => setConfirmItem(item)}
                           className="p-1.5 rounded-md text-ink-faint hover:text-bad hover:bg-bad/10 transition-all disabled:opacity-40"
+                          aria-label="删除关联"
                           title="删除关联"
                         >
                           <Trash2 size={13} />

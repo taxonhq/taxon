@@ -12,6 +12,7 @@ import {
 import { toast } from "@/components/ui/toast";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Drawer } from "@/components/ui/drawer";
 import { Field, Input, Select, Textarea } from "@/components/ui/field";
 import { Combobox } from "@/components/ui/combobox";
 import { ErrorBanner } from "@/components/ui/error-banner";
@@ -329,46 +330,48 @@ export default function GroupDetailPage() {
 
       <ErrorBanner message={error} />
 
-      {/* Group Edit Form */}
-      {showGroupEdit && (
-        <Card className="space-y-4">
-          <p className="text-sm font-medium text-ink">编辑分组属性</p>
-          <form onSubmit={handleGroupSave} className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <Field label="显示名称" required>
-                <Input value={groupForm.name} onChange={e => setGF("name", e.target.value)} />
-              </Field>
-              <Field label="Slug" hint="修改 slug 会影响调用方，请谨慎操作">
-                <Input value={groupForm.slug} onChange={e => setGF("slug", e.target.value)} className="font-mono" />
-              </Field>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <Field label="适用实体范围" hint="留空则适用所有实体">
-                <Combobox
-                  value={groupForm.entityScope}
-                  onChange={v => setGF("entityScope", v)}
-                  options={entityTypes}
-                  placeholder="通用（所有实体）"
-                  emptyLabel="通用（所有实体）"
-                />
-              </Field>
-              <Field label="默认允许多选">
-                <Select value={groupForm.allowMultiple} onChange={e => setGF("allowMultiple", e.target.value)}>
-                  <option value="true">是</option>
-                  <option value="false">否（单选）</option>
-                </Select>
-              </Field>
-            </div>
-            <Field label="描述">
-              <Textarea value={groupForm.description} onChange={e => setGF("description", e.target.value)} rows={2} />
+      {/* Group Edit — Drawer */}
+      <Drawer
+        open={showGroupEdit}
+        onClose={() => setShowGroupEdit(false)}
+        title="编辑分组属性"
+        size="md"
+      >
+        <form onSubmit={handleGroupSave} className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <Field label="显示名称" required>
+              <Input value={groupForm.name} onChange={e => setGF("name", e.target.value)} />
             </Field>
-            <div className="flex gap-3 justify-end">
-              <Button type="button" variant="outline" onClick={() => setShowGroupEdit(false)}>取消</Button>
-              <Button type="submit" loading={savingGroup}>保存</Button>
-            </div>
-          </form>
-        </Card>
-      )}
+            <Field label="Slug" hint="修改 slug 会影响调用方，请谨慎操作">
+              <Input value={groupForm.slug} onChange={e => setGF("slug", e.target.value)} className="font-mono" />
+            </Field>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <Field label="适用实体范围" hint="留空则适用所有实体">
+              <Combobox
+                value={groupForm.entityScope}
+                onChange={v => setGF("entityScope", v)}
+                options={entityTypes}
+                placeholder="通用（所有实体）"
+                emptyLabel="通用（所有实体）"
+              />
+            </Field>
+            <Field label="默认允许多选">
+              <Select value={groupForm.allowMultiple} onChange={e => setGF("allowMultiple", e.target.value)}>
+                <option value="true">是</option>
+                <option value="false">否（单选）</option>
+              </Select>
+            </Field>
+          </div>
+          <Field label="描述">
+            <Textarea value={groupForm.description} onChange={e => setGF("description", e.target.value)} rows={2} />
+          </Field>
+          <div className="flex gap-3 justify-end pt-2">
+            <Button type="button" variant="outline" onClick={() => setShowGroupEdit(false)}>取消</Button>
+            <Button type="submit" loading={savingGroup}>保存</Button>
+          </div>
+        </form>
+      </Drawer>
 
       {/* Entity Rules */}
       <Card className="space-y-4">
@@ -432,98 +435,105 @@ export default function GroupDetailPage() {
         </div>
       </Card>
 
-      {/* Tag Create Form */}
-      {showForm && (
-        <Card className="space-y-4">
-          <p className="text-sm font-medium text-ink">
-            新建标签{formParentId
-              ? `（父节点：${flatTags.find(t => t.id === formParentId)?.name ?? formParentId}）`
-              : "（根节点）"}
-          </p>
-          <form onSubmit={handleCreate} className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <Field label="显示名称" required>
-                <Input
-                  value={newForm.name}
-                  onChange={e => setNewForm(f => ({ ...f, name: e.target.value }))}
-                  placeholder="如 川菜、麻辣"
-                  autoFocus
-                />
-              </Field>
-              <Field label="Slug" hint="不填则由服务端自动生成">
-                <Input
-                  value={newForm.slug}
-                  onChange={e => setNewForm(f => ({ ...f, slug: e.target.value }))}
-                  placeholder="如 sichuan、spicy"
-                  className="font-mono"
-                />
-              </Field>
-            </div>
-            <Field label="父节点" hint="留空则创建为根节点">
-              <Select
-                value={formParentId ?? ""}
-                onChange={e => setFormParentId(e.target.value || null)}
-              >
-                <option value="">根节点</option>
-                {flatTags.map(t => (
-                  <option key={t.id} value={t.id}>
-                    {"　".repeat(t.depth)}{t.name}
-                  </option>
-                ))}
-              </Select>
-            </Field>
-            <Field label="描述">
-              <Textarea value={newForm.description} onChange={e => setNewForm(f => ({ ...f, description: e.target.value }))} rows={2} />
-            </Field>
-            <div className="flex gap-3 justify-end">
-              <Button type="button" variant="outline" onClick={() => setShowForm(false)}>取消</Button>
-              <Button type="submit" loading={saving}>保存</Button>
-            </div>
-          </form>
-        </Card>
-      )}
-
-      {/* Tag Edit Dialog */}
-      {editing && (
-        <Card className="space-y-4">
-          <p className="text-sm font-medium text-ink">编辑标签</p>
+      {/* Tag Create — Drawer */}
+      <Drawer
+        open={showForm}
+        onClose={() => setShowForm(false)}
+        title="新建标签"
+        description={
+          formParentId
+            ? `父节点：${flatTags.find(t => t.id === formParentId)?.name ?? formParentId}`
+            : "创建为根节点"
+        }
+        size="md"
+      >
+        <form onSubmit={handleCreate} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <Field label="显示名称" required>
               <Input
-                value={editing.name}
-                onChange={e => setEditing(s => s ? { ...s, name: e.target.value } : s)}
-                autoFocus
+                value={newForm.name}
+                onChange={e => setNewForm(f => ({ ...f, name: e.target.value }))}
+                placeholder="如 川菜、麻辣"
               />
             </Field>
-            <Field label="Slug">
+            <Field label="Slug" hint="不填则由服务端自动生成">
               <Input
-                value={editing.slug}
-                onChange={e => setEditing(s => s ? { ...s, slug: e.target.value } : s)}
+                value={newForm.slug}
+                onChange={e => setNewForm(f => ({ ...f, slug: e.target.value }))}
+                placeholder="如 sichuan、spicy"
                 className="font-mono"
               />
             </Field>
           </div>
-          <Field label="父节点" hint="留空则设为根节点">
+          <Field label="父节点" hint="留空则创建为根节点">
             <Select
-              value={editing.parentId}
-              onChange={e => setEditing(s => s ? { ...s, parentId: e.target.value } : s)}
+              value={formParentId ?? ""}
+              onChange={e => setFormParentId(e.target.value || null)}
             >
               <option value="">根节点</option>
-              {flatTags
-                .filter(t => t.id !== editing.tag.id)
-                .map(t => (
-                  <option key={t.id} value={t.id}>
-                    {"　".repeat(t.depth)}{t.name}
-                  </option>
-                ))}
+              {flatTags.map(t => (
+                <option key={t.id} value={t.id}>
+                  {"　".repeat(t.depth)}{t.name}
+                </option>
+              ))}
             </Select>
           </Field>
-          <div className="flex gap-3 justify-end">
-            <Button variant="outline" onClick={() => setEditing(null)}>取消</Button>
-            <Button onClick={handleEditSave}>保存</Button>
+          <Field label="描述">
+            <Textarea value={newForm.description} onChange={e => setNewForm(f => ({ ...f, description: e.target.value }))} rows={3} />
+          </Field>
+          <div className="flex gap-3 justify-end pt-2">
+            <Button type="button" variant="outline" onClick={() => setShowForm(false)}>取消</Button>
+            <Button type="submit" loading={saving}>保存</Button>
           </div>
-        </Card>
-      )}
+        </form>
+      </Drawer>
+
+      {/* Tag Edit — Drawer */}
+      <Drawer
+        open={!!editing}
+        onClose={() => setEditing(null)}
+        title="编辑标签"
+        size="md"
+      >
+        {editing && (
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <Field label="显示名称" required>
+                <Input
+                  value={editing.name}
+                  onChange={e => setEditing(s => s ? { ...s, name: e.target.value } : s)}
+                />
+              </Field>
+              <Field label="Slug">
+                <Input
+                  value={editing.slug}
+                  onChange={e => setEditing(s => s ? { ...s, slug: e.target.value } : s)}
+                  className="font-mono"
+                />
+              </Field>
+            </div>
+            <Field label="父节点" hint="留空则设为根节点">
+              <Select
+                value={editing.parentId}
+                onChange={e => setEditing(s => s ? { ...s, parentId: e.target.value } : s)}
+              >
+                <option value="">根节点</option>
+                {flatTags
+                  .filter(t => t.id !== editing.tag.id)
+                  .map(t => (
+                    <option key={t.id} value={t.id}>
+                      {"　".repeat(t.depth)}{t.name}
+                    </option>
+                  ))}
+              </Select>
+            </Field>
+            <div className="flex gap-3 justify-end pt-2">
+              <Button variant="outline" onClick={() => setEditing(null)}>取消</Button>
+              <Button onClick={handleEditSave}>保存</Button>
+            </div>
+          </div>
+        )}
+      </Drawer>
 
       {/* Confirm Delete */}
       {confirmDelete && (
@@ -542,79 +552,91 @@ export default function GroupDetailPage() {
         />
       )}
 
-      {/* Merge Dialog */}
-      {mergeState && (
-        <Card className="space-y-4">
-          <div>
-            <p className="text-sm font-medium text-ink">合并标签</p>
-            <p className="text-xs text-ink-faint mt-0.5">
-              将「<span className="text-ink font-medium">{mergeState.source.name}</span>」的实体关联和别名合并到目标标签，并软删除源标签。
-            </p>
+      {/* Merge Tag — Drawer */}
+      <Drawer
+        open={!!mergeState}
+        onClose={() => setMergeState(null)}
+        title="合并标签"
+        description={
+          mergeState
+            ? `将「${mergeState.source.name}」的实体关联和别名合并到目标标签，并软删除源标签。`
+            : undefined
+        }
+        size="sm"
+      >
+        {mergeState && (
+          <div className="space-y-4">
+            <Field label="合并到（目标标签）" required>
+              <Select
+                value={mergeState.targetId}
+                onChange={e => setMergeState(s => s ? { ...s, targetId: e.target.value } : s)}
+              >
+                <option value="">— 选择目标标签 —</option>
+                {flatTags
+                  .filter(t => t.id !== mergeState.source.id)
+                  .map(t => (
+                    <option key={t.id} value={t.id}>
+                      {"　".repeat(t.depth)}{t.name} ({t.slug})
+                    </option>
+                  ))}
+              </Select>
+            </Field>
+            <div className="flex gap-3 justify-end pt-2">
+              <Button variant="outline" onClick={() => setMergeState(null)}>取消</Button>
+              <Button
+                variant="danger"
+                loading={merging}
+                disabled={!mergeState.targetId}
+                onClick={handleMergeConfirm}
+              >
+                确认合并
+              </Button>
+            </div>
           </div>
-          <Field label="合并到（目标标签）" required>
-            <Select
-              value={mergeState.targetId}
-              onChange={e => setMergeState(s => s ? { ...s, targetId: e.target.value } : s)}
-            >
-              <option value="">— 选择目标标签 —</option>
-              {flatTags
-                .filter(t => t.id !== mergeState.source.id)
-                .map(t => (
-                  <option key={t.id} value={t.id}>
-                    {"　".repeat(t.depth)}{t.name} ({t.slug})
-                  </option>
-                ))}
-            </Select>
-          </Field>
-          <div className="flex gap-3 justify-end">
-            <Button variant="outline" onClick={() => setMergeState(null)}>取消</Button>
-            <Button
-              variant="danger"
-              loading={merging}
-              disabled={!mergeState.targetId}
-              onClick={handleMergeConfirm}
-            >
-              确认合并
-            </Button>
-          </div>
-        </Card>
-      )}
+        )}
+      </Drawer>
 
-      {/* Move to Group Dialog */}
-      {moveGroupState && (
-        <Card className="space-y-4">
-          <div>
-            <p className="text-sm font-medium text-ink">迁移标签到其他分组</p>
-            <p className="text-xs text-ink-faint mt-0.5">
-              将「<span className="text-ink font-medium">{moveGroupState.tag.name}</span>」及其所有子孙节点移动到目标分组，成为该分组的根节点。
-            </p>
+      {/* Move Tag to Group — Drawer */}
+      <Drawer
+        open={!!moveGroupState}
+        onClose={() => setMoveGroupState(null)}
+        title="迁移标签到其他分组"
+        description={
+          moveGroupState
+            ? `将「${moveGroupState.tag.name}」及其所有子孙节点移动到目标分组，成为该分组的根节点。`
+            : undefined
+        }
+        size="sm"
+      >
+        {moveGroupState && (
+          <div className="space-y-4">
+            <Field label="目标分组" required>
+              <Select
+                value={moveGroupState.targetGroupId}
+                onChange={e => setMoveGroupState(s => s ? { ...s, targetGroupId: e.target.value } : s)}
+              >
+                <option value="">— 选择目标分组 —</option>
+                {allGroups
+                  .filter(g => g.id !== groupId)
+                  .map(g => (
+                    <option key={g.id} value={g.id}>{g.name} ({g.slug})</option>
+                  ))}
+              </Select>
+            </Field>
+            <div className="flex gap-3 justify-end pt-2">
+              <Button variant="outline" onClick={() => setMoveGroupState(null)}>取消</Button>
+              <Button
+                variant="danger"
+                loading={movingGroup}
+                disabled={!moveGroupState.targetGroupId}
+                onClick={handleMoveGroupConfirm}
+              >
+                确认迁移
+              </Button>
+            </div>
           </div>
-          <Field label="目标分组" required>
-            <Select
-              value={moveGroupState.targetGroupId}
-              onChange={e => setMoveGroupState(s => s ? { ...s, targetGroupId: e.target.value } : s)}
-            >
-              <option value="">— 选择目标分组 —</option>
-              {allGroups
-                .filter(g => g.id !== groupId)
-                .map(g => (
-                  <option key={g.id} value={g.id}>{g.name} ({g.slug})</option>
-                ))}
-            </Select>
-          </Field>
-          <div className="flex gap-3 justify-end">
-            <Button variant="outline" onClick={() => setMoveGroupState(null)}>取消</Button>
-            <Button
-              variant="danger"
-              loading={movingGroup}
-              disabled={!moveGroupState.targetGroupId}
-              onClick={handleMoveGroupConfirm}
-            >
-              确认迁移
-            </Button>
-          </div>
-        </Card>
-      )}
+        )}
+      </Drawer>
 
       {/* Tag Tree */}
       <Card className="space-y-1 min-h-32">
