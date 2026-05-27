@@ -12,6 +12,7 @@
     "check:openapi": "tsx scripts/check-openapi-drift.ts",
     "seed:demo": "tsx scripts/seed.ts demo",
     "seed:perf": "tsx scripts/seed.ts perf",
+    "bench:search": "tsx scripts/bench-search.ts",
     "postinstall": "prisma generate"
   },
   "dependencies": {
