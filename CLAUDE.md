@@ -49,12 +49,26 @@ docker-compose up
 
 `main` 分支已开启 GitHub 保护规则（见 #64）：
 
-- 必须通过两个 CI 检查才能合并：`Console — lint & build` + `Service — typecheck & tests`
-- 分支必须 up-to-date 才能合并（防止合入时回归）
-- **`enforce_admins=true`** — 即使 owner 也不能用 `gh pr merge --admin` 绕过，必须等 CI 绿
-- 不允许 force push / 删除 main
+- **PR 合并门槛**：必须通过两个 CI 检查 `Console — lint & build` + `Service — typecheck & tests`，且分支必须 up-to-date
+- **`enforce_admins=false`** — owner 可以直 push 到 main（单人开发场景的取舍：lefthook 已本地拦 lint/typecheck，push 后 CI 仍会跑作为事后安全网）
+- 禁止 force push / 删除 main
 
-如遇 CI 外部故障紧急合入：`gh api -X DELETE repos/taxonhq/taxon/branches/main/protection` 临时关，合完再用 issue #64 评论里的 JSON 还原。
+### 工作流约定
+
+- **小修小补 / typo / 文档**：本地 lefthook 通过后直接 `git push origin main`
+- **大改 / 重构 / 想留 PR diff 记录**：开 PR，CI 双绿后再合
+- **紧急 prod fix**：直 push 也行，CI 红了 `git revert HEAD` 即可
+
+什么时候开回 `enforce_admins=true`：
+- 加入第一个真实 collaborator
+- 接受外部 PR 频率 > 月均 1 个
+- 出现过"凌晨 push 破代码到 main"的事故 ≥ 2 次
+
+开关命令：
+```bash
+gh api -X DELETE repos/taxonhq/taxon/branches/main/protection/enforce_admins  # 关
+gh api -X POST   repos/taxonhq/taxon/branches/main/protection/enforce_admins  # 开
+```
 
 ## Core Architecture
 
