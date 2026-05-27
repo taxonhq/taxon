@@ -318,6 +318,7 @@ function GroupCard({
           <button
             onClick={onDelete}
             className="p-1.5 rounded-lg text-ink-faint hover:text-bad hover:bg-bad/10 transition-all"
+            aria-label={`删除分组 ${group.name}`}
             title="删除分组"
           >
             <Trash2 size={13} />
@@ -325,6 +326,7 @@ function GroupCard({
           <Link
             href={`/groups/${group.id}`}
             className="flex items-center p-1.5 rounded-lg text-ink-faint hover:text-ink hover:bg-surface-alt transition-all"
+            aria-label={`进入「${group.name}」高级配置`}
             title="高级配置"
           >
             <Settings2 size={13} />
@@ -408,6 +410,7 @@ function AddTagInput({ onAdd }: { onAdd: (name: string) => Promise<void> }) {
         // blur 仅取消，不提交 —— 防止 Tab/点击其他区域误创建标签
         onBlur={discard}
         placeholder="输入名称…"
+        aria-label="新标签名称（Enter 确认 · Esc 取消）"
         title="Enter 确认 · Esc 取消"
         className="inline-flex px-2 py-1 text-xs border border-edge-mid bg-overlay text-ink rounded-md focus:outline-none focus:border-edge-strong w-32 disabled:opacity-50"
       />
@@ -415,6 +418,7 @@ function AddTagInput({ onAdd }: { onAdd: (name: string) => Promise<void> }) {
         onMouseDown={e => { e.preventDefault(); submit(); }} // mousedown 防止 input blur 先于 click 触发
         disabled={loading || !value.trim()}
         className="p-1 rounded text-ink-faint hover:text-ok hover:bg-ok/10 disabled:opacity-30 transition-all"
+        aria-label="确认新建标签"
         title="确认（Enter）"
       >
         <Plus size={11} />

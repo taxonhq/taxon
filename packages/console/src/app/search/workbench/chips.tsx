@@ -46,6 +46,7 @@ export function LeafChip({
       <button
         type="button"
         onClick={onToggleNot}
+        aria-label={node.negate ? "取消反向（NOT）" : "标记为反向（NOT）"}
         title={node.negate ? "取消反向（NOT）" : "标记为反向（NOT）"}
         className={cn(
           "ml-0.5 size-4 inline-flex items-center justify-center rounded transition-colors",
@@ -57,6 +58,7 @@ export function LeafChip({
       <button
         type="button"
         onClick={onRemove}
+        aria-label="移除该条件"
         title="移除"
         className="size-4 inline-flex items-center justify-center rounded hover:bg-row-head text-ink-sub"
       >
@@ -96,6 +98,7 @@ export function OrGroupChip({
         <button
           type="button"
           onClick={onAddLeaf}
+          aria-label="向此 OR 组添加标签"
           title="向此 OR 组添加标签"
           className="size-5 inline-flex items-center justify-center rounded-md border border-dashed border-edge-mid text-ink-sub hover:text-ink hover:border-edge-strong"
         >
@@ -105,6 +108,7 @@ export function OrGroupChip({
       <button
         type="button"
         onClick={onRemoveGroup}
+        aria-label="删除整个 OR 组"
         title="删除整个 OR 组"
         className="size-5 inline-flex items-center justify-center rounded hover:bg-row-head text-ink-sub"
       >

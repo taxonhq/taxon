@@ -64,7 +64,7 @@ function CreateDialog({
           <div>
             <label className="block text-xs text-ink-sub mb-1">名称 <span className="text-bad">*</span></label>
             <input
-              className="w-full border border-edge rounded-lg px-3 py-2 text-sm text-ink bg-surface-alt focus:outline-none focus:ring-1 focus:ring-ink"
+              className="w-full border border-edge rounded-lg px-3 py-2 text-sm text-ink bg-surface-alt focus:outline-none focus:border-edge-strong focus:ring-2 focus:ring-brand-1/40"
               placeholder="restaurant-service"
               value={name}
               onChange={e => setName(e.target.value)}
@@ -130,6 +130,7 @@ function TokenRevealDialog({ token, onClose }: { token: CreatedToken; onClose: (
           <button
             onClick={copy}
             className="shrink-0 p-1 rounded hover:bg-edge transition-colors text-ink-faint hover:text-ink"
+            aria-label="复制 token"
             title="复制"
           >
             {copied ? <Check size={14} className="text-ok" /> : <Copy size={14} />}
@@ -279,6 +280,7 @@ function TokenRow({
         <button
           onClick={onRevoke}
           className="shrink-0 p-1.5 rounded-lg text-ink-faint hover:text-bad hover:bg-bad/10 transition-colors"
+          aria-label="撤销 token"
           title="撤销"
         >
           <Trash2 size={14} />
