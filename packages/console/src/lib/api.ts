@@ -717,3 +717,92 @@ export async function createToken(body: {
 export async function revokeToken(id: string): Promise<void> {
   await req<unknown>(`/tokens/${id}`, { method: "DELETE" });
 }
+
+// ── 标签治理 ──────────────────────────────────────────────────────
+
+export interface TagUsageItem {
+  tagId:      string;
+  name:       string;
+  slug:       string;
+  groupId:    string;
+  groupName:  string;
+  groupSlug:  string;
+  usageCount: number;
+  lastUsedAt: string | null;
+}
+
+export interface DeadTagItem {
+  tagId:       string;
+  name:        string;
+  slug:        string;
+  groupId:     string;
+  groupName:   string;
+  groupSlug:   string;
+  depth:       number;
+  activeCount: number;
+  lastUsedAt:  string | null;
+}
+
+export interface DuplicatePair {
+  sourceId:          string;
+  sourceName:        string;
+  sourceSlug:        string;
+  targetId:          string;
+  targetName:        string;
+  targetSlug:        string;
+  groupId:           string;
+  groupName:         string;
+  groupSlug:         string;
+  similarity:        number;
+  reason:            string;
+  sharedEntityCount: number;
+}
+
+export async function getTagUsage(params?: {
+  groupId?: string;
+  period?:  "7d" | "14d" | "30d" | "90d" | "180d" | "1y" | "all";
+  order?:   "asc" | "desc";
+  limit?:   number;
+}): Promise<{ period: string; items: TagUsageItem[] }> {
+  const qs = new URLSearchParams();
+  if (params?.groupId) qs.set("groupId", params.groupId);
+  if (params?.period)  qs.set("period",  params.period);
+  if (params?.order)   qs.set("order",   params.order);
+  if (params?.limit)   qs.set("limit",   String(params.limit));
+  const q = qs.toString();
+  return req(`/governance/tag-usage${q ? `?${q}` : ""}`);
+}
+
+export async function getDeadTags(params?: {
+  groupId?: string;
+  period?:  "30d" | "90d" | "180d" | "1y";
+  limit?:   number;
+}): Promise<{ period: string; cutoff: string; items: DeadTagItem[] }> {
+  const qs = new URLSearchParams();
+  if (params?.groupId) qs.set("groupId", params.groupId);
+  if (params?.period)  qs.set("period",  params.period);
+  if (params?.limit)   qs.set("limit",   String(params.limit));
+  const q = qs.toString();
+  return req(`/governance/dead-tags${q ? `?${q}` : ""}`);
+}
+
+export async function getDuplicateSuggestions(params?: {
+  groupId?:   string;
+  threshold?: number;
+  limit?:     number;
+}): Promise<{ items: DuplicatePair[] }> {
+  const qs = new URLSearchParams();
+  if (params?.groupId)   qs.set("groupId",   params.groupId);
+  if (params?.threshold) qs.set("threshold", String(params.threshold));
+  if (params?.limit)     qs.set("limit",     String(params.limit));
+  const q = qs.toString();
+  return req(`/governance/duplicate-suggestions${q ? `?${q}` : ""}`);
+}
+
+export async function mergeTags(targetId: string, sourceIds: string[]): Promise<{ entityTagsMoved: number; aliasesMoved: number }> {
+  return req(`/tags/${targetId}/merge`, {
+    method:  "POST",
+    headers: { "Content-Type": "application/json" },
+    body:    JSON.stringify({ sourceIds }),
+  });
+}

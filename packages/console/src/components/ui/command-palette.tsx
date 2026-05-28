@@ -17,7 +17,7 @@ import { Command } from "cmdk";
 import {
   LayoutDashboard, Layers, Box, ClipboardCheck, Search,
   KeyRound, Sparkles, Tag, FolderOpen, SunMoon, PanelLeft,
-  ArrowRight,
+  ArrowRight, ShieldCheck,
 } from "lucide-react";
 import { searchTags, getTagGroups, type Tag as TagType, type TagGroup } from "@/lib/api";
 import { cn } from "@/lib/utils";
@@ -39,8 +39,9 @@ const NAV_ITEMS = [
   { id: "nav-groups",    label: "分组管理", icon: Layers,          href: "/groups" },
   { id: "nav-entities",  label: "实体管理", icon: Box,             href: "/entities" },
   { id: "nav-search",    label: "实体检索", icon: Search,          href: "/search" },
-  { id: "nav-audit",     label: "审核队列", icon: ClipboardCheck,  href: "/audit" },
-  { id: "nav-llm",       label: "LLM 设置", icon: Sparkles,        href: "/settings/llm" },
+  { id: "nav-audit",       label: "审核队列", icon: ClipboardCheck, href: "/audit" },
+  { id: "nav-governance", label: "标签治理", icon: ShieldCheck,    href: "/governance" },
+  { id: "nav-llm",        label: "LLM 设置", icon: Sparkles,       href: "/settings/llm" },
   { id: "nav-tokens",    label: "API Tokens",icon: KeyRound,       href: "/settings/tokens" },
 ] as const;
 

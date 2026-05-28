@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import Link from "next/link";
 import {
   Tag, Layers, ClipboardCheck, Box, LayoutDashboard, Search,
-  ChevronLeft, ChevronRight, HelpCircle, KeyRound, Sparkles, User,
+  ChevronLeft, ChevronRight, HelpCircle, KeyRound, Sparkles, User, ShieldCheck,
 } from "lucide-react";
 import { NavLink } from "@/components/nav-link";
 import { AboutDialog } from "@/components/ui/about-dialog";
@@ -21,10 +21,11 @@ const NAV_TOP = [
 ] as const;
 
 const NAV = [
-  { href: "/groups",   icon: Layers,        label: "分组管理" },
-  { href: "/entities", icon: Box,           label: "实体管理" },
-  { href: "/search",   icon: Search,        label: "实体检索" },
-  { href: "/audit",    icon: ClipboardCheck, label: "审核队列" },
+  { href: "/groups",      icon: Layers,        label: "分组管理" },
+  { href: "/entities",    icon: Box,           label: "实体管理" },
+  { href: "/search",      icon: Search,        label: "实体检索" },
+  { href: "/audit",       icon: ClipboardCheck, label: "审核队列" },
+  { href: "/governance",  icon: ShieldCheck,   label: "标签治理" },
 ] as const;
 
 const NAV_BOTTOM = [
@@ -103,7 +104,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   //  - Dashboard 全宽（自管）
   const isWide =
     pathname.startsWith("/audit") ||
-    pathname.startsWith("/entities/");   // 注意末尾 / —— 排除 /entities 本身（卡片网格用 880）
+    pathname.startsWith("/entities/") ||  // 注意末尾 / —— 排除 /entities 本身（卡片网格用 880）
+    pathname.startsWith("/governance");   // 治理面板含宽表格
   const containerClass = isWide ? "max-w-[1200px]" : "max-w-[880px]";
 
   const dotClass =
