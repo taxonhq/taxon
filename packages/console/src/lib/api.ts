@@ -406,14 +406,20 @@ export async function addEntityTag(
 export async function getAuditItems(params?: {
   status?: "pending" | "active" | "rejected";
   entityType?: string;
+  /** 最低置信度 0–1（可选） */
+  minConfidence?: number;
+  /** 最高置信度 0–1（可选） */
+  maxConfidence?: number;
   page?: number;
   pageSize?: number;
 }): Promise<Paginated<AuditItem>> {
   const q = new URLSearchParams();
-  if (params?.status) q.set("status", params.status);
-  if (params?.entityType) q.set("entityType", params.entityType);
-  if (params?.page) q.set("page", String(params.page));
-  if (params?.pageSize) q.set("pageSize", String(params.pageSize));
+  if (params?.status)        q.set("status",        params.status);
+  if (params?.entityType)    q.set("entityType",    params.entityType);
+  if (params?.minConfidence != null) q.set("minConfidence", String(params.minConfidence));
+  if (params?.maxConfidence != null) q.set("maxConfidence", String(params.maxConfidence));
+  if (params?.page)          q.set("page",          String(params.page));
+  if (params?.pageSize)      q.set("pageSize",      String(params.pageSize));
   return req<Paginated<AuditItem>>(`/entities/audit${q.size ? `?${q}` : ""}`);
 }
 

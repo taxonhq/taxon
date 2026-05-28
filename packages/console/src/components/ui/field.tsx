@@ -1,4 +1,4 @@
-import { useId, cloneElement, isValidElement } from "react";
+import { useId, cloneElement, isValidElement, forwardRef } from "react";
 import type { ReactElement } from "react";
 import { cn } from "@/lib/utils";
 
@@ -60,13 +60,13 @@ interface SelectProps extends React.SelectHTMLAttributes<HTMLSelectElement> {
   children: React.ReactNode;
 }
 
-export function Select({ children, ...props }: SelectProps) {
+export const Select = forwardRef<HTMLSelectElement, SelectProps>(function Select({ children, ...props }, ref) {
   return (
-    <select className={cn(inputBase, "cursor-pointer")} {...props}>
+    <select ref={ref} className={cn(inputBase, "cursor-pointer")} {...props}>
       {children}
     </select>
   );
-}
+});
 
 export function Textarea(props: React.TextareaHTMLAttributes<HTMLTextAreaElement>) {
   return <textarea className={cn(inputBase, "resize-none leading-relaxed")} {...props} />;

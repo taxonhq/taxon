@@ -20,11 +20,13 @@ const listAuditRoute = createRoute({
   security: [{ BearerAuth: [] }],
   request: {
     query: PaginationQuery.extend({
-      status:     z.string().optional().openapi({ description: '状态过滤（pending/active/rejected）' }),
-      entityType: z.string().optional(),
-      reviewerId: z.string().optional(),
-      from:       z.string().optional().openapi({ description: 'ISO 日期，reviewedAt >=' }),
-      to:         z.string().optional().openapi({ description: 'ISO 日期，reviewedAt <=' }),
+      status:        z.string().optional().openapi({ description: '状态过滤（pending/active/rejected）' }),
+      entityType:    z.string().optional(),
+      reviewerId:    z.string().optional(),
+      from:          z.string().optional().openapi({ description: 'ISO 日期，reviewedAt >=' }),
+      to:            z.string().optional().openapi({ description: 'ISO 日期，reviewedAt <=' }),
+      minConfidence: z.string().optional().openapi({ description: '最低置信度 0–1（包含）' }),
+      maxConfidence: z.string().optional().openapi({ description: '最高置信度 0–1（包含）' }),
     }),
   },
   responses: {
@@ -40,6 +42,8 @@ auditRouter.openapi(listAuditRoute, async (c) => {
   const reviewerId   = c.req.query('reviewerId')
   const from         = c.req.query('from')
   const to           = c.req.query('to')
+  const minConf      = c.req.query('minConfidence') ? parseFloat(c.req.query('minConfidence')!) : undefined
+  const maxConf      = c.req.query('maxConfidence') ? parseFloat(c.req.query('maxConfidence')!) : undefined
   const page         = Math.max(1, parseInt(c.req.query('page') || '1'))
   const pageSize     = Math.min(100, Math.max(1, parseInt(c.req.query('pageSize') || '20')))
   const skip         = (page - 1) * pageSize
@@ -53,6 +57,12 @@ auditRouter.openapi(listAuditRoute, async (c) => {
     ...(entityType ? { entityType }   : {}),
     ...(reviewerId ? { reviewerId }   : {}),
     ...(from || to ? { reviewedAt: { ...(from ? { gte: new Date(from) } : {}), ...(to ? { lte: new Date(to) } : {}) } } : {}),
+    ...((minConf != null || maxConf != null) ? {
+      confidence: {
+        ...(minConf != null ? { gte: minConf } : {}),
+        ...(maxConf != null ? { lte: maxConf } : {}),
+      },
+    } : {}),
   }
 
   const [items, total] = await Promise.all([

@@ -218,6 +218,17 @@ body {
 .animate-scale-in { animation: scale-in .18s ease both; }
 .animate-spin     { animation: spin     .65s linear infinite; }
 
+@keyframes flash-ok {
+  0%, 100% { background-color: transparent; }
+  30%       { background-color: color-mix(in srgb, var(--ok) 18%, transparent); }
+}
+@keyframes flash-bad {
+  0%, 100% { background-color: transparent; }
+  30%       { background-color: color-mix(in srgb, var(--bad) 18%, transparent); }
+}
+.animate-flash-ok  { animation: flash-ok  .5s ease both; }
+.animate-flash-bad { animation: flash-bad .5s ease both; }
+
 /* ── Scrollbar ────────────────────────────────────────────────────────── */
 ::-webkit-scrollbar         { width: 4px; height: 4px; }
 ::-webkit-scrollbar-track   { background: transparent; }

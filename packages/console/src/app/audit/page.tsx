@@ -1,7 +1,20 @@
 "use client";
 
+/**
+ * 审核队列页面
+ *
+ * 功能：
+ *   - 键盘快捷键（J/K 导航，A 通过，R 拒绝，Enter 带备注，Shift+A 全部通过，
+ *     X 选中，Shift+X 全选，/ 聚焦筛选，? 显示说明，⌘Z 撤销）
+ *   - 快速操作：A/R 直接审核，无需备注弹窗
+ *   - 5 秒撤销：操作后可在 5s 内撤销，超时后实际提交
+ *   - 行 flash 动效：通过→绿，拒绝→红
+ *   - 聚焦行左侧蓝色高亮条
+ *   - 置信度区间过滤（issue #9）
+ */
+
 import { useState, useEffect, useCallback, useRef } from "react";
-import { CheckCircle, XCircle, Trash2, RefreshCw, ClipboardCheck } from "lucide-react";
+import { CheckCircle, XCircle, Trash2, RefreshCw, ClipboardCheck, Keyboard } from "lucide-react";
 import {
   getAuditItems, updateEntityTagStatus, removeEntityTag, getEntityTypes,
   type AuditItem,
@@ -19,9 +32,9 @@ const PAGE_SIZE_DEFAULT = 30;
 type StatusFilter = "pending" | "active" | "rejected";
 
 const STATUS_META: Record<string, { label: string; dot: string; text: string }> = {
-  pending:  { label: "待审核", dot: "bg-warn",     text: "text-warn" },
-  active:   { label: "已激活", dot: "bg-ok",       text: "text-ok" },
-  rejected: { label: "已拒绝", dot: "bg-bad/70",   text: "text-bad" },
+  pending:  { label: "待审核", dot: "bg-warn",   text: "text-warn" },
+  active:   { label: "已激活", dot: "bg-ok",     text: "text-ok" },
+  rejected: { label: "已拒绝", dot: "bg-bad/70", text: "text-bad" },
 };
 
 const SOURCE_LABEL: Record<string, string> = {
@@ -38,39 +51,32 @@ function formatTime(iso: string) {
   });
 }
 
-// ── 审核操作弹窗（含备注）— 基于通用 Dialog 原语 ─────────────────────
+function itemKey(item: AuditItem) {
+  return `${item.tagId}:${item.entityType}:${item.entityId}`;
+}
+
+// ── 审核操作弹窗（含备注） ────────────────────────────────────────────────────
 function ReviewDialog({
-  item,
-  action,
-  onConfirm,
-  onCancel,
+  item, action, onConfirm, onCancel,
 }: {
-  item:      AuditItem;
-  action:    "active" | "rejected";
+  item: AuditItem;
+  action: "active" | "rejected";
   onConfirm: (note: string) => void;
-  onCancel:  () => void;
+  onCancel: () => void;
 }) {
   const [note, setNote] = useState("");
   const isApprove = action === "active";
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  // 打开后把焦点移到 textarea（Dialog 默认聚焦第一个按钮）
   useEffect(() => {
     const t = setTimeout(() => textareaRef.current?.focus(), 0);
     return () => clearTimeout(t);
   }, []);
 
   return (
-    <Dialog
-      open
-      onClose={onCancel}
-      title={isApprove ? "通过审核" : "拒绝标签"}
-      size="md"
-      showClose={false}
-    >
+    <Dialog open onClose={onCancel} title={isApprove ? "通过审核" : "拒绝标签"} size="md" showClose={false}>
       <p className="text-xs text-ink-sub -mt-1 mb-4">
-        标签：<span className="font-medium text-ink">{item.tag.name}</span>
-        （{item.tag.group.name}）
+        标签：<span className="font-medium text-ink">{item.tag.name}</span>（{item.tag.group.name}）
         &nbsp;·&nbsp;{item.entityType}/{item.entityId}
       </p>
       <div className="mb-4">
@@ -96,16 +102,48 @@ function ReviewDialog({
       </div>
       <div className="flex justify-end gap-2">
         <Button variant="ghost" onClick={onCancel}>取消</Button>
-        <Button
-          variant={isApprove ? "primary" : "danger"}
-          onClick={() => onConfirm(note.trim())}
-        >
+        <Button variant={isApprove ? "primary" : "danger"} onClick={() => onConfirm(note.trim())}>
           {isApprove ? "确认通过" : "确认拒绝"}
         </Button>
       </div>
     </Dialog>
   );
 }
+
+// ── 键盘快捷键说明面板 ─────────────────────────────────────────────────────────
+function CheatsheetDialog({ onClose }: { onClose: () => void }) {
+  const shortcuts = [
+    { key: "J / ↓",  desc: "选中下一条" },
+    { key: "K / ↑",  desc: "选中上一条" },
+    { key: "A",       desc: "快速通过当前条（无备注）" },
+    { key: "R",       desc: "快速拒绝当前条（无备注）" },
+    { key: "Enter",   desc: "打开备注弹窗后通过" },
+    { key: "Shift+A", desc: "批量通过选中（或全页）" },
+    { key: "X",       desc: "切换当前条选中状态" },
+    { key: "Shift+X", desc: "全选 / 全反选" },
+    { key: "/",       desc: "聚焦实体类型筛选" },
+    { key: "⌘Z",     desc: "撤销最近操作（5s 内）" },
+    { key: "?",       desc: "显示本面板" },
+  ];
+
+  return (
+    <Dialog open onClose={onClose} title="键盘快捷键" size="sm">
+      <div className="space-y-0.5">
+        {shortcuts.map(({ key, desc }) => (
+          <div key={key} className="flex items-center justify-between py-1.5 border-b border-edge last:border-0">
+            <span className="text-xs text-ink-sub">{desc}</span>
+            <kbd className="px-2 py-0.5 text-xs font-mono bg-surface-alt border border-edge-mid rounded text-ink-dim shrink-0 ml-4">
+              {key}
+            </kbd>
+          </div>
+        ))}
+      </div>
+    </Dialog>
+  );
+}
+
+// ── 主页面 ─────────────────────────────────────────────────────────────────────
+type UndoEntry = { key: string; item: AuditItem; newStatus: "active" | "rejected" };
 
 export default function AuditPage() {
   const [items, setItems] = useState<AuditItem[]>([]);
@@ -116,11 +154,58 @@ export default function AuditPage() {
   const [error, setError] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("pending");
   const [entityTypeFilter, setEntityTypeFilter] = useState<string>("");
+  const [minConfidence, setMinConfidence] = useState("");
+  const [maxConfidence, setMaxConfidence] = useState("");
   const [entityTypes, setEntityTypes] = useState<string[]>([]);
   const [processing, setProcessing] = useState<Set<string>>(new Set());
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [focusedIdx, setFocusedIdx] = useState(-1);
   const [confirmItem, setConfirmItem] = useState<AuditItem | null>(null);
   const [reviewTarget, setReviewTarget] = useState<{ item: AuditItem; action: "active" | "rejected" } | null>(null);
+  const [showBulkConfirm, setShowBulkConfirm] = useState(false);
+  const [showCheatsheet, setShowCheatsheet] = useState(false);
+  // flash: key → "ok" | "bad" (shows flash animation class on row)
+  const [flashItems, setFlashItems] = useState<Map<string, "ok" | "bad">>(new Map());
+  // undo banner
+  const [undoBannerCount, setUndoBannerCount] = useState(0);
+  const [sessionReviewed, setSessionReviewed] = useState(0);
+
+  // Undo mechanism — all via refs to avoid stale closure issues in timer
+  const undoBatchRef = useRef<UndoEntry[]>([]);
+  const undoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // commitUndoFnRef is updated every render so timer always calls fresh version
+  const commitUndoFnRef = useRef<() => void>(() => {});
+  commitUndoFnRef.current = () => {
+    const batch = undoBatchRef.current;
+    if (batch.length === 0) return;
+    batch.forEach(({ item, newStatus }) => {
+      updateEntityTagStatus(item.entityType, item.entityId, item.tagId, newStatus)
+        .catch(() => setError("部分审核提交失败，请手动核查"));
+    });
+    undoBatchRef.current = [];
+    undoTimerRef.current = null;
+    setUndoBannerCount(0);
+  };
+
+  // DOM refs
+  const rowRefs = useRef<Map<string, HTMLTableRowElement>>(new Map());
+  const filterSelectRef = useRef<HTMLSelectElement>(null);
+
+  // Stable ref snapshot for keyboard handler (avoids recreating handler on every render)
+  const stateRef = useRef({
+    items,
+    focusedIdx,
+    selected,
+    loading,
+    anyModalOpen: false,
+  });
+  stateRef.current = {
+    items,
+    focusedIdx,
+    selected,
+    loading,
+    anyModalOpen: !!(reviewTarget || confirmItem || showBulkConfirm || showCheatsheet),
+  };
 
   useEffect(() => {
     getEntityTypes()
@@ -132,10 +217,13 @@ export default function AuditPage() {
     setLoading(true);
     setError("");
     setSelected(new Set());
+    setFocusedIdx(-1);
     try {
       const data = await getAuditItems({
         status: statusFilter,
         entityType: entityTypeFilter || undefined,
+        minConfidence: minConfidence ? parseFloat(minConfidence) : undefined,
+        maxConfidence: maxConfidence ? parseFloat(maxConfidence) : undefined,
         page: pageNum,
         pageSize: ps ?? pageSize,
       });
@@ -146,35 +234,101 @@ export default function AuditPage() {
     } finally {
       setLoading(false);
     }
-  }, [statusFilter, entityTypeFilter, pageSize]);
+  }, [statusFilter, entityTypeFilter, minConfidence, maxConfidence, pageSize]);
 
   useEffect(() => {
     setPage(1);
     load(1);
   }, [load]);
 
-  const itemKey = (item: AuditItem) => `${item.tagId}:${item.entityType}:${item.entityId}`;
+  // Scroll focused row into view
+  useEffect(() => {
+    if (focusedIdx < 0) return;
+    const key = items[focusedIdx] ? itemKey(items[focusedIdx]) : null;
+    if (!key) return;
+    rowRefs.current.get(key)?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  }, [focusedIdx, items]);
 
-  const setProcessingKey = (key: string, active: boolean) => {
+  // ── Helpers ──────────────────────────────────────────────────────────────────
+
+  const setProcessingKey = (key: string, active: boolean) =>
     setProcessing(prev => {
       const next = new Set(prev);
       if (active) next.add(key); else next.delete(key);
       return next;
     });
-  };
 
-  const removeItem = (key: string) => {
+  const removeItemFromUI = useCallback((key: string) => {
     setItems(prev => prev.filter(i => itemKey(i) !== key));
     setTotal(prev => prev - 1);
     setSelected(prev => { const n = new Set(prev); n.delete(key); return n; });
+  }, []);
+
+  const toggleAll = useCallback(() =>
+    setItems(currentItems => {
+      setSelected(prev => {
+        const allKeys = currentItems.map(itemKey);
+        const allSel = allKeys.every(k => prev.has(k));
+        return allSel ? new Set() : new Set(allKeys);
+      });
+      return currentItems;
+    }),
+  []);
+
+  const toggleOne = useCallback((key: string) =>
+    setSelected(prev => {
+      const n = new Set(prev);
+      if (n.has(key)) n.delete(key); else n.add(key);
+      return n;
+    }),
+  []);
+
+  // ── Quick action (keyboard A / R) ─────────────────────────────────────────
+  const quickActionRef = useRef<(item: AuditItem, newStatus: "active" | "rejected", origIdx: number) => void>(() => {});
+  quickActionRef.current = (item: AuditItem, newStatus: "active" | "rejected", origIdx: number) => {
+    const key = itemKey(item);
+
+    // Flash row, then remove from UI after animation
+    setFlashItems(prev => new Map(prev).set(key, newStatus === "active" ? "ok" : "bad"));
+    setTimeout(() => {
+      setFlashItems(prev => { const m = new Map(prev); m.delete(key); return m; });
+      removeItemFromUI(key);
+      setFocusedIdx(prev => {
+        if (prev < 0) return -1;
+        return prev > origIdx ? prev - 1 : Math.min(prev, stateRef.current.items.length - 2);
+      });
+    }, 300);
+
+    setSessionReviewed(prev => prev + 1);
+
+    // Add to undo batch and reset 5s timer
+    undoBatchRef.current = [...undoBatchRef.current, { key, item, newStatus }];
+    if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
+    undoTimerRef.current = setTimeout(() => commitUndoFnRef.current(), 5000);
+    setUndoBannerCount(undoBatchRef.current.length);
   };
 
+  // ── Undo ──────────────────────────────────────────────────────────────────
+  const handleUndoRef = useRef<() => void>(() => {});
+  handleUndoRef.current = () => {
+    if (undoBatchRef.current.length === 0) return;
+    if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
+    undoTimerRef.current = null;
+    const count = undoBatchRef.current.length;
+    undoBatchRef.current = [];
+    setUndoBannerCount(0);
+    setSessionReviewed(prev => Math.max(0, prev - count));
+    load(page);
+  };
+
+  // ── Standard status change (with review dialog note) ──────────────────────
   const handleStatusChange = async (item: AuditItem, newStatus: "active" | "rejected", note?: string) => {
     const key = itemKey(item);
     setProcessingKey(key, true);
     try {
       await updateEntityTagStatus(item.entityType, item.entityId, item.tagId, newStatus, note);
-      removeItem(key);
+      removeItemFromUI(key);
+      setSessionReviewed(prev => prev + 1);
     } catch (err) {
       setError(err instanceof Error ? err.message : "操作失败");
     } finally {
@@ -195,7 +349,7 @@ export default function AuditPage() {
     setProcessingKey(key, true);
     try {
       await removeEntityTag(item.entityType, item.entityId, item.tagId);
-      removeItem(key);
+      removeItemFromUI(key);
     } catch (err) {
       setError(err instanceof Error ? err.message : "删除失败");
     } finally {
@@ -203,13 +357,13 @@ export default function AuditPage() {
     }
   };
 
-  const selectedItems = items.filter(i => selected.has(itemKey(i)));
-
-  const handleBulkStatus = async (newStatus: "active" | "rejected") => {
-    if (selectedItems.length === 0) return;
+  // Bulk status change (from bulk bar or Shift+A confirm)
+  const handleBulkStatus = async (newStatus: "active" | "rejected", targets?: AuditItem[]) => {
+    const list = targets ?? items.filter(i => selected.has(itemKey(i)));
+    if (list.length === 0) return;
     setError("");
     const results = await Promise.allSettled(
-      selectedItems.map(item =>
+      list.map(item =>
         updateEntityTagStatus(item.entityType, item.entityId, item.tagId, newStatus)
           .then(() => itemKey(item))
       )
@@ -217,7 +371,8 @@ export default function AuditPage() {
     const succeeded = results
       .filter((r): r is PromiseFulfilledResult<string> => r.status === "fulfilled")
       .map(r => r.value);
-    succeeded.forEach(key => removeItem(key));
+    succeeded.forEach(key => removeItemFromUI(key));
+    setSessionReviewed(prev => prev + succeeded.length);
     const failed = results.filter(r => r.status === "rejected").length;
     if (failed > 0) setError(`${failed} 条操作失败`);
   };
@@ -225,21 +380,115 @@ export default function AuditPage() {
   const allKeys = items.map(itemKey);
   const allSelected = allKeys.length > 0 && allKeys.every(k => selected.has(k));
   const someSelected = selected.size > 0 && !allSelected;
+  const selectedItems = items.filter(i => selected.has(itemKey(i)));
 
-  // 部分选中态：用 ref callback 把 indeterminate 写入原生 DOM
   const headerCheckboxRef = (el: HTMLInputElement | null) => {
     if (el) el.indeterminate = someSelected;
   };
 
-  // 部分选中态下点击 → 全选；全选 / 未选状态下切换
-  const toggleAll = () => setSelected(allSelected ? new Set() : new Set(allKeys));
-  const toggleOne = (key: string) => {
-    setSelected(prev => {
-      const n = new Set(prev);
-      if (n.has(key)) n.delete(key); else n.add(key);
-      return n;
-    });
-  };
+  // ── Keyboard handler (registered once, reads live state via stateRef) ──────
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      const { items: currentItems, focusedIdx: fi, selected: sel, loading: isLoading, anyModalOpen } = stateRef.current;
+
+      // Ignore if typing in input/select/textarea
+      const target = e.target as HTMLElement;
+      if (["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName)) return;
+      // Ignore if any modal is open
+      if (anyModalOpen) return;
+      // Ignore while loading
+      if (isLoading) return;
+
+      switch (e.key) {
+        case "j":
+        case "ArrowDown":
+          e.preventDefault();
+          setFocusedIdx(prev => {
+            if (prev < 0) return currentItems.length > 0 ? 0 : -1;
+            return Math.min(prev + 1, currentItems.length - 1);
+          });
+          break;
+
+        case "k":
+        case "ArrowUp":
+          e.preventDefault();
+          setFocusedIdx(prev => {
+            if (prev < 0) return currentItems.length > 0 ? 0 : -1;
+            return Math.max(prev - 1, 0);
+          });
+          break;
+
+        case "a": // quick approve (no shift)
+          if (!e.shiftKey && !e.metaKey && !e.ctrlKey) {
+            e.preventDefault();
+            if (fi >= 0 && fi < currentItems.length) {
+              const item = currentItems[fi];
+              if (item.status !== "active") quickActionRef.current(item, "active", fi);
+            }
+          }
+          break;
+
+        case "A": // Shift+A → bulk approve with confirm
+          if (!e.metaKey && !e.ctrlKey) {
+            e.preventDefault();
+            setShowBulkConfirm(true);
+          }
+          break;
+
+        case "r": // quick reject
+          if (!e.shiftKey && !e.metaKey && !e.ctrlKey) {
+            e.preventDefault();
+            if (fi >= 0 && fi < currentItems.length) {
+              const item = currentItems[fi];
+              if (item.status !== "rejected") quickActionRef.current(item, "rejected", fi);
+            }
+          }
+          break;
+
+        case "x": // toggle focused row checkbox
+          if (!e.shiftKey) {
+            e.preventDefault();
+            if (fi >= 0 && fi < currentItems.length) {
+              toggleOne(itemKey(currentItems[fi]));
+            }
+          }
+          break;
+
+        case "X": // Shift+X → toggle all
+          e.preventDefault();
+          toggleAll();
+          break;
+
+        case "/":
+          e.preventDefault();
+          filterSelectRef.current?.focus();
+          break;
+
+        case "?":
+          e.preventDefault();
+          setShowCheatsheet(true);
+          break;
+
+        case "Enter":
+          e.preventDefault();
+          if (fi >= 0 && fi < currentItems.length) {
+            setReviewTarget({ item: currentItems[fi], action: "active" });
+          }
+          break;
+
+        case "z":
+          if (e.metaKey || e.ctrlKey) {
+            e.preventDefault();
+            handleUndoRef.current();
+          }
+          break;
+      }
+    };
+
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // registered once; reads mutable stateRef for live values
 
   const showReviewCols = statusFilter !== "pending";
 
@@ -249,15 +498,26 @@ export default function AuditPage() {
         title="审核队列"
         description="审核 AI 自动打标或其他待确认的实体标签关联"
         action={
-          <Button variant="outline" size="sm" onClick={() => load(page)}>
-            <RefreshCw size={13} />
-            刷新
-          </Button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowCheatsheet(true)}
+              className="p-1.5 rounded-lg text-ink-faint hover:text-ink hover:bg-surface-alt transition-colors"
+              title="键盘快捷键 (?)"
+              aria-label="显示快捷键"
+            >
+              <Keyboard size={15} />
+            </button>
+            <Button variant="outline" size="sm" onClick={() => load(page)}>
+              <RefreshCw size={13} />
+              刷新
+            </Button>
+          </div>
         }
       />
 
-      {/* Toolbar */}
-      <div className="flex items-center gap-3">
+      {/* ── Toolbar ── */}
+      <div className="flex flex-wrap items-center gap-3">
+        {/* Status tabs */}
         <div className="flex items-center p-0.5 bg-surface-alt border border-edge rounded-lg gap-px">
           {(["pending", "active", "rejected"] as StatusFilter[]).map(s => (
             <button
@@ -275,7 +535,9 @@ export default function AuditPage() {
           ))}
         </div>
 
+        {/* Entity type filter */}
         <Select
+          ref={filterSelectRef}
           value={entityTypeFilter}
           onChange={e => setEntityTypeFilter(e.target.value)}
           className="!w-36 !text-xs !py-1.5"
@@ -284,10 +546,32 @@ export default function AuditPage() {
           {entityTypes.map(et => <option key={et} value={et}>{et}</option>)}
         </Select>
 
+        {/* Confidence range filter */}
+        <div className="flex items-center gap-1.5">
+          <span className="text-xs text-ink-faint whitespace-nowrap">置信度</span>
+          <input
+            type="number"
+            min={0} max={1} step={0.01}
+            placeholder="0.00"
+            value={minConfidence}
+            onChange={e => setMinConfidence(e.target.value)}
+            className="w-16 text-xs px-2 py-1.5 bg-input border border-edge-mid rounded-lg text-ink focus:outline-none focus:border-edge-strong focus:ring-2 focus:ring-brand-1/30 tabular-nums"
+          />
+          <span className="text-xs text-ink-faint">—</span>
+          <input
+            type="number"
+            min={0} max={1} step={0.01}
+            placeholder="1.00"
+            value={maxConfidence}
+            onChange={e => setMaxConfidence(e.target.value)}
+            className="w-16 text-xs px-2 py-1.5 bg-input border border-edge-mid rounded-lg text-ink focus:outline-none focus:border-edge-strong focus:ring-2 focus:ring-brand-1/30 tabular-nums"
+          />
+        </div>
+
         <span className="ml-auto text-xs text-ink-faint tabular-nums">{total} 条记录</span>
       </div>
 
-      {/* Bulk bar */}
+      {/* ── Bulk action bar ── */}
       {selected.size > 0 && (
         <div className="flex items-center gap-3 px-4 py-2.5 bg-surface-alt border border-edge-mid rounded-lg">
           <span className="text-xs text-ink-dim">
@@ -306,15 +590,14 @@ export default function AuditPage() {
                 批量拒绝
               </Button>
             )}
-            <Button size="sm" variant="ghost" onClick={() => setSelected(new Set())}>
-              取消
-            </Button>
+            <Button size="sm" variant="ghost" onClick={() => setSelected(new Set())}>取消</Button>
           </div>
         </div>
       )}
 
       <ErrorBanner message={error} />
 
+      {/* ── Table / empty state ── */}
       {loading ? (
         <div className="card-border overflow-hidden animate-pulse">
           {[1,2,3,4,5].map(i => (
@@ -357,13 +640,7 @@ export default function AuditPage() {
                     checked={allSelected}
                     onChange={toggleAll}
                     className="accent-ink w-3.5 h-3.5"
-                    aria-label={
-                      allSelected
-                        ? "取消全选"
-                        : someSelected
-                        ? `已选 ${selected.size} 条，点击全选`
-                        : "全选"
-                    }
+                    aria-label={allSelected ? "取消全选" : someSelected ? `已选 ${selected.size} 条，点击全选` : "全选"}
                   />
                 </th>
                 {["标签", "实体", "来源", "置信度", "状态",
@@ -376,19 +653,32 @@ export default function AuditPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-edge">
-              {items.map(item => {
+              {items.map((item, idx) => {
                 const key = itemKey(item);
                 const busy = processing.has(key);
                 const isSelected = selected.has(key);
+                const isFocused = focusedIdx === idx;
+                const flash = flashItems.get(key);
                 const statusMeta = STATUS_META[item.status] ?? { label: item.status, dot: "bg-edge-mid", text: "text-ink-dim" };
+
                 return (
                   <tr
                     key={key}
-                    className={`group/row transition-colors ${busy ? "opacity-40 pointer-events-none" : ""} ${
-                      isSelected ? "bg-overlay" : "hover:bg-row-hover"
-                    }`}
+                    ref={el => { if (el) rowRefs.current.set(key, el); else rowRefs.current.delete(key); }}
+                    onClick={() => setFocusedIdx(idx)}
+                    className={[
+                      "group/row cursor-default select-none",
+                      busy ? "opacity-40 pointer-events-none" : "",
+                      flash === "ok"  ? "animate-flash-ok"  :
+                      flash === "bad" ? "animate-flash-bad" :
+                      isSelected ? "bg-overlay" : "hover:bg-row-hover",
+                    ].filter(Boolean).join(" ")}
+                    style={{
+                      // Inset left shadow as focused indicator (reliable across browsers for <tr>)
+                      boxShadow: isFocused ? "inset 3px 0 0 var(--color-brand-1)" : undefined,
+                    }}
                   >
-                    <td className="pl-5 pr-3 py-3">
+                    <td className="pl-5 pr-3 py-3" onClick={e => { e.stopPropagation(); toggleOne(key); }}>
                       <input
                         type="checkbox"
                         checked={isSelected}
@@ -433,10 +723,7 @@ export default function AuditPage() {
                         </td>
                         <td className="px-3 py-3 max-w-[160px]">
                           {item.reviewNote ? (
-                            <span
-                              className="text-xs text-ink-sub truncate block"
-                              title={item.reviewNote}
-                            >
+                            <span className="text-xs text-ink-sub truncate block" title={item.reviewNote}>
                               {item.reviewNote}
                             </span>
                           ) : (
@@ -453,10 +740,10 @@ export default function AuditPage() {
                         {item.status !== "active" && (
                           <button
                             disabled={busy}
-                            onClick={() => setReviewTarget({ item, action: "active" })}
+                            onClick={e => { e.stopPropagation(); setReviewTarget({ item, action: "active" }); }}
                             className="p-1.5 rounded-md text-ink-faint hover:text-ok hover:bg-ok/10 transition-all disabled:opacity-40"
                             aria-label="通过"
-                            title="通过"
+                            title="通过（Enter 带备注 · A 快速通过）"
                           >
                             <CheckCircle size={14} />
                           </button>
@@ -464,17 +751,17 @@ export default function AuditPage() {
                         {item.status !== "rejected" && (
                           <button
                             disabled={busy}
-                            onClick={() => setReviewTarget({ item, action: "rejected" })}
+                            onClick={e => { e.stopPropagation(); setReviewTarget({ item, action: "rejected" }); }}
                             className="p-1.5 rounded-md text-ink-faint hover:text-warn hover:bg-warn/10 transition-all disabled:opacity-40"
                             aria-label="拒绝"
-                            title="拒绝"
+                            title="拒绝（R 快速拒绝）"
                           >
                             <XCircle size={14} />
                           </button>
                         )}
                         <button
                           disabled={busy}
-                          onClick={() => setConfirmItem(item)}
+                          onClick={e => { e.stopPropagation(); setConfirmItem(item); }}
                           className="p-1.5 rounded-md text-ink-faint hover:text-bad hover:bg-bad/10 transition-all disabled:opacity-40"
                           aria-label="删除关联"
                           title="删除关联"
@@ -499,6 +786,7 @@ export default function AuditPage() {
         </div>
       )}
 
+      {/* ── Dialogs ── */}
       {reviewTarget && (
         <ReviewDialog
           item={reviewTarget.item}
@@ -518,6 +806,53 @@ export default function AuditPage() {
           onConfirm={() => handleRemove(confirmItem)}
           onCancel={() => setConfirmItem(null)}
         />
+      )}
+
+      {showBulkConfirm && (
+        <ConfirmDialog
+          open
+          title="批量通过"
+          description={
+            selectedItems.length > 0
+              ? `将通过已选的 ${selectedItems.length} 条记录（无备注）`
+              : `将通过当前页全部 ${items.length} 条记录（无备注）`
+          }
+          confirmLabel="确认通过"
+          onConfirm={async () => {
+            setShowBulkConfirm(false);
+            await handleBulkStatus("active", selectedItems.length > 0 ? selectedItems : items);
+          }}
+          onCancel={() => setShowBulkConfirm(false)}
+        />
+      )}
+
+      {showCheatsheet && <CheatsheetDialog onClose={() => setShowCheatsheet(false)} />}
+
+      {/* ── Undo banner (bottom-center, 5s window) ── */}
+      {undoBannerCount > 0 && (
+        <div
+          key={undoBannerCount} // re-trigger animation when count changes
+          className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 flex items-center gap-3 px-4 py-2.5 bg-overlay border border-edge-mid rounded-full shadow-lg shadow-black/40 animate-slide-up"
+        >
+          <span className="text-sm text-ink">
+            已审核 <span className="font-medium tabular-nums">{undoBannerCount}</span> 条
+          </span>
+          <div className="w-px h-3.5 bg-edge-mid" />
+          <button
+            onClick={() => handleUndoRef.current()}
+            className="text-sm text-brand-1 font-medium hover:text-brand-2 transition-colors"
+          >
+            撤销 (⌘Z)
+          </button>
+        </div>
+      )}
+
+      {/* ── Session counter (bottom-right, visible when undo clears) ── */}
+      {sessionReviewed > 0 && undoBannerCount === 0 && (
+        <div className="fixed bottom-6 right-6 z-40 flex items-center gap-1.5 px-3 py-1.5 bg-overlay border border-edge-mid rounded-lg shadow text-xs text-ink-sub animate-fade-in">
+          <span className="text-ink font-medium tabular-nums">{sessionReviewed}</span>
+          <span>条已审</span>
+        </div>
       )}
     </div>
   );
