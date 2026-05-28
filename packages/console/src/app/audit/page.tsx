@@ -173,39 +173,17 @@ export default function AuditPage() {
   // Undo mechanism — all via refs to avoid stale closure issues in timer
   const undoBatchRef = useRef<UndoEntry[]>([]);
   const undoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  // commitUndoFnRef is updated every render so timer always calls fresh version
   const commitUndoFnRef = useRef<() => void>(() => {});
-  commitUndoFnRef.current = () => {
-    const batch = undoBatchRef.current;
-    if (batch.length === 0) return;
-    batch.forEach(({ item, newStatus }) => {
-      updateEntityTagStatus(item.entityType, item.entityId, item.tagId, newStatus)
-        .catch(() => setError("部分审核提交失败，请手动核查"));
-    });
-    undoBatchRef.current = [];
-    undoTimerRef.current = null;
-    setUndoBannerCount(0);
-  };
+  const quickActionRef  = useRef<(item: AuditItem, newStatus: "active" | "rejected", origIdx: number) => void>(() => {});
+  const handleUndoRef   = useRef<() => void>(() => {});
+  // Stable snapshot for the (once-registered) keyboard handler — updated in useEffect below
+  const stateRef = useRef<{ items: AuditItem[]; focusedIdx: number; loading: boolean; anyModalOpen: boolean }>({
+    items: [], focusedIdx: -1, loading: true, anyModalOpen: false,
+  });
 
   // DOM refs
   const rowRefs = useRef<Map<string, HTMLTableRowElement>>(new Map());
   const filterSelectRef = useRef<HTMLSelectElement>(null);
-
-  // Stable ref snapshot for keyboard handler (avoids recreating handler on every render)
-  const stateRef = useRef({
-    items,
-    focusedIdx,
-    selected,
-    loading,
-    anyModalOpen: false,
-  });
-  stateRef.current = {
-    items,
-    focusedIdx,
-    selected,
-    loading,
-    anyModalOpen: !!(reviewTarget || confirmItem || showBulkConfirm || showCheatsheet),
-  };
 
   useEffect(() => {
     getEntityTypes()
@@ -283,43 +261,56 @@ export default function AuditPage() {
     }),
   []);
 
-  // ── Quick action (keyboard A / R) ─────────────────────────────────────────
-  const quickActionRef = useRef<(item: AuditItem, newStatus: "active" | "rejected", origIdx: number) => void>(() => {});
-  quickActionRef.current = (item: AuditItem, newStatus: "active" | "rejected", origIdx: number) => {
-    const key = itemKey(item);
+  // ── Sync mutable refs after every render (ESLint: no ref writes during render)
+  useEffect(() => {
+    stateRef.current = {
+      items,
+      focusedIdx,
+      loading,
+      anyModalOpen: !!(reviewTarget || confirmItem || showBulkConfirm || showCheatsheet),
+    };
 
-    // Flash row, then remove from UI after animation
-    setFlashItems(prev => new Map(prev).set(key, newStatus === "active" ? "ok" : "bad"));
-    setTimeout(() => {
-      setFlashItems(prev => { const m = new Map(prev); m.delete(key); return m; });
-      removeItemFromUI(key);
-      setFocusedIdx(prev => {
-        if (prev < 0) return -1;
-        return prev > origIdx ? prev - 1 : Math.min(prev, stateRef.current.items.length - 2);
+    commitUndoFnRef.current = () => {
+      const batch = undoBatchRef.current;
+      if (batch.length === 0) return;
+      batch.forEach(({ item, newStatus }) => {
+        updateEntityTagStatus(item.entityType, item.entityId, item.tagId, newStatus)
+          .catch(() => setError("部分审核提交失败，请手动核查"));
       });
-    }, 300);
+      undoBatchRef.current = [];
+      undoTimerRef.current = null;
+      setUndoBannerCount(0);
+    };
 
-    setSessionReviewed(prev => prev + 1);
+    quickActionRef.current = (item: AuditItem, newStatus: "active" | "rejected", origIdx: number) => {
+      const key = itemKey(item);
+      setFlashItems(prev => new Map(prev).set(key, newStatus === "active" ? "ok" : "bad"));
+      setTimeout(() => {
+        setFlashItems(prev => { const m = new Map(prev); m.delete(key); return m; });
+        removeItemFromUI(key);
+        setFocusedIdx(prev => {
+          if (prev < 0) return -1;
+          return prev > origIdx ? prev - 1 : Math.min(prev, stateRef.current.items.length - 2);
+        });
+      }, 300);
+      setSessionReviewed(prev => prev + 1);
+      undoBatchRef.current = [...undoBatchRef.current, { key, item, newStatus }];
+      if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
+      undoTimerRef.current = setTimeout(() => commitUndoFnRef.current(), 5000);
+      setUndoBannerCount(undoBatchRef.current.length);
+    };
 
-    // Add to undo batch and reset 5s timer
-    undoBatchRef.current = [...undoBatchRef.current, { key, item, newStatus }];
-    if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
-    undoTimerRef.current = setTimeout(() => commitUndoFnRef.current(), 5000);
-    setUndoBannerCount(undoBatchRef.current.length);
-  };
-
-  // ── Undo ──────────────────────────────────────────────────────────────────
-  const handleUndoRef = useRef<() => void>(() => {});
-  handleUndoRef.current = () => {
-    if (undoBatchRef.current.length === 0) return;
-    if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
-    undoTimerRef.current = null;
-    const count = undoBatchRef.current.length;
-    undoBatchRef.current = [];
-    setUndoBannerCount(0);
-    setSessionReviewed(prev => Math.max(0, prev - count));
-    load(page);
-  };
+    handleUndoRef.current = () => {
+      if (undoBatchRef.current.length === 0) return;
+      if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
+      undoTimerRef.current = null;
+      const count = undoBatchRef.current.length;
+      undoBatchRef.current = [];
+      setUndoBannerCount(0);
+      setSessionReviewed(prev => Math.max(0, prev - count));
+      load(page);
+    };
+  }); // intentionally no deps — updates refs after every render
 
   // ── Standard status change (with review dialog note) ──────────────────────
   const handleStatusChange = async (item: AuditItem, newStatus: "active" | "rejected", note?: string) => {
@@ -389,7 +380,7 @@ export default function AuditPage() {
   // ── Keyboard handler (registered once, reads live state via stateRef) ──────
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      const { items: currentItems, focusedIdx: fi, selected: sel, loading: isLoading, anyModalOpen } = stateRef.current;
+      const { items: currentItems, focusedIdx: fi, loading: isLoading, anyModalOpen } = stateRef.current;
 
       // Ignore if typing in input/select/textarea
       const target = e.target as HTMLElement;

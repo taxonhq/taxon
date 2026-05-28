@@ -11,6 +11,7 @@ import { NavLink } from "@/components/nav-link";
 import { AboutDialog } from "@/components/ui/about-dialog";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { OnboardingTour, useOnboarding } from "@/components/ui/onboarding";
+import { CommandPalette } from "@/components/ui/command-palette";
 
 const W_OPEN   = 216;
 const W_CLOSED = 56;
@@ -43,6 +44,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [ready, setReady] = useState(false);
   const [health, setHealth] = useState<HealthStatus>("checking");
   const [showAbout, setShowAbout] = useState(false);
+  const [cmdOpen, setCmdOpen] = useState(false);
 
   // Onboarding
   const { showOnboarding, completeOnboarding, mounted: onboardingMounted } = useOnboarding();
@@ -74,12 +76,17 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
-  // ⌘B / Ctrl+B shortcut to toggle sidebar
+  // ⌘B / Ctrl+B — toggle sidebar
+  // ⌘K / Ctrl+K — open command palette
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === "b") {
         e.preventDefault();
         toggle();
+      }
+      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+        e.preventDefault();
+        setCmdOpen(v => !v);
       }
     };
     window.addEventListener("keydown", handleKey);
@@ -144,8 +151,24 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </button>
         </div>
 
+        {/* ⌘K search trigger */}
+        <button
+          onClick={() => setCmdOpen(true)}
+          className={`mx-2 mt-2 flex items-center gap-2 rounded-lg border border-edge-mid bg-input text-ink-faint hover:border-edge-strong hover:text-ink-dim transition-all ${open ? "px-3 py-2" : "p-2 justify-center"}`}
+          title={open ? undefined : "命令面板 (⌘K)"}
+          aria-label="打开命令面板"
+        >
+          <Search size={13} className="shrink-0" />
+          {open && (
+            <>
+              <span className="flex-1 text-xs text-left">搜索…</span>
+              <kbd className="text-2xs font-mono border border-edge rounded px-1">⌘K</kbd>
+            </>
+          )}
+        </button>
+
         {/* Nav */}
-        <nav aria-label="主导航" className="flex-1 px-2 pt-4 pb-2 overflow-hidden space-y-0.5">
+        <nav aria-label="主导航" className="flex-1 px-2 pt-3 pb-2 overflow-hidden space-y-0.5">
           {/* 仪表盘 */}
           {NAV_TOP.map(({ href, icon: Icon, label }) => (
             <NavLink key={href} href={href} collapsed={!open} title={open ? undefined : label}>
@@ -258,6 +281,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       {onboardingMounted && showOnboarding && (
         <OnboardingTour onComplete={completeOnboarding} />
       )}
+
+      {/* Command Palette */}
+      <CommandPalette
+        open={cmdOpen}
+        onOpenChange={setCmdOpen}
+        onToggleSidebar={toggle}
+      />
     </div>
   );
 }
