@@ -2,17 +2,25 @@
  * Dashboard metrics 路由
  *
  * 提供大屏 dashboard 所需的聚合数据：
- *  - GET /metrics/trend?period=7d   每日新增标签/实体/审核 时间序列
- *  - GET /metrics/today              当日统计 + 同比（7 日均值对比）
- *  - GET /metrics/activity?limit=10  最近活动流（标签新增、审核操作）
+ *  - GET /metrics/trend?period=7d        每日新增标签/实体/审核 时间序列
+ *  - GET /metrics/today                   当日统计 + 同比（7 日均值对比）
+ *  - GET /metrics/activity?limit=10       最近活动流（标签新增、审核操作）
+ *  - GET /metrics/reviewer-stats          当前审核员今日 / 区间工作量（需鉴权）
+ *  - GET /metrics/leaderboard             团队审核榜单（需鉴权；普通 reviewer 仅见自己）
  *
- * 注意：这些端点是聚合只读视图，无需鉴权区分（与 health 同级公开）。
+ * 注意：trend / today / activity 是聚合只读视图，无需鉴权。
+ *       reviewer-stats / leaderboard 需要 reviewer 级别 Token。
  */
 
 import { Hono } from 'hono'
+import { Prisma } from '@prisma/client'
 import prisma from '../lib/db.js'
+import { bearerAuth, requireRole, getTokenId } from '../middleware/auth.js'
+import type { ApiRole } from '../middleware/auth.js'
 
-export const dashboardMetrics = new Hono()
+type AuthVars = { Variables: { tokenRole: ApiRole; tokenName: string; tokenId: string } }
+
+export const dashboardMetrics = new Hono<AuthVars>()
 
 // ── 工具：生成连续 N 天的日期序列（UTC 0 点）────────────────────
 function dateRange(days: number): Date[] {
@@ -158,4 +166,103 @@ dashboardMetrics.get('/activity', async (c) => {
     .slice(0, limit)
 
   return c.json({ code: 0, data: events })
+})
+
+// ── GET /metrics/reviewer-stats ──────────────────────────────────
+// 返回当前（或指定）审核员在给定时间范围内的工作量统计。
+// 普通 reviewer 只能查自己；admin 可传 reviewerId 查任意人。
+dashboardMetrics.use('/reviewer-stats', bearerAuth, requireRole('reviewer'))
+dashboardMetrics.get('/reviewer-stats', async (c) => {
+  const role      = c.get('tokenRole') as ApiRole
+  const currentId = getTokenId(c)
+
+  // 权限隔离：非 admin 忽略传入的 reviewerId，只返回自己的数据
+  const reqId     = c.req.query('reviewerId')
+  const reviewerId = role === 'admin' && reqId ? reqId : (currentId ?? undefined)
+
+  const fromRaw = c.req.query('from')
+  const toRaw   = c.req.query('to')
+  const from    = fromRaw ? new Date(fromRaw) : undefined
+  const to      = toRaw   ? new Date(toRaw)   : undefined
+
+  const base = {
+    ...(reviewerId ? { reviewerId } : {}),
+    ...(from || to ? { reviewedAt: { ...(from ? { gte: from } : {}), ...(to ? { lte: to } : {}) } } : {}),
+  }
+
+  const [approved, rejected, reverted] = await Promise.all([
+    prisma.entityTagReview.count({ where: { ...base, fromStatus: 'pending', toStatus: 'active'   } }),
+    prisma.entityTagReview.count({ where: { ...base, fromStatus: 'pending', toStatus: 'rejected' } }),
+    prisma.entityTagReview.count({ where: { ...base, note: '撤销' } }),
+  ])
+
+  const totalReviews = approved + rejected
+  const approveRate  = totalReviews > 0 ? Math.round(approved / totalReviews * 100) / 100 : null
+
+  return c.json({
+    code: 0,
+    data: { reviewerId: reviewerId ?? null, totalReviews, approved, rejected, reverted, approveRate },
+  })
+})
+
+// ── GET /metrics/leaderboard ─────────────────────────────────────
+// 团队审核榜单（按 approved+rejected 总数降序）。
+// 普通 reviewer 只能看到自己的一行；admin 可看全部榜单。
+dashboardMetrics.use('/leaderboard', bearerAuth, requireRole('reviewer'))
+dashboardMetrics.get('/leaderboard', async (c) => {
+  const role      = c.get('tokenRole') as ApiRole
+  const currentId = getTokenId(c)
+
+  const period = c.req.query('period') ?? '7d'
+  const limit  = Math.min(50, Math.max(1, Number(c.req.query('limit') ?? 10)))
+
+  const since  = period === '30d' ? new Date(Date.now() - 30 * 86_400_000) :
+                 period === 'all'  ? null :
+                 new Date(Date.now() - 7 * 86_400_000)
+
+  type Row = { reviewerId: string | null; approved: bigint; rejected: bigint }
+  const rows = await prisma.$queryRaw<Row[]>(Prisma.sql`
+    SELECT
+      "reviewerId",
+      COUNT(*) FILTER (WHERE "fromStatus" = 'pending' AND "toStatus" = 'active')   AS approved,
+      COUNT(*) FILTER (WHERE "fromStatus" = 'pending' AND "toStatus" = 'rejected')  AS rejected
+    FROM "EntityTagReview"
+    WHERE "fromStatus" = 'pending'
+    ${since       ? Prisma.sql`AND "reviewedAt" >= ${since}`       : Prisma.empty}
+    ${role !== 'admin' ? Prisma.sql`AND "reviewerId" = ${currentId}` : Prisma.empty}
+    GROUP BY "reviewerId"
+    ORDER BY (
+      COUNT(*) FILTER (WHERE "fromStatus" = 'pending' AND "toStatus" = 'active') +
+      COUNT(*) FILTER (WHERE "fromStatus" = 'pending' AND "toStatus" = 'rejected')
+    ) DESC
+    LIMIT ${limit}
+  `)
+
+  // Resolve reviewer names from ApiToken
+  const reviewerIds = rows.map(r => r.reviewerId).filter((id): id is string => id != null)
+  const tokenMap    = new Map<string, string>()
+  if (reviewerIds.length > 0) {
+    const tokens = await prisma.apiToken.findMany({
+      where:  { id: { in: reviewerIds } },
+      select: { id: true, name: true },
+    })
+    tokens.forEach(t => tokenMap.set(t.id, t.name))
+  }
+
+  const items = rows.map(r => {
+    const approved = Number(r.approved)
+    const rejected = Number(r.rejected)
+    const total    = approved + rejected
+    return {
+      reviewerId:    r.reviewerId ?? null,
+      name:          r.reviewerId ? (tokenMap.get(r.reviewerId) ?? r.reviewerId) : '匿名',
+      total,
+      approved,
+      rejected,
+      approveRate:   total > 0 ? Math.round(approved / total * 100) / 100 : null,
+      isCurrentUser: r.reviewerId === currentId,
+    }
+  })
+
+  return c.json({ code: 0, data: { period, items } })
 })

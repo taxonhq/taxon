@@ -15,10 +15,11 @@
  */
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { CheckCircle, XCircle, Trash2, RefreshCw, ClipboardCheck, Keyboard } from "lucide-react";
+import { CheckCircle, XCircle, Trash2, RefreshCw, ClipboardCheck, Keyboard, Trophy } from "lucide-react";
 import {
   getAuditItems, updateEntityTagStatus, undoReviews, removeEntityTag, getEntityTypes,
-  type AuditItem,
+  getReviewerStats, getLeaderboard,
+  type AuditItem, type ReviewerStats, type LeaderboardItem,
 } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
@@ -111,6 +112,90 @@ function ReviewDialog({
   );
 }
 
+// ── 审核员榜单弹窗 ─────────────────────────────────────────────────────────────
+function LeaderboardDialog({
+  items,
+  period,
+  onPeriodChange,
+  onClose,
+}: {
+  items: LeaderboardItem[] | null;
+  period: "7d" | "30d" | "all";
+  onPeriodChange: (p: "7d" | "30d" | "all") => void;
+  onClose: () => void;
+}) {
+  const PERIODS: { value: "7d" | "30d" | "all"; label: string }[] = [
+    { value: "7d",  label: "近 7 天" },
+    { value: "30d", label: "近 30 天" },
+    { value: "all", label: "全部时间" },
+  ];
+
+  return (
+    <Dialog open onClose={onClose} title="审核员榜单" size="md">
+      {/* Period selector */}
+      <div className="flex items-center gap-1 mb-4 p-0.5 bg-surface-alt border border-edge rounded-lg w-fit">
+        {PERIODS.map(p => (
+          <button
+            key={p.value}
+            onClick={() => onPeriodChange(p.value)}
+            className={`px-3 py-1 text-xs rounded-md transition-all ${
+              period === p.value
+                ? "bg-overlay text-ink font-medium shadow-sm border border-edge-mid"
+                : "text-ink-dim hover:text-ink"
+            }`}
+          >
+            {p.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Table */}
+      {items === null ? (
+        <div className="space-y-2">
+          {[1,2,3].map(i => (
+            <div key={i} className="h-10 bg-surface-alt rounded-lg animate-pulse" />
+          ))}
+        </div>
+      ) : items.length === 0 ? (
+        <p className="text-center text-sm text-ink-faint py-8">该时段暂无审核记录</p>
+      ) : (
+        <div className="space-y-1">
+          {items.map((item, idx) => (
+            <div
+              key={item.reviewerId ?? "anon"}
+              className={`flex items-center gap-3 px-3 py-2.5 rounded-lg ${
+                item.isCurrentUser ? "bg-brand-1/8 border border-brand-1/20" : "hover:bg-row-hover"
+              }`}
+            >
+              {/* Rank */}
+              <span className={`w-5 text-center text-xs font-bold shrink-0 ${
+                idx === 0 ? "text-amber-400" : idx === 1 ? "text-slate-400" : idx === 2 ? "text-amber-600" : "text-ink-faint"
+              }`}>
+                {idx + 1}
+              </span>
+              {/* Name */}
+              <span className={`flex-1 text-sm min-w-0 truncate ${item.isCurrentUser ? "font-semibold text-brand-1" : "text-ink"}`}>
+                {item.name}
+                {item.isCurrentUser && <span className="ml-1.5 text-2xs text-brand-1/70">（我）</span>}
+              </span>
+              {/* Stats */}
+              <div className="flex items-center gap-3 shrink-0 text-xs tabular-nums">
+                <span className="text-ok">{item.approved} ✓</span>
+                <span className="text-bad">{item.rejected} ✗</span>
+                <span className="text-ink-sub w-10 text-right">
+                  {item.approveRate !== null ? `${Math.round(item.approveRate * 100)}%` : "—"}
+                </span>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <p className="mt-4 text-2xs text-ink-faint">仅显示通过 / 拒绝操作，撤销不计入排名</p>
+    </Dialog>
+  );
+}
+
 // ── 键盘快捷键说明面板 ─────────────────────────────────────────────────────────
 function CheatsheetDialog({ onClose }: { onClose: () => void }) {
   const shortcuts = [
@@ -170,6 +255,11 @@ export default function AuditPage() {
   // undo banner
   const [undoBannerCount, setUndoBannerCount] = useState(0);
   const [sessionReviewed, setSessionReviewed] = useState(0);
+  // reviewer stats (today)
+  const [todayStats, setTodayStats] = useState<ReviewerStats | null>(null);
+  const [showLeaderboard, setShowLeaderboard] = useState(false);
+  const [leaderboard, setLeaderboard] = useState<LeaderboardItem[] | null>(null);
+  const [leaderboardPeriod, setLeaderboardPeriod] = useState<"7d" | "30d" | "all">("7d");
 
   // Undo mechanism — all via refs to avoid stale closure issues in timer
   const undoBatchRef = useRef<UndoEntry[]>([]);
@@ -191,6 +281,21 @@ export default function AuditPage() {
       .then(types => setEntityTypes(types.map(t => t.entityType)))
       .catch(() => {});
   }, []);
+
+  const loadTodayStats = useCallback(() => {
+    const todayStart = new Date();
+    todayStart.setUTCHours(0, 0, 0, 0);
+    getReviewerStats({ from: todayStart.toISOString() })
+      .then(s => setTodayStats(s))
+      .catch(() => {}); // non-critical — silently skip if no auth token configured
+  }, []);
+
+  // Load today's stats on mount; refresh whenever the undo banner clears (review committed)
+  useEffect(() => { loadTodayStats(); }, [loadTodayStats]);
+  useEffect(() => {
+    if (undoBannerCount === 0 && sessionReviewed > 0) loadTodayStats();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [undoBannerCount]);
 
   const load = useCallback(async (pageNum = 1, ps?: number) => {
     setLoading(true);
@@ -268,7 +373,7 @@ export default function AuditPage() {
       items,
       focusedIdx,
       loading,
-      anyModalOpen: !!(reviewTarget || confirmItem || showBulkConfirm || showCheatsheet),
+      anyModalOpen: !!(reviewTarget || confirmItem || showBulkConfirm || showCheatsheet || showLeaderboard),
     };
 
     commitUndoFnRef.current = () => {
@@ -488,6 +593,15 @@ export default function AuditPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // registered once; reads mutable stateRef for live values
 
+  // Load leaderboard whenever the panel opens or the period changes
+  useEffect(() => {
+    if (!showLeaderboard) return;
+    setLeaderboard(null);
+    getLeaderboard({ period: leaderboardPeriod, limit: 10 })
+      .then(r => setLeaderboard(r.items))
+      .catch(() => setLeaderboard([]));
+  }, [showLeaderboard, leaderboardPeriod]);
+
   const showReviewCols = statusFilter !== "pending";
 
   return (
@@ -497,6 +611,14 @@ export default function AuditPage() {
         description="审核 AI 自动打标或其他待确认的实体标签关联"
         action={
           <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowLeaderboard(true)}
+              className="p-1.5 rounded-lg text-ink-faint hover:text-ink hover:bg-surface-alt transition-colors"
+              title="审核员榜单"
+              aria-label="查看审核员榜单"
+            >
+              <Trophy size={15} />
+            </button>
             <button
               onClick={() => setShowCheatsheet(true)}
               className="p-1.5 rounded-lg text-ink-faint hover:text-ink hover:bg-surface-alt transition-colors"
@@ -512,6 +634,29 @@ export default function AuditPage() {
           </div>
         }
       />
+
+      {/* ── Today Stats bar ── */}
+      {todayStats !== null && (
+        <div className="flex items-center gap-5 px-4 py-2.5 bg-surface-alt/60 border border-edge rounded-lg text-xs animate-fade-in">
+          <span className="text-ink-faint font-medium shrink-0">今日审核</span>
+          <span className="flex items-center gap-1.5 text-ok font-medium tabular-nums">
+            <CheckCircle size={12} strokeWidth={2.5} />
+            {todayStats.approved + (sessionReviewed > 0 ? 0 : 0)} 通过
+          </span>
+          <span className="flex items-center gap-1.5 text-bad font-medium tabular-nums">
+            <XCircle size={12} strokeWidth={2.5} />
+            {todayStats.rejected} 拒绝
+          </span>
+          {(todayStats.approved + todayStats.rejected) > 0 && (
+            <span className="text-ink-sub tabular-nums">
+              通过率 {Math.round((todayStats.approveRate ?? 0) * 100)}%
+            </span>
+          )}
+          {sessionReviewed > 0 && (
+            <span className="ml-auto text-ink-faint tabular-nums">本次 +{sessionReviewed}</span>
+          )}
+        </div>
+      )}
 
       {/* ── Toolbar ── */}
       <div className="flex flex-wrap items-center gap-3">
@@ -825,6 +970,15 @@ export default function AuditPage() {
       )}
 
       {showCheatsheet && <CheatsheetDialog onClose={() => setShowCheatsheet(false)} />}
+
+      {showLeaderboard && (
+        <LeaderboardDialog
+          items={leaderboard}
+          period={leaderboardPeriod}
+          onPeriodChange={setLeaderboardPeriod}
+          onClose={() => setShowLeaderboard(false)}
+        />
+      )}
 
       {/* ── Undo banner (bottom-center, 5s window) ── */}
       {undoBannerCount > 0 && (

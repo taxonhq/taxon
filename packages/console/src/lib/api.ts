@@ -548,6 +548,51 @@ export async function getMetricsActivity(limit = 10): Promise<ActivityEvent[]> {
   return req<ActivityEvent[]>(`/metrics/activity?limit=${limit}`);
 }
 
+// ── Reviewer Stats ────────────────────────────────────────────────
+
+export interface ReviewerStats {
+  reviewerId:   string | null;
+  totalReviews: number;
+  approved:     number;
+  rejected:     number;
+  reverted:     number;
+  approveRate:  number | null;
+}
+
+export interface LeaderboardItem {
+  reviewerId:   string | null;
+  name:         string;
+  total:        number;
+  approved:     number;
+  rejected:     number;
+  approveRate:  number | null;
+  isCurrentUser: boolean;
+}
+
+export async function getReviewerStats(params?: {
+  reviewerId?: string;
+  from?: string;
+  to?: string;
+}): Promise<ReviewerStats> {
+  const q = new URLSearchParams();
+  if (params?.reviewerId) q.set("reviewerId", params.reviewerId);
+  if (params?.from)       q.set("from",       params.from);
+  if (params?.to)         q.set("to",         params.to);
+  const qs = q.toString();
+  return req<ReviewerStats>(`/metrics/reviewer-stats${qs ? `?${qs}` : ""}`);
+}
+
+export async function getLeaderboard(params?: {
+  period?: "7d" | "30d" | "all";
+  limit?:  number;
+}): Promise<{ period: string; items: LeaderboardItem[] }> {
+  const q = new URLSearchParams();
+  if (params?.period) q.set("period", params.period);
+  if (params?.limit)  q.set("limit",  String(params.limit));
+  const qs = q.toString();
+  return req<{ period: string; items: LeaderboardItem[] }>(`/metrics/leaderboard${qs ? `?${qs}` : ""}`);
+}
+
 // ── 多维检索 / 透视 ───────────────────────────────────────────────
 
 // BoolExpr DSL 类型，对齐 service/src/lib/schemas.ts
