@@ -1,16 +1,8 @@
 "use client";
 
-/**
- * 标签治理面板 (issue #35)
- *
- * 三个面板：
- *  1. 使用度榜单 — 最活跃 / 最冷门的标签
- *  2. 死标签清理 — 一段时间内无活跃实体的标签
- *  3. 重复标签建议 — 名称 / slug / alias 相似度高的对
- */
-
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import {
   RefreshCw, Trash2, Merge, ExternalLink,
   TrendingUp, TrendingDown, AlertTriangle, CheckCircle2,
@@ -24,19 +16,7 @@ import {
 } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
-// ── 工具 ─────────────────────────────────────────────────────────────────────
-
-function relativeTime(iso: string | null): string {
-  if (!iso) return "从未使用";
-  const diff = Date.now() - new Date(iso).getTime();
-  const days = Math.floor(diff / 86_400_000);
-  if (days === 0) return "今天";
-  if (days === 1) return "昨天";
-  if (days < 30)  return `${days} 天前`;
-  const months = Math.floor(days / 30);
-  if (months < 12) return `${months} 个月前`;
-  return `${Math.floor(months / 12)} 年前`;
-}
+// ── Helpers ────────────────────────────────────────────────────────────────────
 
 function SectionCard({
   title, subtitle, children, extra,
@@ -84,15 +64,29 @@ function LoadingRows({ cols }: { cols: number }) {
   );
 }
 
-// ── 使用度榜单 ────────────────────────────────────────────────────────────────
+// ── Usage Leaderboard ─────────────────────────────────────────────────────────
 
 type UsagePeriod = "7d" | "30d" | "90d" | "all";
 
 function UsagePanel() {
-  const [items, setItems]         = useState<TagUsageItem[]>([]);
-  const [loading, setLoading]     = useState(true);
-  const [period, setPeriod]       = useState<UsagePeriod>("30d");
-  const [order, setOrder]         = useState<"desc" | "asc">("desc");
+  const t = useTranslations("governance");
+
+  const [items, setItems]   = useState<TagUsageItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [period, setPeriod]   = useState<UsagePeriod>("30d");
+  const [order, setOrder]     = useState<"desc" | "asc">("desc");
+
+  const relativeTime = useCallback((iso: string | null): string => {
+    if (!iso) return t("neverUsed");
+    const diff = Date.now() - new Date(iso).getTime();
+    const days = Math.floor(diff / 86_400_000);
+    if (days === 0) return t("today");
+    if (days === 1) return t("yesterday");
+    if (days < 30)  return t("daysAgo", { n: days });
+    const months = Math.floor(days / 30);
+    if (months < 12) return t("monthsAgo", { n: months });
+    return t("yearsAgo", { n: Math.floor(months / 12) });
+  }, [t]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -106,16 +100,16 @@ function UsagePanel() {
   useEffect(() => { void load(); }, [load]);
 
   const PERIODS: { v: UsagePeriod; label: string }[] = [
-    { v: "7d",  label: "近 7 天" },
-    { v: "30d", label: "近 30 天" },
-    { v: "90d", label: "近 90 天" },
-    { v: "all", label: "全部时间" },
+    { v: "7d",  label: t("period7d") },
+    { v: "30d", label: t("period30d") },
+    { v: "90d", label: t("period90d") },
+    { v: "all", label: t("periodAll") },
   ];
 
   return (
     <SectionCard
-      title="使用度榜单"
-      subtitle="按有效打标（active EntityTag）次数排列"
+      title={t("usagePanelTitle")}
+      subtitle={t("usagePanelDesc")}
       extra={
         <div className="flex items-center gap-2">
           <select
@@ -128,16 +122,15 @@ function UsagePanel() {
           <button
             onClick={() => setOrder(o => o === "desc" ? "asc" : "desc")}
             className="flex items-center gap-1 text-xs border border-edge rounded-md px-2 py-1 bg-surface text-ink-dim hover:bg-surface-alt transition-colors"
-            title={order === "desc" ? "当前：从多到少" : "当前：从少到多"}
+            title={order === "desc" ? t("orderDesc") : t("orderAsc")}
           >
             {order === "desc" ? <TrendingDown size={12} /> : <TrendingUp size={12} />}
-            {order === "desc" ? "最多" : "最少"}
+            {order === "desc" ? t("orderMost") : t("orderLeast")}
           </button>
           <button
             onClick={load}
             disabled={loading}
             className="p-1.5 rounded-lg text-ink-faint hover:text-ink hover:bg-surface-alt transition-colors disabled:opacity-40"
-            title="刷新"
           >
             <RefreshCw size={13} className={loading ? "animate-spin" : ""} />
           </button>
@@ -149,16 +142,16 @@ function UsagePanel() {
           <thead>
             <tr className="border-b border-edge text-ink-faint">
               <th className="px-4 py-2.5 text-left font-medium w-8">#</th>
-              <th className="px-4 py-2.5 text-left font-medium">标签</th>
-              <th className="px-4 py-2.5 text-left font-medium">分组</th>
-              <th className="px-4 py-2.5 text-right font-medium">使用次数</th>
-              <th className="px-4 py-2.5 text-left font-medium">最后使用</th>
+              <th className="px-4 py-2.5 text-left font-medium">{t("colTag")}</th>
+              <th className="px-4 py-2.5 text-left font-medium">{t("colGroup")}</th>
+              <th className="px-4 py-2.5 text-right font-medium">{t("colUsageCount")}</th>
+              <th className="px-4 py-2.5 text-left font-medium">{t("colLastUsed")}</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-edge">
             {loading && <LoadingRows cols={5} />}
             {!loading && items.length === 0 && (
-              <tr><td colSpan={5}><EmptyState msg="暂无标签数据" /></td></tr>
+              <tr><td colSpan={5}><EmptyState msg={t("noUsageData")} /></td></tr>
             )}
             {!loading && items.map((item, idx) => (
               <tr key={item.tagId} className="hover:bg-surface-alt/40 transition-colors">
@@ -191,15 +184,29 @@ function UsagePanel() {
   );
 }
 
-// ── 死标签清理 ────────────────────────────────────────────────────────────────
+// ── Dead Tags Panel ───────────────────────────────────────────────────────────
 
 type DeadPeriod = "30d" | "90d" | "180d" | "1y";
 
 function DeadTagsPanel() {
-  const [items, setItems]         = useState<DeadTagItem[]>([]);
-  const [loading, setLoading]     = useState(true);
-  const [period, setPeriod]       = useState<DeadPeriod>("90d");
-  const [deleting, setDeleting]   = useState<Set<string>>(new Set());
+  const t = useTranslations("governance");
+
+  const [items, setItems]     = useState<DeadTagItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [period, setPeriod]   = useState<DeadPeriod>("90d");
+  const [deleting, setDeleting] = useState<Set<string>>(new Set());
+
+  const relativeTime = useCallback((iso: string | null): string => {
+    if (!iso) return t("neverUsed");
+    const diff = Date.now() - new Date(iso).getTime();
+    const days = Math.floor(diff / 86_400_000);
+    if (days === 0) return t("today");
+    if (days === 1) return t("yesterday");
+    if (days < 30)  return t("daysAgo", { n: days });
+    const months = Math.floor(days / 30);
+    if (months < 12) return t("monthsAgo", { n: months });
+    return t("yearsAgo", { n: Math.floor(months / 12) });
+  }, [t]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -213,30 +220,30 @@ function DeadTagsPanel() {
   useEffect(() => { void load(); }, [load]);
 
   const handleDelete = async (item: DeadTagItem) => {
-    if (!confirm(`确认删除标签「${item.name}」？此操作会同步软删除关联数据。`)) return;
+    if (!confirm(t("deleteTagConfirm", { name: item.name }))) return;
     setDeleting(prev => new Set(prev).add(item.tagId));
     try {
       await deleteTag(item.tagId);
-      toast.success(`已删除「${item.name}」`);
+      toast.success(t("deleteTagSuccess", { name: item.name }));
       setItems(prev => prev.filter(i => i.tagId !== item.tagId));
     } catch (err) {
-      toast.error(`删除失败：${(err as Error).message}`);
+      toast.error(t("deleteTagFailedMsg", { message: (err as Error).message }));
     } finally {
       setDeleting(prev => { const s = new Set(prev); s.delete(item.tagId); return s; });
     }
   };
 
   const PERIODS: { v: DeadPeriod; label: string }[] = [
-    { v: "30d",  label: "30 天未用" },
-    { v: "90d",  label: "90 天未用" },
-    { v: "180d", label: "180 天未用" },
-    { v: "1y",   label: "1 年未用" },
+    { v: "30d",  label: t("period30dDead") },
+    { v: "90d",  label: t("period90dDead") },
+    { v: "180d", label: t("period180dDead") },
+    { v: "1y",   label: t("period1yDead") },
   ];
 
   return (
     <SectionCard
-      title="死标签清理建议"
-      subtitle="一段时间内无活跃实体打标的标签"
+      title={t("deadPanelTitle")}
+      subtitle={t("deadPanelDesc")}
       extra={
         <div className="flex items-center gap-2">
           <select
@@ -250,7 +257,6 @@ function DeadTagsPanel() {
             onClick={load}
             disabled={loading}
             className="p-1.5 rounded-lg text-ink-faint hover:text-ink hover:bg-surface-alt transition-colors disabled:opacity-40"
-            title="刷新"
           >
             <RefreshCw size={13} className={loading ? "animate-spin" : ""} />
           </button>
@@ -261,18 +267,18 @@ function DeadTagsPanel() {
         <table className="w-full text-xs">
           <thead>
             <tr className="border-b border-edge text-ink-faint">
-              <th className="px-4 py-2.5 text-left font-medium">标签</th>
-              <th className="px-4 py-2.5 text-left font-medium">分组</th>
-              <th className="px-4 py-2.5 text-right font-medium">活跃实体数</th>
-              <th className="px-4 py-2.5 text-left font-medium">最后使用</th>
-              <th className="px-4 py-2.5 text-left font-medium">层级</th>
-              <th className="px-4 py-2.5 text-right font-medium">操作</th>
+              <th className="px-4 py-2.5 text-left font-medium">{t("colTag")}</th>
+              <th className="px-4 py-2.5 text-left font-medium">{t("colGroup")}</th>
+              <th className="px-4 py-2.5 text-right font-medium">{t("colEntities")}</th>
+              <th className="px-4 py-2.5 text-left font-medium">{t("colLastUsed")}</th>
+              <th className="px-4 py-2.5 text-left font-medium">{t("colLevel")}</th>
+              <th className="px-4 py-2.5 text-right font-medium">{t("colActions")}</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-edge">
             {loading && <LoadingRows cols={6} />}
             {!loading && items.length === 0 && (
-              <tr><td colSpan={6}><EmptyState msg={`过去 ${period} 内没有死标签，系统健康 🎉`} /></td></tr>
+              <tr><td colSpan={6}><EmptyState msg={t("noDeadTagsPeriod", { period })} /></td></tr>
             )}
             {!loading && items.map(item => (
               <tr key={item.tagId} className="hover:bg-surface-alt/40 transition-colors">
@@ -297,7 +303,7 @@ function DeadTagsPanel() {
                 </td>
                 <td className="px-4 py-3 text-ink-faint">
                   {item.depth === 0 ? (
-                    <span className="px-1.5 py-0.5 rounded text-2xs bg-surface-alt border border-edge">根节点</span>
+                    <span className="px-1.5 py-0.5 rounded text-2xs bg-surface-alt border border-edge">{t("rootNodeLabel")}</span>
                   ) : `L${item.depth}`}
                 </td>
                 <td className="px-4 py-3 text-right">
@@ -307,7 +313,7 @@ function DeadTagsPanel() {
                     className="inline-flex items-center gap-1 px-2 py-1 text-2xs rounded-md border border-bad/40 text-bad hover:bg-bad/10 transition-colors disabled:opacity-40"
                   >
                     <Trash2 size={10} />
-                    {deleting.has(item.tagId) ? "删除中…" : "删除"}
+                    {deleting.has(item.tagId) ? t("deleting") : t("deleteDeadTag")}
                   </button>
                 </td>
               </tr>
@@ -319,15 +325,11 @@ function DeadTagsPanel() {
   );
 }
 
-// ── 重复标签建议 ──────────────────────────────────────────────────────────────
-
-const REASON_LABEL: Record<string, string> = {
-  name_similarity: "名称相似",
-  slug_similarity: "Slug 相似",
-  alias_overlap:   "Alias 重叠",
-};
+// ── Duplicates Panel ──────────────────────────────────────────────────────────
 
 function DuplicatesPanel() {
+  const t = useTranslations("governance");
+
   const [items, setItems]         = useState<DuplicatePair[]>([]);
   const [loading, setLoading]     = useState(true);
   const [dismissed, setDismissed] = useState<Set<string>>(new Set());
@@ -350,34 +352,41 @@ function DuplicatesPanel() {
     setDismissed(prev => new Set(prev).add(pairKey(pair)));
   };
 
-  // 将 source 合并到 target（target 保留）
   const handleMerge = async (pair: DuplicatePair) => {
     const key = pairKey(pair);
-    if (!confirm(`将「${pair.sourceName}」合并到「${pair.targetName}」？\n所有实体标签和 alias 将迁移，源标签将被软删除。`)) return;
+    if (!confirm(t("mergeTagConfirm", { from: pair.sourceName, to: pair.targetName }))) return;
     setMerging(prev => new Set(prev).add(key));
     try {
       const result = await mergeTags(pair.targetId, [pair.sourceId]);
-      toast.success(`合并成功：迁移 ${result.entityTagsMoved} 个实体标签`);
+      toast.success(t("mergeTagSuccessMsg", { count: result.entityTagsMoved }));
       setDismissed(prev => new Set(prev).add(key));
     } catch (err) {
-      toast.error(`合并失败：${(err as Error).message}`);
+      toast.error(t("mergeTagFailedMsg", { message: (err as Error).message }));
     } finally {
       setMerging(prev => { const s = new Set(prev); s.delete(key); return s; });
     }
+  };
+
+  const reasonLabel = (reason: string) => {
+    const map: Record<string, string> = {
+      name_similarity: t("reasonNameSimilarity"),
+      slug_similarity: t("reasonSlugSimilarity"),
+      alias_overlap:   t("reasonAliasOverlap"),
+    };
+    return map[reason] ?? reason;
   };
 
   const visible = items.filter(p => !dismissed.has(pairKey(p)));
 
   return (
     <SectionCard
-      title="重复标签建议"
-      subtitle="名称 / Slug / Alias 相似度 ≥ 75% 的标签对，建议合并或忽略"
+      title={t("duplicatePanelTitle")}
+      subtitle={t("duplicatePanelDesc")}
       extra={
         <button
           onClick={load}
           disabled={loading}
           className="p-1.5 rounded-lg text-ink-faint hover:text-ink hover:bg-surface-alt transition-colors disabled:opacity-40"
-          title="刷新"
         >
           <RefreshCw size={13} className={loading ? "animate-spin" : ""} />
         </button>
@@ -391,7 +400,7 @@ function DuplicatesPanel() {
         </div>
       )}
       {!loading && visible.length === 0 && (
-        <EmptyState msg="未检测到重复嫌疑标签" />
+        <EmptyState msg={t("noDuplicatesMsg")} />
       )}
       {!loading && visible.length > 0 && (
         <div className="divide-y divide-edge">
@@ -401,7 +410,6 @@ function DuplicatesPanel() {
             const simPct = Math.round(pair.similarity * 100);
             return (
               <div key={key} className="px-5 py-3.5 flex items-center gap-4 hover:bg-surface-alt/40 transition-colors">
-                {/* 标签对信息 */}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="font-medium text-sm text-ink">{pair.sourceName}</span>
@@ -414,7 +422,7 @@ function DuplicatesPanel() {
                       {simPct}%
                     </span>
                     <span className="px-1.5 py-0.5 rounded text-2xs bg-surface-alt border border-edge text-ink-faint">
-                      {REASON_LABEL[pair.reason] ?? pair.reason}
+                      {reasonLabel(pair.reason)}
                     </span>
                   </div>
                   <div className="flex items-center gap-3 mt-1 text-xs text-ink-faint">
@@ -426,18 +434,17 @@ function DuplicatesPanel() {
                       <ExternalLink size={9} className="opacity-50" />
                     </Link>
                     {pair.sharedEntityCount > 0 && (
-                      <span>{pair.sharedEntityCount} 个共同实体</span>
+                      <span>{t("sharedEntities", { count: pair.sharedEntityCount })}</span>
                     )}
                   </div>
                 </div>
 
-                {/* 操作按钮 */}
                 <div className="flex items-center gap-2 shrink-0">
                   <button
                     onClick={() => handleDismiss(pair)}
                     className="px-2.5 py-1 text-xs border border-edge rounded-md text-ink-faint hover:text-ink hover:bg-surface-alt transition-colors"
                   >
-                    忽略
+                    {t("dismiss")}
                   </button>
                   <button
                     onClick={() => handleMerge(pair)}
@@ -445,7 +452,7 @@ function DuplicatesPanel() {
                     className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs border border-brand/40 rounded-md text-brand hover:bg-brand/10 transition-colors disabled:opacity-40"
                   >
                     <Merge size={11} />
-                    {isMerging ? "合并中…" : `合并到「${pair.targetName}」`}
+                    {isMerging ? t("merging") : t("mergeIntoTarget", { name: pair.targetName })}
                   </button>
                 </div>
               </div>
@@ -457,12 +464,13 @@ function DuplicatesPanel() {
   );
 }
 
-// ── 汇总卡片 ─────────────────────────────────────────────────────────────────
+// ── Summary Banner ────────────────────────────────────────────────────────────
 
 function SummaryBanner() {
-  const [deadCount, setDeadCount]   = useState<number | null>(null);
-  const [dupCount, setDupCount]     = useState<number | null>(null);
-  const [loading, setLoading]       = useState(true);
+  const t = useTranslations("governance");
+  const [deadCount, setDeadCount] = useState<number | null>(null);
+  const [dupCount, setDupCount]   = useState<number | null>(null);
+  const [loading, setLoading]     = useState(true);
 
   useEffect(() => {
     Promise.all([
@@ -472,9 +480,7 @@ function SummaryBanner() {
   }, []);
 
   if (loading) {
-    return (
-      <div className="h-20 rounded-xl bg-surface-alt/60 card-border animate-pulse mb-7" />
-    );
+    return <div className="h-20 rounded-xl bg-surface-alt/60 card-border animate-pulse mb-7" />;
   }
 
   const isHealthy = (deadCount ?? 0) === 0 && (dupCount ?? 0) === 0;
@@ -490,30 +496,30 @@ function SummaryBanner() {
       }
       <div className="flex-1">
         <p className="text-sm font-medium text-ink">
-          {isHealthy ? "标签状态健康" : "发现需要处理的标签问题"}
+          {isHealthy ? t("healthyTitle") : t("issuesTitle")}
         </p>
         <p className="text-xs text-ink-faint mt-0.5">
           {isHealthy
-            ? "近 90 天内所有标签均有活跃使用，无重复嫌疑。"
+            ? t("healthyDesc")
             : [
-                deadCount ? `${deadCount} 个死标签（90 天未用）` : null,
-                dupCount  ? `${dupCount} 对重复嫌疑` : null,
+                deadCount ? t("deadTagsSummary", { count: deadCount }) : null,
+                dupCount  ? t("dupPairsSummary", { count: dupCount }) : null,
               ].filter(Boolean).join(" · ")
           }
         </p>
       </div>
       {!isHealthy && (
         <div className="flex items-center gap-4 text-xs text-ink-faint">
-          {deadCount !== null && (
+          {deadCount !== null && deadCount > 0 && (
             <span className="flex items-center gap-1">
               <Trash2 size={12} />
-              {deadCount} 个死标签
+              {t("deadTagsBadge", { count: deadCount })}
             </span>
           )}
-          {dupCount !== null && (
+          {dupCount !== null && dupCount > 0 && (
             <span className="flex items-center gap-1">
               <Merge size={12} />
-              {dupCount} 对重复
+              {t("dupPairsBadge", { count: dupCount })}
             </span>
           )}
         </div>
@@ -522,14 +528,15 @@ function SummaryBanner() {
   );
 }
 
-// ── 主页面 ───────────────────────────────────────────────────────────────────
+// ── Main page ─────────────────────────────────────────────────────────────────
 
 export default function GovernancePage() {
+  const t = useTranslations("governance");
   return (
     <div>
       <PageHeader
-        title="标签治理"
-        description="标签使用分析、死标签清理、重复检测与合并建议"
+        title={t("title")}
+        description={t("description")}
       />
       <div className="mt-7 space-y-6">
         <SummaryBanner />

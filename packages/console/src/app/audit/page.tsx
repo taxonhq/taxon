@@ -16,6 +16,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { CheckCircle, XCircle, Trash2, RefreshCw, ClipboardCheck, Keyboard, Trophy } from "lucide-react";
+import { useTranslations } from "next-intl";
 import {
   getAuditItems, updateEntityTagStatus, undoReviews, removeEntityTag, getEntityTypes,
   getReviewerStats, getLeaderboard,
@@ -33,21 +34,8 @@ const PAGE_SIZE_DEFAULT = 30;
 
 type StatusFilter = "pending" | "active" | "rejected";
 
-const STATUS_META: Record<string, { label: string; dot: string; text: string }> = {
-  pending:  { label: "待审核", dot: "bg-warn",   text: "text-warn" },
-  active:   { label: "已激活", dot: "bg-ok",     text: "text-ok" },
-  rejected: { label: "已拒绝", dot: "bg-bad/70", text: "text-bad" },
-};
-
-const SOURCE_LABEL: Record<string, string> = {
-  ai:     "AI 打标",
-  manual: "手动",
-  system: "系统",
-  import: "导入",
-};
-
 function formatTime(iso: string) {
-  return new Date(iso).toLocaleString("zh-CN", {
+  return new Date(iso).toLocaleString(undefined, {
     year: "numeric", month: "numeric", day: "numeric",
     hour: "2-digit", minute: "2-digit",
   });
@@ -66,31 +54,33 @@ function ReviewDialog({
   onConfirm: (note: string) => void;
   onCancel: () => void;
 }) {
+  const t = useTranslations("audit");
+  const tCommon = useTranslations("common");
   const [note, setNote] = useState("");
   const isApprove = action === "active";
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
-    const t = setTimeout(() => textareaRef.current?.focus(), 0);
-    return () => clearTimeout(t);
+    const timer = setTimeout(() => textareaRef.current?.focus(), 0);
+    return () => clearTimeout(timer);
   }, []);
 
   return (
-    <Dialog open onClose={onCancel} title={isApprove ? "通过审核" : "拒绝标签"} size="md" showClose={false}>
+    <Dialog open onClose={onCancel} title={isApprove ? t("approveConfirm") : t("rejectConfirm")} size="md" showClose={false}>
       <p className="text-xs text-ink-sub -mt-1 mb-4">
-        标签：<span className="font-medium text-ink">{item.tag.name}</span>（{item.tag.group.name}）
+        {t("colTag")}: <span className="font-medium text-ink">{item.tag.name}</span> ({item.tag.group.name})
         &nbsp;·&nbsp;{item.entityType}/{item.entityId}
       </p>
       <div className="mb-4">
         <label htmlFor="review-note" className="block text-xs text-ink-sub mb-1">
-          备注 <span className="text-ink-faint">（可选）</span>
+          {t("noteLabel")} <span className="text-ink-faint">({t("noteOptional")})</span>
         </label>
         <textarea
           id="review-note"
           ref={textareaRef}
           className="w-full border border-edge-mid rounded-lg px-3 py-2 text-sm text-ink bg-input focus:outline-none focus:border-edge-strong focus:ring-2 focus:ring-brand-1/30 resize-none"
           rows={3}
-          placeholder={isApprove ? "说明通过原因…" : "说明拒绝原因…"}
+          placeholder={isApprove ? t("noteApprove") : t("noteReject")}
           value={note}
           onChange={e => setNote(e.target.value)}
           onKeyDown={e => {
@@ -100,12 +90,12 @@ function ReviewDialog({
             }
           }}
         />
-        <p className="text-2xs text-ink-faint mt-1">⌘Enter 快速提交 · Esc 取消</p>
+        <p className="text-2xs text-ink-faint mt-1">{t("noteHint")}</p>
       </div>
       <div className="flex justify-end gap-2">
-        <Button variant="ghost" onClick={onCancel}>取消</Button>
+        <Button variant="ghost" onClick={onCancel}>{tCommon("cancel")}</Button>
         <Button variant={isApprove ? "primary" : "danger"} onClick={() => onConfirm(note.trim())}>
-          {isApprove ? "确认通过" : "确认拒绝"}
+          {isApprove ? t("approveConfirm") : t("rejectConfirm")}
         </Button>
       </div>
     </Dialog>
@@ -124,14 +114,16 @@ function LeaderboardDialog({
   onPeriodChange: (p: "7d" | "30d" | "all") => void;
   onClose: () => void;
 }) {
+  const t = useTranslations("audit");
+
   const PERIODS: { value: "7d" | "30d" | "all"; label: string }[] = [
-    { value: "7d",  label: "近 7 天" },
-    { value: "30d", label: "近 30 天" },
-    { value: "all", label: "全部时间" },
+    { value: "7d",  label: t("period7d") },
+    { value: "30d", label: t("period30d") },
+    { value: "all", label: t("periodAll") },
   ];
 
   return (
-    <Dialog open onClose={onClose} title="审核员榜单" size="md">
+    <Dialog open onClose={onClose} title={t("leaderboard")} size="md">
       {/* Period selector */}
       <div className="flex items-center gap-1 mb-4 p-0.5 bg-surface-alt border border-edge rounded-lg w-fit">
         {PERIODS.map(p => (
@@ -157,7 +149,7 @@ function LeaderboardDialog({
           ))}
         </div>
       ) : items.length === 0 ? (
-        <p className="text-center text-sm text-ink-faint py-8">该时段暂无审核记录</p>
+        <p className="text-center text-sm text-ink-faint py-8">{t("leaderboardNoData")}</p>
       ) : (
         <div className="space-y-1">
           {items.map((item, idx) => (
@@ -176,7 +168,7 @@ function LeaderboardDialog({
               {/* Name */}
               <span className={`flex-1 text-sm min-w-0 truncate ${item.isCurrentUser ? "font-semibold text-brand-1" : "text-ink"}`}>
                 {item.name}
-                {item.isCurrentUser && <span className="ml-1.5 text-2xs text-brand-1/70">（我）</span>}
+                {item.isCurrentUser && <span className="ml-1.5 text-2xs text-brand-1/70">{t("leaderboardMe")}</span>}
               </span>
               {/* Stats */}
               <div className="flex items-center gap-3 shrink-0 text-xs tabular-nums">
@@ -191,29 +183,31 @@ function LeaderboardDialog({
         </div>
       )}
 
-      <p className="mt-4 text-2xs text-ink-faint">仅显示通过 / 拒绝操作，撤销不计入排名</p>
+      <p className="mt-4 text-2xs text-ink-faint">{t("leaderboardNote")}</p>
     </Dialog>
   );
 }
 
 // ── 键盘快捷键说明面板 ─────────────────────────────────────────────────────────
 function CheatsheetDialog({ onClose }: { onClose: () => void }) {
+  const t = useTranslations("audit");
+
   const shortcuts = [
-    { key: "J / ↓",  desc: "选中下一条" },
-    { key: "K / ↑",  desc: "选中上一条" },
-    { key: "A",       desc: "快速通过当前条（无备注）" },
-    { key: "R",       desc: "快速拒绝当前条（无备注）" },
-    { key: "Enter",   desc: "打开备注弹窗后通过" },
-    { key: "Shift+A", desc: "批量通过选中（或全页）" },
-    { key: "X",       desc: "切换当前条选中状态" },
-    { key: "Shift+X", desc: "全选 / 全反选" },
-    { key: "/",       desc: "聚焦实体类型筛选" },
-    { key: "⌘Z",     desc: "撤销最近操作（5s 内）" },
-    { key: "?",       desc: "显示本面板" },
+    { key: "J / ↓",  desc: t("shortcutNavDown") },
+    { key: "K / ↑",  desc: t("shortcutNavUp") },
+    { key: "A",       desc: t("shortcutApprove") },
+    { key: "R",       desc: t("shortcutReject") },
+    { key: "Enter",   desc: t("shortcutNote") },
+    { key: "Shift+A", desc: t("shortcutBulkApprove") },
+    { key: "X",       desc: t("shortcutToggle") },
+    { key: "Shift+X", desc: t("shortcutToggleAll") },
+    { key: "/",       desc: t("shortcutFocusFilter") },
+    { key: "⌘Z",     desc: t("shortcutUndo") },
+    { key: "?",       desc: t("shortcutHelp") },
   ];
 
   return (
-    <Dialog open onClose={onClose} title="键盘快捷键" size="sm">
+    <Dialog open onClose={onClose} title={t("shortcuts")} size="sm">
       <div className="space-y-0.5">
         {shortcuts.map(({ key, desc }) => (
           <div key={key} className="flex items-center justify-between py-1.5 border-b border-edge last:border-0">
@@ -232,6 +226,9 @@ function CheatsheetDialog({ onClose }: { onClose: () => void }) {
 type UndoEntry = { key: string; reviewId: string };
 
 export default function AuditPage() {
+  const t = useTranslations("audit");
+  const tCommon = useTranslations("common");
+
   const [items, setItems] = useState<AuditItem[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -276,9 +273,28 @@ export default function AuditPage() {
   const rowRefs = useRef<Map<string, HTMLTableRowElement>>(new Map());
   const filterSelectRef = useRef<HTMLSelectElement>(null);
 
+  const statusMeta = useCallback((status: string) => {
+    const map: Record<string, { label: string; dot: string; text: string }> = {
+      pending:  { label: t("statusPending"),  dot: "bg-warn",   text: "text-warn" },
+      active:   { label: t("statusActive"),   dot: "bg-ok",     text: "text-ok" },
+      rejected: { label: t("statusRejected"), dot: "bg-bad/70", text: "text-bad" },
+    };
+    return map[status] ?? { label: status, dot: "bg-edge-mid", text: "text-ink-dim" };
+  }, [t]);
+
+  const sourceLabel = useCallback((source: string) => {
+    const map: Record<string, string> = {
+      ai:     t("sourceAi"),
+      manual: t("sourceManual"),
+      system: t("sourceSystem"),
+      import: t("sourceImport"),
+    };
+    return map[source] ?? source;
+  }, [t]);
+
   useEffect(() => {
     getEntityTypes()
-      .then(types => setEntityTypes(types.map(t => t.entityType)))
+      .then(types => setEntityTypes(types.map(et => et.entityType)))
       .catch(() => {});
   }, []);
 
@@ -314,11 +330,11 @@ export default function AuditPage() {
       setItems(data.items);
       setTotal(data.total);
     } catch (err) {
-      setError(err instanceof Error ? `加载失败：${err.message}` : "加载失败，请检查 Taxon 服务是否正常运行");
+      setError(err instanceof Error ? tCommon("loadErrorMsg", { message: err.message }) : tCommon("loadError"));
     } finally {
       setLoading(false);
     }
-  }, [statusFilter, entityTypeFilter, minConfidence, maxConfidence, pageSize]);
+  }, [statusFilter, entityTypeFilter, minConfidence, maxConfidence, pageSize, tCommon]);
 
   useEffect(() => {
     setPage(1);
@@ -404,7 +420,7 @@ export default function AuditPage() {
           setUndoBannerCount(undoBatchRef.current.length);
           setSessionReviewed(prev => prev + 1);
         })
-        .catch(() => setError("审核提交失败，请手动核查"));
+        .catch(() => setError(t("submitFailed")));
     };
 
     handleUndoRef.current = async () => {
@@ -418,7 +434,7 @@ export default function AuditPage() {
         const { reverted } = await undoReviews(batch.map(e => e.reviewId));
         setSessionReviewed(prev => Math.max(0, prev - reverted));
       } catch {
-        setError("撤销失败，请手动核查");
+        setError(t("undoFailed"));
       }
       load(page);
     };
@@ -433,7 +449,7 @@ export default function AuditPage() {
       removeItemFromUI(key);
       setSessionReviewed(prev => prev + 1);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "操作失败");
+      setError(err instanceof Error ? err.message : tCommon("operationFailed"));
     } finally {
       setProcessingKey(key, false);
     }
@@ -454,7 +470,7 @@ export default function AuditPage() {
       await removeEntityTag(item.entityType, item.entityId, item.tagId);
       removeItemFromUI(key);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "删除失败");
+      setError(err instanceof Error ? err.message : t("deleteFailed"));
     } finally {
       setProcessingKey(key, false);
     }
@@ -477,7 +493,7 @@ export default function AuditPage() {
     succeeded.forEach(key => removeItemFromUI(key));
     setSessionReviewed(prev => prev + succeeded.length);
     const failed = results.filter(r => r.status === "rejected").length;
-    if (failed > 0) setError(`${failed} 条操作失败`);
+    if (failed > 0) setError(t("bulkFailed", { count: failed }));
   };
 
   const allKeys = items.map(itemKey);
@@ -607,29 +623,29 @@ export default function AuditPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="审核队列"
-        description="审核 AI 自动打标或其他待确认的实体标签关联"
+        title={t("title")}
+        description={t("description")}
         action={
           <div className="flex items-center gap-2">
             <button
               onClick={() => setShowLeaderboard(true)}
               className="p-1.5 rounded-lg text-ink-faint hover:text-ink hover:bg-surface-alt transition-colors"
-              title="审核员榜单"
-              aria-label="查看审核员榜单"
+              title={t("leaderboard")}
+              aria-label={t("leaderboard")}
             >
               <Trophy size={15} />
             </button>
             <button
               onClick={() => setShowCheatsheet(true)}
               className="p-1.5 rounded-lg text-ink-faint hover:text-ink hover:bg-surface-alt transition-colors"
-              title="键盘快捷键 (?)"
-              aria-label="显示快捷键"
+              title={`${t("shortcuts")} (?)`}
+              aria-label={t("shortcuts")}
             >
               <Keyboard size={15} />
             </button>
             <Button variant="outline" size="sm" onClick={() => load(page)}>
               <RefreshCw size={13} />
-              刷新
+              {tCommon("refresh")}
             </Button>
           </div>
         }
@@ -638,22 +654,22 @@ export default function AuditPage() {
       {/* ── Today Stats bar ── */}
       {todayStats !== null && (
         <div className="flex items-center gap-5 px-4 py-2.5 bg-surface-alt/60 border border-edge rounded-lg text-xs animate-fade-in">
-          <span className="text-ink-faint font-medium shrink-0">今日审核</span>
+          <span className="text-ink-faint font-medium shrink-0">{t("todaySection")}</span>
           <span className="flex items-center gap-1.5 text-ok font-medium tabular-nums">
             <CheckCircle size={12} strokeWidth={2.5} />
-            {todayStats.approved + (sessionReviewed > 0 ? 0 : 0)} 通过
+            {todayStats.approved} {t("todayApproved")}
           </span>
           <span className="flex items-center gap-1.5 text-bad font-medium tabular-nums">
             <XCircle size={12} strokeWidth={2.5} />
-            {todayStats.rejected} 拒绝
+            {todayStats.rejected} {t("todayRejected")}
           </span>
           {(todayStats.approved + todayStats.rejected) > 0 && (
             <span className="text-ink-sub tabular-nums">
-              通过率 {Math.round((todayStats.approveRate ?? 0) * 100)}%
+              {t("todayApproveRate")} {Math.round((todayStats.approveRate ?? 0) * 100)}%
             </span>
           )}
           {sessionReviewed > 0 && (
-            <span className="ml-auto text-ink-faint tabular-nums">本次 +{sessionReviewed}</span>
+            <span className="ml-auto text-ink-faint tabular-nums">{t("sessionCount", { count: sessionReviewed })}</span>
           )}
         </div>
       )}
@@ -662,20 +678,23 @@ export default function AuditPage() {
       <div className="flex flex-wrap items-center gap-3">
         {/* Status tabs */}
         <div className="flex items-center p-0.5 bg-surface-alt border border-edge rounded-lg gap-px">
-          {(["pending", "active", "rejected"] as StatusFilter[]).map(s => (
-            <button
-              key={s}
-              onClick={() => setStatusFilter(s)}
-              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-md transition-all ${
-                statusFilter === s
-                  ? "bg-overlay text-ink font-medium shadow-sm border border-edge-mid"
-                  : "text-ink-dim hover:text-ink"
-              }`}
-            >
-              <span className={`w-1.5 h-1.5 rounded-full ${STATUS_META[s].dot}`} />
-              {STATUS_META[s].label}
-            </button>
-          ))}
+          {(["pending", "active", "rejected"] as StatusFilter[]).map(s => {
+            const meta = statusMeta(s);
+            return (
+              <button
+                key={s}
+                onClick={() => setStatusFilter(s)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-md transition-all ${
+                  statusFilter === s
+                    ? "bg-overlay text-ink font-medium shadow-sm border border-edge-mid"
+                    : "text-ink-dim hover:text-ink"
+                }`}
+              >
+                <span className={`w-1.5 h-1.5 rounded-full ${meta.dot}`} />
+                {meta.label}
+              </button>
+            );
+          })}
         </div>
 
         {/* Entity type filter */}
@@ -685,13 +704,13 @@ export default function AuditPage() {
           onChange={e => setEntityTypeFilter(e.target.value)}
           className="!w-36 !text-xs !py-1.5"
         >
-          <option value="">全部实体类型</option>
+          <option value="">{t("filterEntityType")}</option>
           {entityTypes.map(et => <option key={et} value={et}>{et}</option>)}
         </Select>
 
         {/* Confidence range filter */}
         <div className="flex items-center gap-1.5">
-          <span className="text-xs text-ink-faint whitespace-nowrap">置信度</span>
+          <span className="text-xs text-ink-faint whitespace-nowrap">{t("confidenceRange")}</span>
           <input
             type="number"
             min={0} max={1} step={0.01}
@@ -711,29 +730,29 @@ export default function AuditPage() {
           />
         </div>
 
-        <span className="ml-auto text-xs text-ink-faint tabular-nums">{total} 条记录</span>
+        <span className="ml-auto text-xs text-ink-faint tabular-nums">{tCommon("total", { count: total })}</span>
       </div>
 
       {/* ── Bulk action bar ── */}
       {selected.size > 0 && (
         <div className="flex items-center gap-3 px-4 py-2.5 bg-surface-alt border border-edge-mid rounded-lg">
-          <span className="text-xs text-ink-dim">
-            已选 <span className="text-ink font-medium tabular-nums">{selected.size}</span> 条
+          <span className="text-xs text-ink-dim tabular-nums">
+            {tCommon("selected", { count: selected.size })}
           </span>
           <div className="flex gap-2 ml-auto">
             {statusFilter !== "active" && (
               <Button size="sm" variant="ok" onClick={() => handleBulkStatus("active")}>
                 <CheckCircle size={12} />
-                批量通过
+                {t("approveAll")}
               </Button>
             )}
             {statusFilter !== "rejected" && (
               <Button size="sm" variant="danger" onClick={() => handleBulkStatus("rejected")}>
                 <XCircle size={12} />
-                批量拒绝
+                {t("rejectAll")}
               </Button>
             )}
-            <Button size="sm" variant="ghost" onClick={() => setSelected(new Set())}>取消</Button>
+            <Button size="sm" variant="ghost" onClick={() => setSelected(new Set())}>{tCommon("cancel")}</Button>
           </div>
         </div>
       )}
@@ -762,11 +781,11 @@ export default function AuditPage() {
               <ClipboardCheck size={22} className="text-ink-faint" strokeWidth={1.5} />
             </div>
             <p className="text-md font-semibold text-ink-sub">
-              {statusFilter === "pending" ? "暂无待审核记录" : "暂无记录"}
+              {statusFilter === "pending" ? t("emptyPending") : t("emptyOther")}
             </p>
             {statusFilter === "pending" && (
               <p className="text-sm text-ink-faint mt-1.5 max-w-[200px] leading-relaxed">
-                AI 打标后，新记录会出现在这里
+                {t("emptyPendingDesc")}
               </p>
             )}
           </div>
@@ -783,12 +802,14 @@ export default function AuditPage() {
                     checked={allSelected}
                     onChange={toggleAll}
                     className="accent-ink w-3.5 h-3.5"
-                    aria-label={allSelected ? "取消全选" : someSelected ? `已选 ${selected.size} 条，点击全选` : "全选"}
+                    aria-label={tCommon("all")}
                   />
                 </th>
-                {["标签", "实体", "来源", "置信度", "状态",
-                  ...(showReviewCols ? ["审核员", "备注"] : []),
-                  "时间", ""].map((h, i, arr) => (
+                {[
+                  t("colTag"), t("colEntity"), t("colSource"), t("colConfidence"), t("colStatus"),
+                  ...(showReviewCols ? [t("colReviewer"), t("colNote")] : []),
+                  t("colTime"), "",
+                ].map((h, i, arr) => (
                   <th key={i} className={`py-3 th-label ${i === arr.length - 1 ? "pr-5 text-right" : "px-3 text-left"}`}>
                     {h}
                   </th>
@@ -802,7 +823,7 @@ export default function AuditPage() {
                 const isSelected = selected.has(key);
                 const isFocused = focusedIdx === idx;
                 const flash = flashItems.get(key);
-                const statusMeta = STATUS_META[item.status] ?? { label: item.status, dot: "bg-edge-mid", text: "text-ink-dim" };
+                const meta = statusMeta(item.status);
 
                 return (
                   <tr
@@ -827,7 +848,7 @@ export default function AuditPage() {
                         checked={isSelected}
                         onChange={() => toggleOne(key)}
                         className="accent-ink w-3.5 h-3.5"
-                        aria-label={`选择 ${item.tag.name}`}
+                        aria-label={item.tag.name}
                       />
                     </td>
                     <td className="px-3 py-3">
@@ -839,7 +860,7 @@ export default function AuditPage() {
                       <p className="text-2xs font-mono text-ink-sub mt-0.5 max-w-[120px] truncate">{item.entityId}</p>
                     </td>
                     <td className="px-3 py-3 text-sm text-ink-dim">
-                      {SOURCE_LABEL[item.source] ?? item.source}
+                      {sourceLabel(item.source)}
                     </td>
                     <td className="px-3 py-3">
                       {item.confidence != null ? (
@@ -854,9 +875,9 @@ export default function AuditPage() {
                       )}
                     </td>
                     <td className="px-3 py-3">
-                      <span className={`inline-flex items-center gap-1.5 text-xs font-medium ${statusMeta.text}`}>
-                        <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${statusMeta.dot}`} />
-                        {statusMeta.label}
+                      <span className={`inline-flex items-center gap-1.5 text-xs font-medium ${meta.text}`}>
+                        <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${meta.dot}`} />
+                        {meta.label}
                       </span>
                     </td>
                     {showReviewCols && (
@@ -885,8 +906,8 @@ export default function AuditPage() {
                             disabled={busy}
                             onClick={e => { e.stopPropagation(); setReviewTarget({ item, action: "active" }); }}
                             className="p-1.5 rounded-md text-ink-faint hover:text-ok hover:bg-ok/10 transition-all disabled:opacity-40"
-                            aria-label="通过"
-                            title="通过（Enter 带备注 · A 快速通过）"
+                            aria-label={t("approve")}
+                            title={t("approveTitle")}
                           >
                             <CheckCircle size={14} />
                           </button>
@@ -896,8 +917,8 @@ export default function AuditPage() {
                             disabled={busy}
                             onClick={e => { e.stopPropagation(); setReviewTarget({ item, action: "rejected" }); }}
                             className="p-1.5 rounded-md text-ink-faint hover:text-warn hover:bg-warn/10 transition-all disabled:opacity-40"
-                            aria-label="拒绝"
-                            title="拒绝（R 快速拒绝）"
+                            aria-label={t("reject")}
+                            title={t("rejectTitle")}
                           >
                             <XCircle size={14} />
                           </button>
@@ -906,8 +927,8 @@ export default function AuditPage() {
                           disabled={busy}
                           onClick={e => { e.stopPropagation(); setConfirmItem(item); }}
                           className="p-1.5 rounded-md text-ink-faint hover:text-bad hover:bg-bad/10 transition-all disabled:opacity-40"
-                          aria-label="删除关联"
-                          title="删除关联"
+                          aria-label={t("deleteTagLink")}
+                          title={t("deleteTagLink")}
                         >
                           <Trash2 size={13} />
                         </button>
@@ -942,9 +963,9 @@ export default function AuditPage() {
       {confirmItem && (
         <ConfirmDialog
           open
-          title="删除标签关联"
-          description={`标签：${confirmItem.tag.name}（${confirmItem.tag.group.name}）\n实体：${confirmItem.entityType} / ${confirmItem.entityId}`}
-          confirmLabel="删除"
+          title={t("deleteTagTitle")}
+          description={`${t("colTag")}: ${confirmItem.tag.name} (${confirmItem.tag.group.name})\n${t("colEntity")}: ${confirmItem.entityType} / ${confirmItem.entityId}`}
+          confirmLabel={tCommon("delete")}
           danger
           onConfirm={() => handleRemove(confirmItem)}
           onCancel={() => setConfirmItem(null)}
@@ -954,13 +975,13 @@ export default function AuditPage() {
       {showBulkConfirm && (
         <ConfirmDialog
           open
-          title="批量通过"
+          title={t("approveAll")}
           description={
             selectedItems.length > 0
-              ? `将通过已选的 ${selectedItems.length} 条记录（无备注）`
-              : `将通过当前页全部 ${items.length} 条记录（无备注）`
+              ? t("bulkApproveDesc", { count: selectedItems.length })
+              : t("bulkApproveAllDesc", { count: items.length })
           }
-          confirmLabel="确认通过"
+          confirmLabel={t("approveConfirm")}
           onConfirm={async () => {
             setShowBulkConfirm(false);
             await handleBulkStatus("active", selectedItems.length > 0 ? selectedItems : items);
@@ -987,14 +1008,14 @@ export default function AuditPage() {
           className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 flex items-center gap-3 px-4 py-2.5 bg-overlay border border-edge-mid rounded-full shadow-lg shadow-black/40 animate-slide-up"
         >
           <span className="text-sm text-ink">
-            已审核 <span className="font-medium tabular-nums">{undoBannerCount}</span> 条
+            {t("reviewed", { count: undoBannerCount })}
           </span>
           <div className="w-px h-3.5 bg-edge-mid" />
           <button
             onClick={() => handleUndoRef.current()}
             className="text-sm text-brand-1 font-medium hover:text-brand-2 transition-colors"
           >
-            撤销 (⌘Z)
+            {t("undoBanner")}
           </button>
         </div>
       )}
@@ -1003,7 +1024,7 @@ export default function AuditPage() {
       {sessionReviewed > 0 && undoBannerCount === 0 && (
         <div className="fixed bottom-6 right-6 z-40 flex items-center gap-1.5 px-3 py-1.5 bg-overlay border border-edge-mid rounded-lg shadow text-xs text-ink-sub animate-fade-in">
           <span className="text-ink font-medium tabular-nums">{sessionReviewed}</span>
-          <span>条已审</span>
+          <span>{t("sessionReviewed")}</span>
         </div>
       )}
     </div>

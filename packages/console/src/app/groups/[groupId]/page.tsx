@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useParams } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { Plus, Save, X, RotateCcw, Trash2, Trash } from "lucide-react";
 import {
   getTagGroup, getTagGroupTree, createTag, updateTag, deleteTag, restoreTag,
@@ -22,6 +23,9 @@ import { TagTree, type TagTreeCallbacks } from "@/components/ui/tag-tree";
 
 export default function GroupDetailPage() {
   const { groupId } = useParams<{ groupId: string }>();
+  const t = useTranslations("groups");
+  const tCommon = useTranslations("common");
+
   const [group, setGroup]               = useState<TagGroup | null>(null);
   const [tree, setTree]                 = useState<TagTreeNode[]>([]);
   const [allGroups, setAllGroups]       = useState<TagGroup[]>([]);
@@ -38,25 +42,25 @@ export default function GroupDetailPage() {
   const setGF = (k: string, v: string) => setGroupForm(f => ({ ...f, [k]: v }));
 
   // entity rules
-  const [rules, setRules]         = useState<TagGroupEntityRule[]>([]);
+  const [rules, setRules]           = useState<TagGroupEntityRule[]>([]);
   const [savingRules, setSavingRules] = useState(false);
   const [newRuleType, setNewRuleType] = useState("");
 
   // tag create/edit form
-  const [showForm, setShowForm]   = useState(false);
-  const [formParentId, setFormParentId] = useState<string | null>(null); // null = root
-  const [saving, setSaving]       = useState(false);
-  const [newForm, setNewForm]     = useState({ slug: "", name: "", description: "", parentId: "" });
+  const [showForm, setShowForm]         = useState(false);
+  const [formParentId, setFormParentId] = useState<string | null>(null);
+  const [saving, setSaving]             = useState(false);
+  const [newForm, setNewForm]           = useState({ slug: "", name: "", description: "", parentId: "" });
 
-  // tag inline edit (dialog-style)
+  // tag inline edit
   type EditState = { tag: TagTreeNode; name: string; slug: string; parentId: string };
-  const [editing, setEditing]     = useState<EditState | null>(null);
+  const [editing, setEditing] = useState<EditState | null>(null);
 
   // confirm delete
   type PendingDelete = { tag: TagTreeNode; force?: boolean; message?: string };
   const [confirmDelete, setConfirmDelete] = useState<PendingDelete | null>(null);
 
-  // merge dialog: pick which tag to merge INTO (source = selected node)
+  // merge dialog
   type MergeState = { source: TagTreeNode; targetId: string };
   const [mergeState, setMergeState] = useState<MergeState | null>(null);
   const [merging, setMerging]       = useState(false);
@@ -67,16 +71,16 @@ export default function GroupDetailPage() {
   const [movingGroup, setMovingGroup]       = useState(false);
 
   // recycle bin (deleted tags)
-  const [deletedTags, setDeletedTags]     = useState<Tag[]>([]);
-  const [trashLoading, setTrashLoading]   = useState(false);
-  const [showTrash, setShowTrash]         = useState(false);
+  const [deletedTags, setDeletedTags]       = useState<Tag[]>([]);
+  const [trashLoading, setTrashLoading]     = useState(false);
+  const [showTrash, setShowTrash]           = useState(false);
   const [confirmPermTag, setConfirmPermTag] = useState<Tag | null>(null);
 
   // ── Load ────────────────────────────────────────────────────────
 
   useEffect(() => {
     getEntityTypes()
-      .then(types => setEntityTypes(types.map(t => t.entityType)))
+      .then(types => setEntityTypes(types.map(et => et.entityType)))
       .catch(() => {});
     getTagGroups({ pageSize: 100 })
       .then(res => setAllGroups(res.items))
@@ -94,18 +98,18 @@ export default function GroupDetailPage() {
       setTree(treeData);
       setRules(groupData.entityRules ?? []);
       setGroupForm({
-        slug: groupData.slug,
-        name: groupData.name,
-        description: groupData.description ?? "",
-        entityScope: groupData.entityScopes?.[0] ?? "",
+        slug:          groupData.slug,
+        name:          groupData.name,
+        description:   groupData.description ?? "",
+        entityScope:   groupData.entityScopes?.[0] ?? "",
         allowMultiple: groupData.allowMultiple ? "true" : "false",
       });
     } catch (err) {
-      setError(err instanceof Error ? `加载失败：${err.message}` : "加载失败");
+      setError(err instanceof Error ? tCommon("loadErrorMsg", { message: err.message }) : tCommon("loadError"));
     } finally {
       setLoading(false);
     }
-  }, [groupId]);
+  }, [groupId, tCommon]);
 
   useEffect(() => { setLoading(true); load(); }, [load]);
 
@@ -113,7 +117,7 @@ export default function GroupDetailPage() {
 
   const handleGroupSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!groupForm.name.trim()) { setError("名称为必填"); return; }
+    if (!groupForm.name.trim()) { setError(t("slugRequired")); return; }
     setSavingGroup(true); setError("");
     try {
       await updateTagGroup(groupId, {
@@ -126,7 +130,7 @@ export default function GroupDetailPage() {
       setShowGroupEdit(false);
       load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "保存失败");
+      setError(err instanceof Error ? err.message : tCommon("operationFailed"));
     } finally {
       setSavingGroup(false);
     }
@@ -135,9 +139,9 @@ export default function GroupDetailPage() {
   // ── Entity rules ─────────────────────────────────────────────────
 
   const addRule = () => {
-    const t = newRuleType.trim();
-    if (!t || rules.some(r => r.entityType === t)) return;
-    setRules(prev => [...prev, { groupId, entityType: t, allowMultiple: true }]);
+    const et = newRuleType.trim();
+    if (!et || rules.some(r => r.entityType === et)) return;
+    setRules(prev => [...prev, { groupId, entityType: et, allowMultiple: true }]);
     setNewRuleType("");
   };
   const updateRule = (entityType: string, allowMultiple: boolean) =>
@@ -151,8 +155,9 @@ export default function GroupDetailPage() {
         entityType: r.entityType, allowMultiple: r.allowMultiple,
       })));
       setRules(updated);
+      toast.success(t("rulesUpdated"));
     } catch (err) {
-      setError(err instanceof Error ? err.message : "保存规则失败");
+      setError(err instanceof Error ? err.message : t("rulesUpdateFailed"));
     } finally {
       setSavingRules(false);
     }
@@ -168,7 +173,7 @@ export default function GroupDetailPage() {
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newForm.name.trim()) { setError("名称为必填"); return; }
+    if (!newForm.name.trim()) { setError(t("slugRequired")); return; }
     setSaving(true); setError("");
     try {
       await createTag({
@@ -181,7 +186,7 @@ export default function GroupDetailPage() {
       setShowForm(false);
       load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "创建失败");
+      setError(err instanceof Error ? err.message : t("createTagFailed"));
     } finally {
       setSaving(false);
     }
@@ -203,7 +208,7 @@ export default function GroupDetailPage() {
       setEditing(null);
       load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "更新失败");
+      setError(err instanceof Error ? err.message : tCommon("operationFailed"));
     }
   };
 
@@ -216,10 +221,10 @@ export default function GroupDetailPage() {
       load();
     } catch (err) {
       const msg = err instanceof Error ? err.message : "";
-      if (!force && msg.includes("个实体使用")) {
+      if (!force && msg) {
         setConfirmDelete({ tag, force: true, message: msg.replace("，如需强制删除请添加 ?force=true", "") });
       } else {
-        setError(msg || "删除失败");
+        setError(msg || t("deleteTagFailed"));
       }
     }
   };
@@ -232,7 +237,7 @@ export default function GroupDetailPage() {
       await updateTag(tagId, { parentId: newParentId });
       load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "移动失败");
+      setError(err instanceof Error ? err.message : tCommon("operationFailed"));
     }
   };
 
@@ -245,9 +250,9 @@ export default function GroupDetailPage() {
       const result = await mergeTag(mergeState.targetId, [mergeState.source.id]);
       setMergeState(null);
       load();
-      toast.success(`合并成功：迁移了 ${result.entityTagsMoved} 条实体关联，${result.aliasesMoved} 个别名`);
+      toast.success(t("mergeSuccessDetail", { entityTagsMoved: result.entityTagsMoved, aliasesMoved: result.aliasesMoved }));
     } catch (err) {
-      setError(err instanceof Error ? err.message : "合并失败");
+      setError(err instanceof Error ? err.message : tCommon("operationFailed"));
     } finally {
       setMerging(false);
     }
@@ -262,9 +267,9 @@ export default function GroupDetailPage() {
       const result = await moveTagToGroup(moveGroupState.tag.id, moveGroupState.targetGroupId);
       setMoveGroupState(null);
       load();
-      toast.success(`迁移成功：共移动 ${result.tagsMoved} 个标签（含子孙）`);
+      toast.success(t("moveSuccessDetail", { count: result.tagsMoved }));
     } catch (err) {
-      setError(err instanceof Error ? err.message : "迁移失败");
+      setError(err instanceof Error ? err.message : tCommon("operationFailed"));
     } finally {
       setMovingGroup(false);
     }
@@ -285,11 +290,11 @@ export default function GroupDetailPage() {
     setError("");
     try {
       await restoreTag(tag.id);
-      setDeletedTags(prev => prev.filter(t => t.id !== tag.id));
-      load(); // refresh tag tree
-      toast.success(`「${tag.name}」已恢复`);
+      setDeletedTags(prev => prev.filter(tg => tg.id !== tag.id));
+      load();
+      toast.success(t("tagRestored", { name: tag.name }));
     } catch (err) {
-      setError(err instanceof Error ? err.message : "恢复失败");
+      setError(err instanceof Error ? err.message : t("restoreFailed"));
     }
   };
 
@@ -297,10 +302,10 @@ export default function GroupDetailPage() {
     setConfirmPermTag(null); setError("");
     try {
       await deleteTag(tag.id, { permanent: true });
-      setDeletedTags(prev => prev.filter(t => t.id !== tag.id));
-      toast.success(`「${tag.name}」已永久删除`);
+      setDeletedTags(prev => prev.filter(tg => tg.id !== tag.id));
+      toast.success(t("tagPermanentlyDeleted", { name: tag.name }));
     } catch (err) {
-      setError(err instanceof Error ? err.message : "永久删除失败");
+      setError(err instanceof Error ? err.message : t("permanentDeleteFailed"));
     }
   };
 
@@ -323,6 +328,8 @@ export default function GroupDetailPage() {
   }
   const flatTags = flattenTree(tree);
 
+  const availableEntityTypes = entityTypes.filter(et => !rules.some(r => r.entityType === et));
+
   // ── Render ───────────────────────────────────────────────────────
 
   if (loading) {
@@ -342,13 +349,11 @@ export default function GroupDetailPage() {
     );
   }
 
-  const availableEntityTypes = entityTypes.filter(et => !rules.some(r => r.entityType === et));
-
   return (
     <div className="space-y-6">
       <PageHeader
-        back={{ href: "/groups", label: "返回分组列表" }}
-        title={group?.name ?? "标签分组"}
+        back={{ href: "/groups", label: t("backToList") }}
+        title={group?.name ?? t("title")}
         size="compact"
         description={
           group?.slug ? (
@@ -358,11 +363,11 @@ export default function GroupDetailPage() {
         action={
           <>
             <Button variant="outline" size="sm" onClick={() => setShowGroupEdit(v => !v)}>
-              编辑分组
+              {t("editGroup")}
             </Button>
             <Button size="sm" onClick={() => openCreateForm(null)}>
               <Plus size={13} />
-              新增标签
+              {t("addTagButton")}
             </Button>
           </>
         }
@@ -374,41 +379,41 @@ export default function GroupDetailPage() {
       <Drawer
         open={showGroupEdit}
         onClose={() => setShowGroupEdit(false)}
-        title="编辑分组属性"
+        title={t("editGroupTitle")}
         size="md"
       >
         <form onSubmit={handleGroupSave} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
-            <Field label="显示名称" required>
+            <Field label={t("nameLabel")} required>
               <Input value={groupForm.name} onChange={e => setGF("name", e.target.value)} />
             </Field>
-            <Field label="Slug" hint="修改 slug 会影响调用方，请谨慎操作">
+            <Field label="Slug" hint={t("slugChangeWarning")}>
               <Input value={groupForm.slug} onChange={e => setGF("slug", e.target.value)} className="font-mono" />
             </Field>
           </div>
           <div className="grid grid-cols-2 gap-4">
-            <Field label="适用实体范围" hint="留空则适用所有实体">
+            <Field label={t("entityScopeLabel")} hint={t("entityScopeHintShort")}>
               <Combobox
                 value={groupForm.entityScope}
                 onChange={v => setGF("entityScope", v)}
                 options={entityTypes}
-                placeholder="通用（所有实体）"
-                emptyLabel="通用（所有实体）"
+                placeholder={t("entityScopePlaceholder")}
+                emptyLabel={t("entityScopePlaceholder")}
               />
             </Field>
-            <Field label="默认允许多选">
+            <Field label={t("allowMultipleLabel")}>
               <Select value={groupForm.allowMultiple} onChange={e => setGF("allowMultiple", e.target.value)}>
-                <option value="true">是</option>
-                <option value="false">否（单选）</option>
+                <option value="true">{t("allowMultipleYesShort")}</option>
+                <option value="false">{t("allowMultipleNo")}</option>
               </Select>
             </Field>
           </div>
-          <Field label="描述">
+          <Field label={tCommon("description")}>
             <Textarea value={groupForm.description} onChange={e => setGF("description", e.target.value)} rows={2} />
           </Field>
           <div className="flex gap-3 justify-end pt-2">
-            <Button type="button" variant="outline" onClick={() => setShowGroupEdit(false)}>取消</Button>
-            <Button type="submit" loading={savingGroup}>保存</Button>
+            <Button type="button" variant="outline" onClick={() => setShowGroupEdit(false)}>{tCommon("cancel")}</Button>
+            <Button type="submit" loading={savingGroup}>{tCommon("save")}</Button>
           </div>
         </form>
       </Drawer>
@@ -417,21 +422,23 @@ export default function GroupDetailPage() {
       <Card className="space-y-4">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-sm font-medium text-ink">实体类型规则</p>
-            <p className="text-xs text-ink-faint mt-0.5">为特定实体类型设置 allowMultiple 覆盖值，优先级高于分组默认值</p>
+            <p className="text-sm font-medium text-ink">{t("entityRules")}</p>
+            <p className="text-xs text-ink-faint mt-0.5">{t("entityRulesDesc")}</p>
           </div>
           <Button size="sm" variant="outline" onClick={saveRules} loading={savingRules}>
             <Save size={13} />
-            保存规则
+            {t("saveRules")}
           </Button>
         </div>
         {rules.length === 0 ? (
-          <p className="text-sm text-ink-faint py-2">暂无实体类型规则，使用分组默认 allowMultiple={String(group?.allowMultiple ?? true)}</p>
+          <p className="text-sm text-ink-faint py-2">
+            {t("noEntityRulesDefault", { value: String(group?.allowMultiple ?? true) })}
+          </p>
         ) : (
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-edge">
-                {["实体类型", "允许多选", ""].map((h, i) => (
+                {[t("entityTypeLabel"), t("allowMultipleColLabel"), ""].map((h, i) => (
                   <th key={i} className={`py-2 th-label ${i === 2 ? "text-right" : "text-left"}`}>{h}</th>
                 ))}
               </tr>
@@ -446,8 +453,8 @@ export default function GroupDetailPage() {
                       onChange={e => updateRule(rule.entityType, e.target.value === "true")}
                       className="w-28"
                     >
-                      <option value="true">是</option>
-                      <option value="false">否（单选）</option>
+                      <option value="true">{t("allowMultipleYesShort")}</option>
+                      <option value="false">{t("allowMultipleNo")}</option>
                     </Select>
                   </td>
                   <td className="py-2.5 text-right">
@@ -465,12 +472,12 @@ export default function GroupDetailPage() {
             value={newRuleType}
             onChange={setNewRuleType}
             options={availableEntityTypes}
-            placeholder="选择或输入实体类型…"
+            placeholder={t("entityTypePlaceholderSearch")}
             className="w-48"
           />
           <Button size="sm" variant="outline" onClick={addRule} disabled={!newRuleType.trim()}>
             <Plus size={13} />
-            添加规则
+            {t("addEntityRule")}
           </Button>
         </div>
       </Card>
@@ -479,51 +486,49 @@ export default function GroupDetailPage() {
       <Drawer
         open={showForm}
         onClose={() => setShowForm(false)}
-        title="新建标签"
+        title={t("createTagTitle")}
         description={
           formParentId
-            ? `父节点：${flatTags.find(t => t.id === formParentId)?.name ?? formParentId}`
-            : "创建为根节点"
+            ? t("parentNodeWithName", { name: flatTags.find(tg => tg.id === formParentId)?.name ?? formParentId })
+            : t("createAsRoot")
         }
         size="md"
       >
         <form onSubmit={handleCreate} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
-            <Field label="显示名称" required>
+            <Field label={t("nameLabel")} required>
               <Input
                 value={newForm.name}
                 onChange={e => setNewForm(f => ({ ...f, name: e.target.value }))}
-                placeholder="如 川菜、麻辣"
               />
             </Field>
-            <Field label="Slug" hint="不填则由服务端自动生成">
+            <Field label="Slug" hint={tCommon("optional")}>
               <Input
                 value={newForm.slug}
                 onChange={e => setNewForm(f => ({ ...f, slug: e.target.value }))}
-                placeholder="如 sichuan、spicy"
                 className="font-mono"
               />
             </Field>
           </div>
-          <Field label="父节点" hint="留空则创建为根节点">
+          <Field label={t("parentNodeLabel")} hint={t("parentNodeHint")}>
             <Select
               value={formParentId ?? ""}
               onChange={e => setFormParentId(e.target.value || null)}
             >
-              <option value="">根节点</option>
-              {flatTags.map(t => (
-                <option key={t.id} value={t.id}>
-                  {"　".repeat(t.depth)}{t.name}
+              <option value="">{t("rootNodeOption")}</option>
+              {flatTags.map(tg => (
+                <option key={tg.id} value={tg.id}>
+                  {"　".repeat(tg.depth)}{tg.name}
                 </option>
               ))}
             </Select>
           </Field>
-          <Field label="描述">
+          <Field label={tCommon("description")}>
             <Textarea value={newForm.description} onChange={e => setNewForm(f => ({ ...f, description: e.target.value }))} rows={3} />
           </Field>
           <div className="flex gap-3 justify-end pt-2">
-            <Button type="button" variant="outline" onClick={() => setShowForm(false)}>取消</Button>
-            <Button type="submit" loading={saving}>保存</Button>
+            <Button type="button" variant="outline" onClick={() => setShowForm(false)}>{tCommon("cancel")}</Button>
+            <Button type="submit" loading={saving}>{tCommon("save")}</Button>
           </div>
         </form>
       </Drawer>
@@ -532,13 +537,13 @@ export default function GroupDetailPage() {
       <Drawer
         open={!!editing}
         onClose={() => setEditing(null)}
-        title="编辑标签"
+        title={t("editTagTitle")}
         size="md"
       >
         {editing && (
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
-              <Field label="显示名称" required>
+              <Field label={t("nameLabel")} required>
                 <Input
                   value={editing.name}
                   onChange={e => setEditing(s => s ? { ...s, name: e.target.value } : s)}
@@ -552,24 +557,24 @@ export default function GroupDetailPage() {
                 />
               </Field>
             </div>
-            <Field label="父节点" hint="留空则设为根节点">
+            <Field label={t("parentNodeLabel")} hint={t("parentNodeHint")}>
               <Select
                 value={editing.parentId}
                 onChange={e => setEditing(s => s ? { ...s, parentId: e.target.value } : s)}
               >
-                <option value="">根节点</option>
+                <option value="">{t("rootNodeOption")}</option>
                 {flatTags
-                  .filter(t => t.id !== editing.tag.id)
-                  .map(t => (
-                    <option key={t.id} value={t.id}>
-                      {"　".repeat(t.depth)}{t.name}
+                  .filter(tg => tg.id !== editing.tag.id)
+                  .map(tg => (
+                    <option key={tg.id} value={tg.id}>
+                      {"　".repeat(tg.depth)}{tg.name}
                     </option>
                   ))}
               </Select>
             </Field>
             <div className="flex gap-3 justify-end pt-2">
-              <Button variant="outline" onClick={() => setEditing(null)}>取消</Button>
-              <Button onClick={handleEditSave}>保存</Button>
+              <Button variant="outline" onClick={() => setEditing(null)}>{tCommon("cancel")}</Button>
+              <Button onClick={handleEditSave}>{tCommon("save")}</Button>
             </div>
           </div>
         )}
@@ -579,13 +584,13 @@ export default function GroupDetailPage() {
       {confirmDelete && (
         <ConfirmDialog
           open
-          title={confirmDelete.force ? "强制删除标签" : `删除标签「${confirmDelete.tag.name}」`}
+          title={confirmDelete.force ? t("forceDeleteTagTitle") : t("deleteTagTitle", { name: confirmDelete.tag.name })}
           description={
             confirmDelete.force
-              ? `${confirmDelete.message}\n\n确认强制删除？关联关系将一并移除，操作不可逆。`
+              ? t("forceDeleteTagDesc", { message: confirmDelete.message ?? "" })
               : undefined
           }
-          confirmLabel={confirmDelete.force ? "强制删除" : "删除"}
+          confirmLabel={confirmDelete.force ? tCommon("forceDelete") : tCommon("delete")}
           danger
           onConfirm={() => executeDelete(confirmDelete.tag, !!confirmDelete.force)}
           onCancel={() => setConfirmDelete(null)}
@@ -596,40 +601,38 @@ export default function GroupDetailPage() {
       <Drawer
         open={!!mergeState}
         onClose={() => setMergeState(null)}
-        title="合并标签"
+        title={t("mergeTagTitle")}
         description={
-          mergeState
-            ? `将「${mergeState.source.name}」的实体关联和别名合并到目标标签，并软删除源标签。`
-            : undefined
+          mergeState ? t("mergeTagDesc", { name: mergeState.source.name }) : undefined
         }
         size="sm"
       >
         {mergeState && (
           <div className="space-y-4">
-            <Field label="合并到（目标标签）" required>
+            <Field label={t("mergeTarget")} required>
               <Select
                 value={mergeState.targetId}
                 onChange={e => setMergeState(s => s ? { ...s, targetId: e.target.value } : s)}
               >
-                <option value="">— 选择目标标签 —</option>
+                <option value="">{t("mergeTargetPlaceholder")}</option>
                 {flatTags
-                  .filter(t => t.id !== mergeState.source.id)
-                  .map(t => (
-                    <option key={t.id} value={t.id}>
-                      {"　".repeat(t.depth)}{t.name} ({t.slug})
+                  .filter(tg => tg.id !== mergeState.source.id)
+                  .map(tg => (
+                    <option key={tg.id} value={tg.id}>
+                      {"　".repeat(tg.depth)}{tg.name} ({tg.slug})
                     </option>
                   ))}
               </Select>
             </Field>
             <div className="flex gap-3 justify-end pt-2">
-              <Button variant="outline" onClick={() => setMergeState(null)}>取消</Button>
+              <Button variant="outline" onClick={() => setMergeState(null)}>{tCommon("cancel")}</Button>
               <Button
                 variant="danger"
                 loading={merging}
                 disabled={!mergeState.targetId}
                 onClick={handleMergeConfirm}
               >
-                确认合并
+                {t("confirmMerge")}
               </Button>
             </div>
           </div>
@@ -640,22 +643,20 @@ export default function GroupDetailPage() {
       <Drawer
         open={!!moveGroupState}
         onClose={() => setMoveGroupState(null)}
-        title="迁移标签到其他分组"
+        title={t("moveGroupTitle")}
         description={
-          moveGroupState
-            ? `将「${moveGroupState.tag.name}」及其所有子孙节点移动到目标分组，成为该分组的根节点。`
-            : undefined
+          moveGroupState ? t("moveGroupDesc", { name: moveGroupState.tag.name }) : undefined
         }
         size="sm"
       >
         {moveGroupState && (
           <div className="space-y-4">
-            <Field label="目标分组" required>
+            <Field label={t("targetGroupLabel")} required>
               <Select
                 value={moveGroupState.targetGroupId}
                 onChange={e => setMoveGroupState(s => s ? { ...s, targetGroupId: e.target.value } : s)}
               >
-                <option value="">— 选择目标分组 —</option>
+                <option value="">{t("targetGroupPlaceholder")}</option>
                 {allGroups
                   .filter(g => g.id !== groupId)
                   .map(g => (
@@ -664,14 +665,14 @@ export default function GroupDetailPage() {
               </Select>
             </Field>
             <div className="flex gap-3 justify-end pt-2">
-              <Button variant="outline" onClick={() => setMoveGroupState(null)}>取消</Button>
+              <Button variant="outline" onClick={() => setMoveGroupState(null)}>{tCommon("cancel")}</Button>
               <Button
                 variant="danger"
                 loading={movingGroup}
                 disabled={!moveGroupState.targetGroupId}
                 onClick={handleMoveGroupConfirm}
               >
-                确认迁移
+                {t("confirmMove")}
               </Button>
             </div>
           </div>
@@ -681,8 +682,8 @@ export default function GroupDetailPage() {
       {/* Tag Tree */}
       <Card className="space-y-1 min-h-32">
         <div className="flex items-center justify-between mb-3">
-          <p className="text-sm font-medium text-ink">标签层级</p>
-          <p className="text-xs text-ink-faint">拖拽节点可调整父子关系</p>
+          <p className="text-sm font-medium text-ink">{t("tagTreeTitle")}</p>
+          <p className="text-xs text-ink-faint">{t("tagTreeHint")}</p>
         </div>
         <TagTree nodes={tree} callbacks={treeCallbacks} />
       </Card>
@@ -698,18 +699,18 @@ export default function GroupDetailPage() {
           }}
         >
           <Trash size={12} />
-          <span className="font-medium">标签回收站</span>
+          <span className="font-medium">{t("trashSection")}</span>
           {deletedTags.length > 0 && (
-            <span className="ml-1 text-ink-faint">（{deletedTags.length} 个）</span>
+            <span className="ml-1 text-ink-faint">{t("trashTagCount", { count: deletedTags.length })}</span>
           )}
           <span className="ml-auto text-ink-faint">{showTrash ? "▲" : "▼"}</span>
         </button>
 
         {showTrash && (
           trashLoading ? (
-            <div className="px-5 py-4 text-xs text-ink-faint animate-pulse">加载中…</div>
+            <div className="px-5 py-4 text-xs text-ink-faint animate-pulse">{tCommon("loading")}</div>
           ) : deletedTags.length === 0 ? (
-            <div className="px-5 py-4 text-xs text-ink-faint border-t border-edge">该分组暂无已删除标签</div>
+            <div className="px-5 py-4 text-xs text-ink-faint border-t border-edge">{t("noDeletedTagsInGroup")}</div>
           ) : (
             <div className="border-t border-edge">
               {deletedTags.map(tag => (
@@ -720,23 +721,21 @@ export default function GroupDetailPage() {
                   </div>
                   <p className="text-xs text-ink-faint tabular-nums shrink-0">
                     {tag.deletedAt
-                      ? new Date(tag.deletedAt as unknown as string).toLocaleString("zh-CN", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" })
+                      ? new Date(tag.deletedAt as unknown as string).toLocaleString(undefined, { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" })
                       : ""}
                   </p>
                   <div className="flex items-center gap-1.5 shrink-0">
                     <button
                       onClick={() => handleRestoreTag(tag)}
                       className="inline-flex items-center gap-1 px-2 py-1 text-xs text-ok border border-ok/30 bg-ok/5 hover:bg-ok/10 rounded-md transition-colors"
-                      title="恢复标签"
                     >
-                      <RotateCcw size={10} />恢复
+                      <RotateCcw size={10} />{tCommon("restore")}
                     </button>
                     <button
                       onClick={() => setConfirmPermTag(tag)}
                       className="inline-flex items-center gap-1 px-2 py-1 text-xs text-bad border border-bad/30 bg-bad/5 hover:bg-bad/10 rounded-md transition-colors"
-                      title="永久删除"
                     >
-                      <Trash2 size={10} />永久删除
+                      <Trash2 size={10} />{tCommon("permanentDelete")}
                     </button>
                   </div>
                 </div>
@@ -750,9 +749,9 @@ export default function GroupDetailPage() {
       {confirmPermTag && (
         <ConfirmDialog
           open
-          title={`永久删除「${confirmPermTag.name}」`}
-          description="该标签及其历史实体关联将被彻底移除，无法恢复。"
-          confirmLabel="永久删除"
+          title={`${tCommon("permanentDelete")} "${confirmPermTag.name}"`}
+          description={t("permanentDeleteTagDesc")}
+          confirmLabel={tCommon("permanentDelete")}
           danger
           onConfirm={() => handlePermanentDeleteTag(confirmPermTag)}
           onCancel={() => setConfirmPermTag(null)}

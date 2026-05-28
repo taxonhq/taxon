@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { Plus, Trash2, Search, X, ExternalLink } from "lucide-react";
 import {
   getEntitiesByType, registerEntity, unregisterEntity,
@@ -17,8 +18,6 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
 const PAGE_SIZE_DEFAULT = 20;
 
-// 根据分组 ID 哈希到固定色相位（globals.css 中 --palette-1..8），
-// 通过 color-mix 派生 bg / border / 双层文字，light/dark 主题自动适配。
 function tagPaletteStyle(groupId: string): {
   chip:  React.CSSProperties;
   group: React.CSSProperties;
@@ -32,35 +31,34 @@ function tagPaletteStyle(groupId: string): {
       background: `color-mix(in srgb, ${hue} 12%, transparent)`,
       borderColor: `color-mix(in srgb, ${hue} 25%, transparent)`,
     },
-    // group 二级标签（低饱和、与 ink-faint 接近的派生）
     group: { color: `color-mix(in srgb, ${hue} 55%, var(--text-subtle) 45%)` },
-    // tag 名（更接近主色调，但仍混合 ink 保持可读）
     name:  { color: `color-mix(in srgb, ${hue} 70%, var(--text-primary) 30%)` },
   };
 }
 
 function formatTime(iso: string) {
-  return new Date(iso).toLocaleString("zh-CN", {
+  return new Date(iso).toLocaleString(undefined, {
     year: "numeric", month: "numeric", day: "numeric",
     hour: "2-digit", minute: "2-digit",
   });
 }
 
 export default function EntityTypePage() {
-  const params    = useParams<{ type: string }>();
+  const params     = useParams<{ type: string }>();
   const entityType = decodeURIComponent(params.type);
+  const t = useTranslations("entities");
+  const tCommon = useTranslations("common");
 
-  const [items, setItems]       = useState<RegisteredEntity[]>([]);
-  const [total, setTotal]       = useState(0);
-  const [page, setPage]         = useState(1);
-  const [pageSize, setPageSize] = useState(PAGE_SIZE_DEFAULT);
-  const [loading, setLoading]   = useState(true);
-  const [error, setError]       = useState("");
-  const [search, setSearch]     = useState("");
-  const [committed, setCommitted] = useState(""); // debounced search value
+  const [items, setItems]           = useState<RegisteredEntity[]>([]);
+  const [total, setTotal]           = useState(0);
+  const [page, setPage]             = useState(1);
+  const [pageSize, setPageSize]     = useState(PAGE_SIZE_DEFAULT);
+  const [loading, setLoading]       = useState(true);
+  const [error, setError]           = useState("");
+  const [search, setSearch]         = useState("");
+  const [committed, setCommitted]   = useState("");
 
-  // tags map: entityId → active tags
-  const [tagsMap, setTagsMap]         = useState<Record<string, EntityTagItem[]>>({});
+  const [tagsMap, setTagsMap]       = useState<Record<string, EntityTagItem[]>>({});
   const [tagsLoading, setTagsLoading] = useState(false);
 
   const [showForm, setShowForm] = useState(false);
@@ -75,7 +73,6 @@ export default function EntityTypePage() {
     setLoading(true);
     setError("");
     try {
-      // withTags=true 一次性带回当前页所有实体的 active 标签，避免 N+1
       const data = await getEntitiesByType(entityType, {
         page: p,
         pageSize: ps ?? pageSize,
@@ -91,15 +88,14 @@ export default function EntityTypePage() {
       setTagsMap(map);
       setTagsLoading(false);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "加载失败，请检查服务是否正常运行");
+      setError(err instanceof Error ? tCommon("loadErrorMsg", { message: err.message }) : tCommon("loadError"));
     } finally {
       setLoading(false);
     }
-  }, [entityType, committed, pageSize]);
+  }, [entityType, committed, pageSize, tCommon]);
 
   useEffect(() => { load(1, committed); }, [committed]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Debounce search input → committed
   const handleSearchChange = (v: string) => {
     setSearch(v);
     if (searchRef.current) clearTimeout(searchRef.current);
@@ -122,7 +118,7 @@ export default function EntityTypePage() {
       setCommitted(search);
       load(1, search);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "注册失败");
+      setError(err instanceof Error ? err.message : t("registerFailed"));
     } finally {
       setSaving(false);
     }
@@ -136,26 +132,26 @@ export default function EntityTypePage() {
       setItems(prev => prev.filter(e => e.entityId !== item.entityId));
       setTotal(prev => prev - 1);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "注销失败");
+      setError(err instanceof Error ? err.message : tCommon("operationFailed"));
     }
   };
 
   return (
     <div className="space-y-6">
       <PageHeader
-        back={{ href: "/entities", label: "返回实体类型列表" }}
+        back={{ href: "/entities", label: t("backToTypes") }}
         title={entityType}
         mono
         size="compact"
         description={
           <span className="tabular-nums">
-            共 <span className="text-ink font-medium">{total}</span> 个已注册实体
+            {t("registeredCount", { count: total })}
           </span>
         }
         action={
           <Button size="sm" onClick={() => setShowForm(v => !v)}>
             <Plus size={13} />
-            注册实体
+            {t("registerEntity")}
           </Button>
         }
       />
@@ -166,19 +162,19 @@ export default function EntityTypePage() {
       {showForm && (
         <div className="card-border overflow-hidden p-4 animate-slide-up">
           <form onSubmit={handleRegister} className="flex items-end gap-3">
-            <Field label="实体 ID" required className="flex-1">
+            <Field label={t("entityIdLabel")} required className="flex-1">
               <Input
                 autoFocus
                 value={newId}
                 onChange={e => setNewId(e.target.value)}
                 onKeyDown={e => e.key === "Escape" && setShowForm(false)}
-                placeholder="输入业务系统的实体 ID"
+                placeholder={t("entityIdPlaceholder")}
                 className="font-mono"
               />
             </Field>
             <div className="flex gap-2 pb-[1px]">
-              <Button type="button" variant="ghost" size="sm" onClick={() => setShowForm(false)}>取消</Button>
-              <Button type="submit" size="sm" loading={saving} disabled={!newId.trim()}>注册</Button>
+              <Button type="button" variant="ghost" size="sm" onClick={() => setShowForm(false)}>{tCommon("cancel")}</Button>
+              <Button type="submit" size="sm" loading={saving} disabled={!newId.trim()}>{t("registerEntity")}</Button>
             </div>
           </form>
         </div>
@@ -191,13 +187,13 @@ export default function EntityTypePage() {
           <input
             value={search}
             onChange={e => handleSearchChange(e.target.value)}
-            placeholder="搜索实体 ID…"
+            placeholder={t("searchPlaceholder")}
             className="w-full pl-8 pr-8 py-2 text-sm bg-input border border-edge-mid rounded-lg text-ink placeholder:text-ink-faint focus:outline-none focus:border-edge-strong focus:ring-2 focus:ring-brand-1/40 hover:border-edge-strong/60 transition-all font-mono"
           />
           {search && (
             <button
               onClick={() => handleSearchChange("")}
-              aria-label="清除搜索"
+              aria-label={t("clearSearch")}
               className="absolute right-2.5 top-1/2 -translate-y-1/2 text-ink-faint hover:text-ink transition-colors"
             >
               <X size={12} />
@@ -206,7 +202,7 @@ export default function EntityTypePage() {
         </div>
         {committed && (
           <span className="text-sm text-ink-sub">
-            找到 <span className="text-ink font-medium tabular-nums">{total}</span> 条
+            {t("searchResultCount", { count: total })}
           </span>
         )}
       </div>
@@ -231,10 +227,10 @@ export default function EntityTypePage() {
         <div className="card-border overflow-hidden animate-fade-in">
           <div className="py-20 flex flex-col items-center text-center">
             <p className="text-md font-semibold text-ink-sub">
-              {committed ? `未找到包含「${committed}」的实体` : "暂无已注册实体"}
+              {committed ? t("searchNoResult", { keyword: committed }) : t("noEntities")}
             </p>
             {!committed && (
-              <p className="text-sm text-ink-faint mt-1.5">点击「注册实体」添加第一个实体</p>
+              <p className="text-sm text-ink-faint mt-1.5">{t("noEntitiesHint")}</p>
             )}
           </div>
         </div>
@@ -244,13 +240,13 @@ export default function EntityTypePage() {
             <thead>
               <tr className="border-b border-edge bg-row-head">
                 <th className="pl-5 pr-3 py-3 text-left th-label w-[220px]">
-                  实体 ID
+                  {t("entityIdLabel")}
                 </th>
                 <th className="px-3 py-3 text-left th-label">
-                  标签
+                  {t("entityTags")}
                 </th>
                 <th className="px-3 py-3 text-left th-label w-[130px] whitespace-nowrap">
-                  注册时间
+                  {t("registeredAt")}
                 </th>
                 <th className="pr-4 py-3 text-right th-label w-[90px]" />
               </tr>
@@ -267,7 +263,6 @@ export default function EntityTypePage() {
                     className="group/row hover:bg-row-hover transition-colors animate-fade-in"
                     style={{ animationDelay: `${Math.min(idx, 9) * 20}ms` }}
                   >
-                    {/* Entity ID */}
                     <td className="pl-5 pr-3 py-3.5">
                       <Link
                         href={`/entities/${encodeURIComponent(entityType)}/${encodeURIComponent(item.entityId)}`}
@@ -278,7 +273,6 @@ export default function EntityTypePage() {
                       </Link>
                     </td>
 
-                    {/* Tags — single row, no wrap */}
                     <td className="px-3 py-3.5">
                       {tagsLoading && !(item.entityId in tagsMap) ? (
                         <div className="flex items-center gap-1.5">
@@ -316,24 +310,22 @@ export default function EntityTypePage() {
                       )}
                     </td>
 
-                    {/* Registration time */}
                     <td className="px-3 py-3.5 text-sm text-ink-sub tabular-nums whitespace-nowrap">
                       {formatTime(item.registeredAt)}
                     </td>
 
-                    {/* Actions */}
                     <td className="pr-4 py-3.5">
                       <div className="flex items-center justify-end gap-0.5 opacity-0 group-hover/row:opacity-100 focus-within:opacity-100 transition-opacity">
                         <Link
                           href={`/entities/${encodeURIComponent(entityType)}/${encodeURIComponent(item.entityId)}`}
                           className="px-2 py-1 rounded-md text-xs text-ink-faint hover:text-ink hover:bg-surface-alt transition-all"
                         >
-                          标签管理
+                          {t("manageTags")}
                         </Link>
                         <button
                           onClick={() => setConfirmItem(item)}
                           className="p-1.5 rounded-md text-ink-faint hover:text-bad hover:bg-bad/10 transition-all"
-                          title="注销实体"
+                          title={t("unregisterEntity")}
                         >
                           <Trash2 size={13} />
                         </button>
@@ -357,9 +349,9 @@ export default function EntityTypePage() {
       {confirmItem && (
         <ConfirmDialog
           open
-          title={`注销实体「${confirmItem.entityId}」`}
-          description={`类型：${confirmItem.entityType}\n\n该实体的所有标签关联将一并删除，操作不可逆。`}
-          confirmLabel="注销"
+          title={t("unregisterConfirmTitle", { id: confirmItem.entityId })}
+          description={t("unregisterConfirmDesc", { type: confirmItem.entityType })}
+          confirmLabel={t("unregisterAction")}
           danger
           onConfirm={() => handleUnregister(confirmItem)}
           onCancel={() => setConfirmItem(null)}

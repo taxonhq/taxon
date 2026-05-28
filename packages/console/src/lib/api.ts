@@ -519,6 +519,24 @@ export async function saveDashboardLayout(layout: PersistedDashboardLayout): Pro
   });
 }
 
+// ── System Config ─────────────────────────────────────────────────
+
+export interface SystemConfig {
+  locale: "zh-CN" | "en-US";
+}
+
+export async function getSystemConfig(): Promise<SystemConfig> {
+  return req<SystemConfig>("/settings/system");
+}
+
+export async function updateSystemConfig(data: Partial<SystemConfig>): Promise<void> {
+  await req<unknown>("/settings/system", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+}
+
 // ── Health ────────────────────────────────────────────────────────
 
 export async function getHealth(): Promise<HealthInfo> {

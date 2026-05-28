@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { Plus, Trash2, Copy, Check, ShieldCheck } from "lucide-react";
+import { useTranslations } from "next-intl";
 import {
   listTokens, createToken, revokeToken,
   type ApiToken, type CreatedToken,
@@ -10,7 +11,7 @@ import { PageHeader } from "@/components/ui/page-header";
 import { Button }     from "@/components/ui/button";
 import { ErrorBanner } from "@/components/ui/error-banner";
 
-// ── 角色标签样式 — 使用语义 token，自动适配 light/dark ────────────
+// ── Role badge styles ─────────────────────────────────────────────
 const ROLE_STYLE: Record<ApiToken["role"], string> = {
   reader:   "bg-brand-1/10 text-brand-1 border-brand-1/25",
   writer:   "bg-ok/10     text-ok     border-ok/25",
@@ -18,14 +19,7 @@ const ROLE_STYLE: Record<ApiToken["role"], string> = {
   admin:    "bg-bad/10    text-bad    border-bad/25",
 };
 
-const ROLE_LABEL: Record<ApiToken["role"], string> = {
-  reader:   "只读",
-  writer:   "打标",
-  reviewer: "审核",
-  admin:    "管理员",
-};
-
-// ── 创建 Token 弹窗 ───────────────────────────────────────────────
+// ── Create Token dialog ────────────────────────────────────────────
 function CreateDialog({
   onCreated,
   onClose,
@@ -33,6 +27,8 @@ function CreateDialog({
   onCreated: (t: CreatedToken) => void;
   onClose:   () => void;
 }) {
+  const t = useTranslations("tokens");
+  const tCommon = useTranslations("common");
   const [name,   setName]   = useState("");
   const [role,   setRole]   = useState<ApiToken["role"]>("writer");
   const [scopes, setScopes] = useState("");
@@ -46,10 +42,10 @@ function CreateDialog({
     setError("");
     try {
       const scopeList = scopes.split(",").map(s => s.trim()).filter(Boolean);
-      const t = await createToken({ name: name.trim(), role, scopes: scopeList });
-      onCreated(t);
+      const created = await createToken({ name: name.trim(), role, scopes: scopeList });
+      onCreated(created);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "创建失败");
+      setError(err instanceof Error ? err.message : t("createFailed"));
     } finally {
       setSaving(false);
     }
@@ -58,11 +54,11 @@ function CreateDialog({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
       <div className="bg-surface rounded-xl shadow-xl border border-edge w-full max-w-md p-6">
-        <h2 className="text-base font-semibold text-ink mb-4">创建 API Token</h2>
+        <h2 className="text-base font-semibold text-ink mb-4">{t("createTitle")}</h2>
         {error && <ErrorBanner message={error} />}
         <form onSubmit={submit} className="space-y-4">
           <div>
-            <label className="block text-xs text-ink-sub mb-1">名称 <span className="text-bad">*</span></label>
+            <label className="block text-xs text-ink-sub mb-1">{t("nameLabel")} <span className="text-bad">*</span></label>
             <input
               className="w-full border border-edge rounded-lg px-3 py-2 text-sm text-ink bg-surface-alt focus:outline-none focus:border-edge-strong focus:ring-2 focus:ring-brand-1/40"
               placeholder="restaurant-service"
@@ -72,31 +68,31 @@ function CreateDialog({
             />
           </div>
           <div>
-            <label className="block text-xs text-ink-sub mb-1">角色</label>
+            <label className="block text-xs text-ink-sub mb-1">{t("roleLabel")}</label>
             <select
               className="w-full border border-edge rounded-lg px-3 py-2 text-sm text-ink bg-surface-alt focus:outline-none"
               value={role}
               onChange={e => setRole(e.target.value as ApiToken["role"])}
             >
-              <option value="reader">reader — 只读</option>
-              <option value="writer">writer — 注册实体 + 打标</option>
-              <option value="reviewer">reviewer — writer + 审核 AI 标签</option>
-              <option value="admin">admin — 全权限</option>
+              <option value="reader">{t("roleReader")}</option>
+              <option value="writer">{t("roleWriter")}</option>
+              <option value="reviewer">{t("roleReviewer")}</option>
+              <option value="admin">{t("roleAdmin")}</option>
             </select>
           </div>
           <div>
-            <label className="block text-xs text-ink-sub mb-1">entityType 白名单（逗号分隔，留空=全部）</label>
+            <label className="block text-xs text-ink-sub mb-1">{t("scopeLabel")}</label>
             <input
               className="w-full border border-edge rounded-lg px-3 py-2 text-sm text-ink bg-surface-alt focus:outline-none"
-              placeholder="dish, dining"
+              placeholder={t("scopePlaceholder")}
               value={scopes}
               onChange={e => setScopes(e.target.value)}
             />
           </div>
           <div className="flex justify-end gap-2 pt-2">
-            <Button variant="ghost" type="button" onClick={onClose}>取消</Button>
+            <Button variant="ghost" type="button" onClick={onClose}>{tCommon("cancel")}</Button>
             <Button type="submit" disabled={saving || !name.trim()}>
-              {saving ? "创建中…" : "创建"}
+              {saving ? tCommon("creating") : tCommon("create")}
             </Button>
           </div>
         </form>
@@ -105,8 +101,9 @@ function CreateDialog({
   );
 }
 
-// ── 创建成功后显示明文 token ──────────────────────────────────────
+// ── Token reveal dialog ──────────────────────────────────────────
 function TokenRevealDialog({ token, onClose }: { token: CreatedToken; onClose: () => void }) {
+  const t = useTranslations("tokens");
   const [copied, setCopied] = useState(false);
 
   function copy() {
@@ -120,32 +117,33 @@ function TokenRevealDialog({ token, onClose }: { token: CreatedToken; onClose: (
       <div className="bg-surface rounded-xl shadow-xl border border-edge w-full max-w-lg p-6">
         <div className="flex items-center gap-2 mb-1">
           <ShieldCheck size={18} className="text-ok" />
-          <h2 className="text-base font-semibold text-ink">Token 已创建</h2>
+          <h2 className="text-base font-semibold text-ink">{t("tokenCreated")}</h2>
         </div>
-        <p className="text-xs text-ink-sub mb-4">
-          请立即复制保存。关闭后将无法再次查看明文。
-        </p>
+        <p className="text-xs text-ink-sub mb-4">{t("tokenRevealDesc")}</p>
         <div className="flex items-center gap-2 bg-surface-alt border border-edge rounded-lg px-3 py-2 mb-4">
           <code className="flex-1 text-xs font-mono text-ink break-all">{token.token}</code>
           <button
             onClick={copy}
             className="shrink-0 p-1 rounded hover:bg-edge transition-colors text-ink-faint hover:text-ink"
-            aria-label="复制 token"
-            title="复制"
+            aria-label={t("copyToken")}
+            title={t("copyToken")}
           >
             {copied ? <Check size={14} className="text-ok" /> : <Copy size={14} />}
           </button>
         </div>
         <div className="flex justify-end">
-          <Button onClick={onClose}>我已保存，关闭</Button>
+          <Button onClick={onClose}>{t("saveAndClose")}</Button>
         </div>
       </div>
     </div>
   );
 }
 
-// ── 主页面 ────────────────────────────────────────────────────────
+// ── Main page ─────────────────────────────────────────────────────
 export default function TokensPage() {
+  const t = useTranslations("tokens");
+  const tCommon = useTranslations("common");
+
   const [tokens,     setTokens]     = useState<ApiToken[]>([]);
   const [loading,    setLoading]    = useState(true);
   const [error,      setError]      = useState("");
@@ -158,42 +156,42 @@ export default function TokensPage() {
     try {
       setTokens(await listTokens());
     } catch (e) {
-      setError(e instanceof Error ? e.message : "加载失败");
+      setError(e instanceof Error ? e.message : tCommon("loadError"));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [tCommon]);
 
   useEffect(() => { load(); }, [load]);
 
   async function handleRevoke(id: string, name: string) {
-    if (!confirm(`确定撤销 "${name}"？撤销后无法恢复。`)) return;
+    if (!window.confirm(t("revokeConfirm", { name }))) return;
     try {
       await revokeToken(id);
-      setTokens(prev => prev.map(t => t.id === id ? { ...t, revokedAt: new Date().toISOString() } : t));
+      setTokens(prev => prev.map(tk => tk.id === id ? { ...tk, revokedAt: new Date().toISOString() } : tk));
     } catch (e) {
-      alert(e instanceof Error ? e.message : "撤销失败");
+      alert(e instanceof Error ? e.message : t("revokeFailed"));
     }
   }
 
-  function handleCreated(t: CreatedToken) {
+  function handleCreated(created: CreatedToken) {
     setShowCreate(false);
-    setRevealed(t);
-    setTokens(prev => [t, ...prev]);
+    setRevealed(created);
+    setTokens(prev => [created, ...prev]);
   }
 
-  const active  = tokens.filter(t => !t.revokedAt);
-  const revoked = tokens.filter(t =>  t.revokedAt);
+  const active  = tokens.filter(tk => !tk.revokedAt);
+  const revoked = tokens.filter(tk =>  tk.revokedAt);
 
   return (
     <>
       <PageHeader
-        title="API Tokens"
-        description="管理服务级 API Key 及其权限角色"
+        title={t("title")}
+        description={t("description")}
         action={
           <Button onClick={() => setShowCreate(true)}>
             <Plus size={14} />
-            创建 Token
+            {t("createToken")}
           </Button>
         }
       />
@@ -201,34 +199,34 @@ export default function TokensPage() {
       {error && <ErrorBanner message={error} />}
 
       {loading ? (
-        <p className="text-sm text-ink-faint">加载中…</p>
+        <p className="text-sm text-ink-faint">{tCommon("loading")}</p>
       ) : (
         <div className="space-y-8">
-          {/* 有效 Tokens */}
+          {/* Active tokens */}
           <section>
             <h3 className="text-xs font-semibold text-ink-faint uppercase tracking-widest mb-3">
-              有效 ({active.length})
+              {t("activeTokens")} ({active.length})
             </h3>
             {active.length === 0 ? (
-              <p className="text-sm text-ink-faint">暂无有效 Token</p>
+              <p className="text-sm text-ink-faint">{t("noTokens")}</p>
             ) : (
               <div className="divide-y divide-edge border border-edge rounded-xl overflow-hidden">
-                {active.map(t => (
-                  <TokenRow key={t.id} token={t} onRevoke={() => handleRevoke(t.id, t.name)} />
+                {active.map(tk => (
+                  <TokenRow key={tk.id} token={tk} onRevoke={() => handleRevoke(tk.id, tk.name)} />
                 ))}
               </div>
             )}
           </section>
 
-          {/* 已撤销 Tokens */}
+          {/* Revoked tokens */}
           {revoked.length > 0 && (
             <section>
               <h3 className="text-xs font-semibold text-ink-faint uppercase tracking-widest mb-3">
-                已撤销 ({revoked.length})
+                {t("revokedTokens")} ({revoked.length})
               </h3>
               <div className="divide-y divide-edge border border-edge rounded-xl overflow-hidden opacity-50">
-                {revoked.map(t => (
-                  <TokenRow key={t.id} token={t} revoked />
+                {revoked.map(tk => (
+                  <TokenRow key={tk.id} token={tk} revoked />
                 ))}
               </div>
             </section>
@@ -246,7 +244,7 @@ export default function TokensPage() {
   );
 }
 
-// ── Token 行 ──────────────────────────────────────────────────────
+// ── Token row ─────────────────────────────────────────────────────
 function TokenRow({
   token,
   revoked = false,
@@ -256,13 +254,14 @@ function TokenRow({
   revoked?: boolean;
   onRevoke?: () => void;
 }) {
+  const t = useTranslations("tokens");
   return (
     <div className="flex items-center gap-4 px-4 py-3 bg-surface hover:bg-surface-alt transition-colors">
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 mb-0.5">
           <span className="text-sm font-medium text-ink truncate">{token.name}</span>
           <span className={`text-2xs font-semibold px-1.5 py-0.5 rounded border ${ROLE_STYLE[token.role]}`}>
-            {ROLE_LABEL[token.role]}
+            {t(`roleBadge${token.role.charAt(0).toUpperCase()}${token.role.slice(1)}` as Parameters<typeof t>[0])}
           </span>
           {token.scopes.length > 0 && (
             <span className="text-2xs text-ink-faint font-mono">
@@ -271,17 +270,17 @@ function TokenRow({
           )}
         </div>
         <div className="flex items-center gap-3 text-xs text-ink-faint">
-          <span>创建 {fmt(token.createdAt)}</span>
-          {token.lastUsedAt && <span>上次使用 {fmt(token.lastUsedAt)}</span>}
-          {token.revokedAt  && <span className="text-bad">已撤销 {fmt(token.revokedAt)}</span>}
+          <span>{t("createdBy")} {fmt(token.createdAt)}</span>
+          {token.lastUsedAt && <span>{t("lastUsed")} {fmt(token.lastUsedAt)}</span>}
+          {token.revokedAt  && <span className="text-bad">{t("revoked")} {fmt(token.revokedAt)}</span>}
         </div>
       </div>
       {!revoked && onRevoke && (
         <button
           onClick={onRevoke}
           className="shrink-0 p-1.5 rounded-lg text-ink-faint hover:text-bad hover:bg-bad/10 transition-colors"
-          aria-label="撤销 token"
-          title="撤销"
+          aria-label={t("revokeToken")}
+          title={t("revokeToken")}
         >
           <Trash2 size={14} />
         </button>
@@ -291,7 +290,7 @@ function TokenRow({
 }
 
 function fmt(iso: string) {
-  return new Date(iso).toLocaleString("zh-CN", {
+  return new Date(iso).toLocaleString(undefined, {
     month: "numeric", day: "numeric",
     hour: "2-digit",  minute: "2-digit",
   });

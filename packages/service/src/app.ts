@@ -24,6 +24,7 @@ import { tokensRouter } from './routes/tokens.js'
 import { dashboardMetrics } from './routes/metrics-dashboard.js'
 import { searchRouter } from './routes/search.js'
 import { llmConfigRouter } from './routes/llm-config.js'
+import { systemConfigRouter } from './routes/system-config.js'
 import { governanceRouter } from './routes/governance.js'
 
 export interface AppOptions {
@@ -259,6 +260,7 @@ export function buildApp(opts: AppOptions = {}) {
   app.route('/metrics',    dashboardMetrics)
   app.route('/search',     searchRouter)
   app.route('/settings',    llmConfigRouter)
+  app.route('/settings',    systemConfigRouter)
   app.route('/governance',  governanceRouter)
 
   // ── Dashboard 布局配置 ──────────────────────────────────────────

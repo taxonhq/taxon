@@ -8,6 +8,7 @@
 "use client";
 
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import {
   Layers, Tag, Box, ClipboardCheck, TrendingUp, TrendingDown, Activity,
   CheckCircle2, AlertCircle, ChevronRight, Sparkles,
@@ -60,15 +61,16 @@ const PIE_COLORS = [
 // ═══════════════════════════════════════════════════════════════
 export function fmt(n: number) {
   if (n >= 10_000) return `${(n / 10_000).toFixed(1)}w`;
-  return n.toLocaleString("zh-CN");
+  return n.toLocaleString(undefined);
 }
 function pctSign(p: number) { return p > 0 ? `+${p}%` : `${p}%`; }
 function timeAgo(iso: string) {
   const sec = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
-  if (sec < 60)    return `${sec}秒前`;
-  if (sec < 3600)  return `${Math.floor(sec / 60)}分前`;
-  if (sec < 86400) return `${Math.floor(sec / 3600)}时前`;
-  return `${Math.floor(sec / 86400)}天前`;
+  const rtf = new Intl.RelativeTimeFormat(undefined, { numeric: "auto", style: "narrow" });
+  if (sec < 60)    return rtf.format(-sec, "second");
+  if (sec < 3600)  return rtf.format(-Math.floor(sec / 60), "minute");
+  if (sec < 86400) return rtf.format(-Math.floor(sec / 3600), "hour");
+  return rtf.format(-Math.floor(sec / 86400), "day");
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -77,6 +79,7 @@ function timeAgo(iso: string) {
 export function WidgetHeader({ icon, title, href, sub }: {
   icon?: React.ReactNode; title: string; href?: string; sub?: string;
 }) {
+  const tCommon = useTranslations("common");
   return (
     <div className="flex items-center justify-between px-5 py-3 shrink-0 border-b border-edge">
       <div className="flex items-center gap-2 min-w-0">
@@ -89,7 +92,7 @@ export function WidgetHeader({ icon, title, href, sub }: {
           href={href}
           className="flex items-center gap-0.5 text-2xs text-ink-sub no-underline hover:opacity-100 transition-opacity"
         >
-          全部 <ChevronRight size={10} />
+          {tCommon("viewAll")} <ChevronRight size={10} />
         </Link>
       )}
     </div>
@@ -108,6 +111,7 @@ export function WidgetEmpty({ text }: { text: string }) {
 // 1) KPI Hero — 主指标 + 7 天 Area + 同比
 // ═══════════════════════════════════════════════════════════════
 export function KpiHero({ data }: { data: DashboardData }) {
+  const t = useTranslations("dashboard");
   const { stats, trend, today } = data;
   const series = trend?.series ?? [];
   const todayTags = today?.tags;
@@ -119,7 +123,7 @@ export function KpiHero({ data }: { data: DashboardData }) {
         <div className="flex items-center gap-2">
           <Sparkles size={14} className="text-brand-2" />
           <span className="text-xs font-semibold uppercase tracking-[0.15em] text-ink-sub">
-            核心指标 · 标签总数
+            {t("kpiTitle")}
           </span>
         </div>
         {todayTags && (
@@ -152,10 +156,10 @@ export function KpiHero({ data }: { data: DashboardData }) {
           {fmt(stats.tags)}
         </p>
         <div className="flex items-baseline gap-3 mt-2">
-          <span className="text-sm text-ink-sub">标签实例总数</span>
+          <span className="text-sm text-ink-sub">{t("kpiSub")}</span>
           {todayTags && (
             <span className="text-xs tabular-nums text-ink-sub">
-              今日 <span className="font-semibold text-ink">+{todayTags.today}</span>
+              {t("kpiToday")} <span className="font-semibold text-ink">+{todayTags.today}</span>
             </span>
           )}
         </div>
@@ -163,7 +167,7 @@ export function KpiHero({ data }: { data: DashboardData }) {
 
       {/* 7 天 Area 图 */}
       <div className="flex-1 min-h-0 mt-4">
-        {series.length === 0 ? <WidgetEmpty text="加载趋势数据…" /> : (
+        {series.length === 0 ? <WidgetEmpty text={t("loadingTrend")} /> : (
           <ResponsiveContainer width="100%" height="100%" minHeight={80}>
             <AreaChart data={series} margin={{ top: 0, right: 0, bottom: 0, left: 0 }}>
               <defs>
@@ -180,7 +184,7 @@ export function KpiHero({ data }: { data: DashboardData }) {
         )}
       </div>
       <p className="text-2xs mt-1 tabular-nums text-ink-faint">
-        过去 7 天新增标签趋势
+        {t("kpiTrend")}
       </p>
     </div>
   );
@@ -190,18 +194,19 @@ export function KpiHero({ data }: { data: DashboardData }) {
 // 2) Entity Pie — 实体类型环形分布
 // ═══════════════════════════════════════════════════════════════
 export function EntityPie({ entityTypes }: { entityTypes: EntityTypeStat[] }) {
-  const total = entityTypes.reduce((s, t) => s + t.count, 0);
+  const t = useTranslations("dashboard");
+  const total = entityTypes.reduce((s, et) => s + et.count, 0);
   const display = entityTypes.slice(0, 8);
-  // 折叠剩余项为 "其他"
+  // Collapse remaining items into "Other"
   if (entityTypes.length > 8) {
-    const rest = entityTypes.slice(8).reduce((s, t) => s + t.count, 0);
-    if (rest > 0) display.push({ entityType: "其他", count: rest });
+    const rest = entityTypes.slice(8).reduce((s, et) => s + et.count, 0);
+    if (rest > 0) display.push({ entityType: t("entityPieOther"), count: rest });
   }
 
   return (
     <div className="flex flex-col h-full">
-      <WidgetHeader icon={<Box size={13} strokeWidth={1.5} />} title="实体类型分布" href="/entities" />
-      {display.length === 0 ? <WidgetEmpty text="暂无实体数据" /> : (
+      <WidgetHeader icon={<Box size={13} strokeWidth={1.5} />} title={t("entityPieTitle")} href="/entities" />
+      {display.length === 0 ? <WidgetEmpty text={t("noEntityData")} /> : (
         <div className="flex-1 grid grid-cols-[1fr,1fr] gap-3 px-5 py-4 min-h-0">
           {/* 环形图 + 中心总数 */}
           <div className="relative flex items-center justify-center min-h-0">
@@ -218,7 +223,7 @@ export function EntityPie({ entityTypes }: { entityTypes: EntityTypeStat[] }) {
               </PieChart>
             </ResponsiveContainer>
             <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-              <p className="text-2xs uppercase tracking-wider text-ink-faint">总计</p>
+              <p className="text-2xs uppercase tracking-wider text-ink-faint">{t("statPieTotal")}</p>
               <p
                 className="font-extrabold tabular-nums leading-none mt-1 text-display-lg text-ink"
                 style={{ letterSpacing: "-0.04em" }}
@@ -226,18 +231,18 @@ export function EntityPie({ entityTypes }: { entityTypes: EntityTypeStat[] }) {
                 {fmt(total)}
               </p>
               <p className="text-2xs mt-1 text-ink-sub">
-                {entityTypes.length} 种类型
+                {t("statPieTypes", { count: entityTypes.length })}
               </p>
             </div>
           </div>
           {/* 图例列表 */}
           <div className="flex flex-col gap-1.5 min-h-0 overflow-y-auto pr-1">
-            {display.map((t, i) => {
-              const pct = total ? Math.round((t.count / total) * 100) : 0;
+            {display.map((et, i) => {
+              const pct = total ? Math.round((et.count / total) * 100) : 0;
               return (
-                <div key={t.entityType} className="flex items-center gap-2 text-xs">
+                <div key={et.entityType} className="flex items-center gap-2 text-xs">
                   <span className="w-2 h-2 rounded-sm shrink-0" style={{ background: PIE_COLORS[i % PIE_COLORS.length] }} />
-                  <span className="flex-1 truncate font-mono text-ink-dim">{t.entityType}</span>
+                  <span className="flex-1 truncate font-mono text-ink-dim">{et.entityType}</span>
                   <span className="tabular-nums shrink-0 text-ink-sub">{pct}%</span>
                 </div>
               );
@@ -270,11 +275,12 @@ function TrendTooltip({ active, payload }: { active?: boolean; payload?: Array<{
 }
 
 export function TrendChart({ data }: { data: DashboardData }) {
+  const t = useTranslations("dashboard");
   const series = data.trend?.series ?? [];
   return (
     <div className="flex flex-col h-full">
-      <WidgetHeader icon={<Activity size={13} strokeWidth={1.5} />} title="趋势对比" sub="过去 7 天" />
-      {series.length === 0 ? <WidgetEmpty text="加载趋势数据…" /> : (
+      <WidgetHeader icon={<Activity size={13} strokeWidth={1.5} />} title={t("trendTitle")} sub={t("trendSub")} />
+      {series.length === 0 ? <WidgetEmpty text={t("loadingTrend")} /> : (
         <div className="flex-1 min-h-0 p-3">
           <ResponsiveContainer width="100%" height="100%" minHeight={80}>
             <LineChart data={series} margin={{ top: 12, right: 16, bottom: 8, left: 0 }}>
@@ -283,9 +289,9 @@ export function TrendChart({ data }: { data: DashboardData }) {
               <YAxis stroke={CHART.ink4} tick={{ fontSize: 10, fill: CHART.ink3 }}
                 axisLine={false} tickLine={false} width={30} />
               <Tooltip content={<TrendTooltip />} cursor={{ stroke: CHART.edge2, strokeDasharray: 4 }} />
-              <Line type="monotone" dataKey="tags"     name="标签" stroke={CHART.brand2} strokeWidth={2} dot={false} />
-              <Line type="monotone" dataKey="entities" name="实体" stroke={CHART.cyan}   strokeWidth={2} dot={false} />
-              <Line type="monotone" dataKey="reviews"  name="审核" stroke={CHART.amber}  strokeWidth={2} dot={false} />
+              <Line type="monotone" dataKey="tags"     name={t("trendTagsLine")}     stroke={CHART.brand2} strokeWidth={2} dot={false} />
+              <Line type="monotone" dataKey="entities" name={t("trendEntitiesLine")} stroke={CHART.cyan}   strokeWidth={2} dot={false} />
+              <Line type="monotone" dataKey="reviews"  name={t("trendReviewsLine")}  stroke={CHART.amber}  strokeWidth={2} dot={false} />
             </LineChart>
           </ResponsiveContainer>
         </div>
@@ -293,9 +299,9 @@ export function TrendChart({ data }: { data: DashboardData }) {
       {/* 图例 */}
       <div className="flex items-center justify-center gap-4 px-4 pb-3 shrink-0">
         {[
-          { c: CHART.brand2, l: "新增标签" },
-          { c: CHART.cyan,   l: "新增实体" },
-          { c: CHART.amber,  l: "审核操作" },
+          { c: CHART.brand2, l: t("trendTagsLine") },
+          { c: CHART.cyan,   l: t("trendEntitiesLine") },
+          { c: CHART.amber,  l: t("trendReviewsLine") },
         ].map(x => (
           <div key={x.l} className="flex items-center gap-1.5 text-2xs text-ink-sub">
             <span className="w-3 h-[2px] rounded-full" style={{ background: x.c }} />
@@ -310,39 +316,44 @@ export function TrendChart({ data }: { data: DashboardData }) {
 // ═══════════════════════════════════════════════════════════════
 // 4) Stat Mini — 含 sparkline 的统计小卡
 // ═══════════════════════════════════════════════════════════════
-const STAT_THEME = {
-  "stat-groups":   { color: "#6366f1", icon: Layers,         label: "标签分组",   href: "/groups",   metric: "groups",   trendKey: null            as "tags" | "entities" | "reviews" | null },
-  "stat-tags":     { color: "#a855f7", icon: Tag,            label: "标签总数",   href: "/groups",   metric: "tags",     trendKey: "tags"          as const },
-  "stat-entities": { color: "#06b6d4", icon: Box,            label: "已注册实体", href: "/entities", metric: "entities", trendKey: "entities"      as const },
-  "stat-pending":  { color: "#f59e0b", icon: ClipboardCheck, label: "待审核",     href: "/audit",    metric: "pending",  trendKey: null            as "tags" | "entities" | "reviews" | null },
+const STAT_CONFIG = {
+  "stat-groups":   { color: "#6366f1", icon: Layers,         href: "/groups",   metric: "groups",   trendKey: null            as "tags" | "entities" | "reviews" | null },
+  "stat-tags":     { color: "#a855f7", icon: Tag,            href: "/groups",   metric: "tags",     trendKey: "tags"          as const },
+  "stat-entities": { color: "#06b6d4", icon: Box,            href: "/entities", metric: "entities", trendKey: "entities"      as const },
+  "stat-pending":  { color: "#f59e0b", icon: ClipboardCheck, href: "/audit",    metric: "pending",  trendKey: null            as "tags" | "entities" | "reviews" | null },
 } as const;
 
-export function StatMini({ id, data }: { id: keyof typeof STAT_THEME; data: DashboardData }) {
-  const theme = STAT_THEME[id];
-  const Icon  = theme.icon;
-  const value = data.stats[theme.metric as keyof typeof data.stats];
-  const today = theme.metric === "tags"     ? data.today?.tags
-              : theme.metric === "entities" ? data.today?.entities
-              : theme.metric === "pending"  ? data.today?.audits
+export function StatMini({ id, data }: { id: keyof typeof STAT_CONFIG; data: DashboardData }) {
+  const t = useTranslations("dashboard");
+  const config = STAT_CONFIG[id];
+  const Icon   = config.icon;
+  const label  = id === "stat-groups"   ? t("statsGroupsTitle")
+               : id === "stat-tags"     ? t("statsTagsTitle")
+               : id === "stat-entities" ? t("statsEntitiesTitle")
+               :                          t("statsAuditsTitle");
+  const value = data.stats[config.metric as keyof typeof data.stats];
+  const today = config.metric === "tags"     ? data.today?.tags
+              : config.metric === "entities" ? data.today?.entities
+              : config.metric === "pending"  ? data.today?.audits
               : null;
-  const spark = theme.trendKey ? (data.trend?.series ?? []).map(s => ({ v: s[theme.trendKey!] })) : null;
+  const spark = config.trendKey ? (data.trend?.series ?? []).map(s => ({ v: s[config.trendKey!] })) : null;
   const isAlert = id === "stat-pending" && value > 0;
 
   return (
-    <Link href={theme.href} className="flex flex-col h-full p-4 group relative overflow-hidden no-underline">
+    <Link href={config.href} className="flex flex-col h-full p-4 group relative overflow-hidden no-underline">
       {/* 角落淡色装饰 */}
       <div className="absolute -top-8 -right-8 w-24 h-24 rounded-full pointer-events-none transition-opacity duration-300 opacity-30 group-hover:opacity-50"
-        style={{ background: `radial-gradient(circle, ${theme.color}40, transparent 70%)` }} />
+        style={{ background: `radial-gradient(circle, ${config.color}40, transparent 70%)` }} />
 
       {/* 顶部：图标 + 标签 + 同比 */}
       <div className="flex items-start justify-between gap-2 shrink-0 relative z-10">
         <div className="flex items-center gap-2">
           <span className="p-1.5 rounded-lg border"
-            style={{ background: `${theme.color}1F`, color: theme.color, borderColor: `${theme.color}33` }}>
+            style={{ background: `${config.color}1F`, color: config.color, borderColor: `${config.color}33` }}>
             <Icon size={13} strokeWidth={1.8} />
           </span>
           <span className="text-2xs font-semibold uppercase tracking-[0.1em] text-ink-sub">
-            {theme.label}
+            {label}
           </span>
         </div>
         {today && today.comparePct !== 0 && (
@@ -365,14 +376,14 @@ export function StatMini({ id, data }: { id: keyof typeof STAT_THEME; data: Dash
           )}
           style={{
             letterSpacing: "-0.04em",
-            ...(isAlert && { color: theme.color }),
+            ...(isAlert && { color: config.color }),
           }}
         >
           {fmt(value)}
         </p>
         {today && (
           <p className="text-2xs mt-1.5 tabular-nums text-ink-sub">
-            今日 +{today.today}
+            {t("statTodayNew", { n: today.today })}
           </p>
         )}
       </div>
@@ -384,11 +395,11 @@ export function StatMini({ id, data }: { id: keyof typeof STAT_THEME; data: Dash
             <AreaChart data={spark} margin={{ top: 2, right: 2, bottom: 0, left: 2 }}>
               <defs>
                 <linearGradient id={`spark-${id}`} x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%"   stopColor={theme.color} stopOpacity={0.4} />
-                  <stop offset="100%" stopColor={theme.color} stopOpacity={0}   />
+                  <stop offset="0%"   stopColor={config.color} stopOpacity={0.4} />
+                  <stop offset="100%" stopColor={config.color} stopOpacity={0}   />
                 </linearGradient>
               </defs>
-              <Area type="monotone" dataKey="v" stroke={theme.color} strokeWidth={1.5}
+              <Area type="monotone" dataKey="v" stroke={config.color} strokeWidth={1.5}
                 fill={`url(#spark-${id})`} />
             </AreaChart>
           </ResponsiveContainer>
@@ -401,18 +412,31 @@ export function StatMini({ id, data }: { id: keyof typeof STAT_THEME; data: Dash
 // ═══════════════════════════════════════════════════════════════
 // 5) Activity Feed — 最近活动流（自滚动）
 // ═══════════════════════════════════════════════════════════════
-const SOURCE_LABEL: Record<string, { label: string; color: string }> = {
-  manual: { label: "手动",   color: "#06b6d4" },
-  ai:     { label: "AI",     color: "#a855f7" },
-  system: { label: "系统",   color: "#22c55e" },
-  import: { label: "导入",   color: "#f59e0b" },
-};
-
 export function ActivityFeed({ activity }: { activity: ActivityEvent[] }) {
+  const t = useTranslations("dashboard");
+  const tAudit = useTranslations("audit");
+
+  const sourceLabel = (source: string) => {
+    const map: Record<string, string> = {
+      ai:     tAudit("sourceAi"),
+      manual: tAudit("sourceManual"),
+      system: tAudit("sourceSystem"),
+      import: tAudit("sourceImport"),
+    };
+    return map[source] ?? source;
+  };
+
+  const SOURCE_COLOR: Record<string, string> = {
+    manual: "#06b6d4",
+    ai:     "#a855f7",
+    system: "#22c55e",
+    import: "#f59e0b",
+  };
+
   return (
     <div className="flex flex-col h-full">
-      <WidgetHeader icon={<Activity size={13} strokeWidth={1.5} />} title="最近活动" sub={`${activity.length} 条`} />
-      {activity.length === 0 ? <WidgetEmpty text="暂无活动记录" /> : (
+      <WidgetHeader icon={<Activity size={13} strokeWidth={1.5} />} title={t("activityTitle")} sub={t("activityCount", { count: activity.length })} />
+      {activity.length === 0 ? <WidgetEmpty text={t("noActivity")} /> : (
         <ul className="flex-1 overflow-y-auto px-2 py-2 space-y-0.5">
           {activity.map((ev, i) => (
             <li
@@ -425,11 +449,11 @@ export function ActivityFeed({ activity }: { activity: ActivityEvent[] }) {
                   <span
                     className="text-2xs font-bold px-1.5 py-0.5 rounded font-mono shrink-0"
                     style={{
-                      background: `${SOURCE_LABEL[ev.source]?.color ?? "#fff"}1F`,
-                      color: SOURCE_LABEL[ev.source]?.color ?? "#fff",
+                      background: `${SOURCE_COLOR[ev.source] ?? "#fff"}1F`,
+                      color: SOURCE_COLOR[ev.source] ?? "#fff",
                     }}
                   >
-                    {SOURCE_LABEL[ev.source]?.label ?? ev.source}
+                    {sourceLabel(ev.source)}
                   </span>
                 ) : (
                   <span
@@ -438,7 +462,7 @@ export function ActivityFeed({ activity }: { activity: ActivityEvent[] }) {
                       ev.toStatus === "active" ? "bg-ok/15 text-ok" : "bg-bad/15 text-bad",
                     )}
                   >
-                    {ev.toStatus === "active" ? "通过" : "拒绝"}
+                    {ev.toStatus === "active" ? t("activityApproved") : t("activityRejected")}
                   </span>
                 )}
                 <span className="font-mono text-2xs truncate text-ink">{ev.tagName}</span>
@@ -461,23 +485,24 @@ export function ActivityFeed({ activity }: { activity: ActivityEvent[] }) {
 // 6) Health Bar — 服务健康（REC 4×2 横长条）
 // ═══════════════════════════════════════════════════════════════
 export function HealthBar({ health }: { health: HealthInfo | null }) {
+  const t = useTranslations("dashboard");
   const cells: Array<{ label: string; value: React.ReactNode }> = [
     {
-      label: "服务",
-      value: <Dot ok={health?.status === "ok"} text={health?.status === "ok" ? "在线" : "异常"} />,
+      label: t("healthService"),
+      value: <Dot ok={health?.status === "ok"} text={health?.status === "ok" ? t("healthOnline") : t("healthError")} />,
     },
     {
-      label: "数据库",
-      value: <Dot ok={health?.db === "ok"} text={health?.db === "ok" ? "正常" : "异常"} />,
+      label: t("healthDb"),
+      value: <Dot ok={health?.db === "ok"} text={health?.db === "ok" ? t("healthOk") : t("healthError")} />,
     },
     {
-      label: "服务版本",
+      label: t("healthVersion"),
       value: <span className="font-mono text-base font-semibold text-ink">
         {health?.version ? `v${health.version}` : "—"}
       </span>,
     },
     {
-      label: "Node.js",
+      label: t("healthNodeJs"),
       value: <span className="font-mono text-sm text-ink-dim">
         {health?.nodeVersion ?? "—"}
       </span>,
@@ -486,7 +511,7 @@ export function HealthBar({ health }: { health: HealthInfo | null }) {
 
   return (
     <div className="flex flex-col h-full">
-      <WidgetHeader icon={<CheckCircle2 size={13} strokeWidth={1.5} />} title="服务健康" />
+      <WidgetHeader icon={<CheckCircle2 size={13} strokeWidth={1.5} />} title={t("healthTitle")} />
       <div className="flex-1 grid grid-cols-4 min-h-0">
         {cells.map((c, i) => (
           <div
@@ -562,8 +587,13 @@ export function renderWidget(id: string, data: DashboardData) {
     case "stat-pending":  return <StatMini id="stat-pending"  data={data} />;
     case "activity-feed": return <ActivityFeed activity={data.activity} />;
     case "health-bar":    return <HealthBar health={data.health} />;
-    default: return <WidgetEmpty text={`未知组件 ${id}`} />;
+    default: return <UnknownWidget id={id} />;
   }
+}
+
+function UnknownWidget({ id }: { id: string }) {
+  const t = useTranslations("dashboard");
+  return <WidgetEmpty text={t("unknownWidget", { id })} />;
 }
 
 // 临时引用消除 unused 警告

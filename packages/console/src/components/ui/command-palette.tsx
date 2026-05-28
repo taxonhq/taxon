@@ -13,6 +13,7 @@ import {
   type ReactNode,
 } from "react";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { Command } from "cmdk";
 import {
   LayoutDashboard, Layers, Box, ClipboardCheck, Search,
@@ -32,17 +33,17 @@ interface CommandPaletteProps {
   onToggleSidebar?: () => void;
 }
 
-// ── Static nav items ──────────────────────────────────────────────────────────
+// ── Static nav items (labels resolved at render time via useTranslations) ─────
 
-const NAV_ITEMS = [
-  { id: "nav-dashboard", label: "仪表盘",  icon: LayoutDashboard, href: "/" },
-  { id: "nav-groups",    label: "分组管理", icon: Layers,          href: "/groups" },
-  { id: "nav-entities",  label: "实体管理", icon: Box,             href: "/entities" },
-  { id: "nav-search",    label: "实体检索", icon: Search,          href: "/search" },
-  { id: "nav-audit",       label: "审核队列", icon: ClipboardCheck, href: "/audit" },
-  { id: "nav-governance", label: "标签治理", icon: ShieldCheck,    href: "/governance" },
-  { id: "nav-llm",        label: "LLM 设置", icon: Sparkles,       href: "/settings/llm" },
-  { id: "nav-tokens",    label: "API Tokens",icon: KeyRound,       href: "/settings/tokens" },
+const NAV_ITEM_DEFS = [
+  { id: "nav-dashboard",  navKey: "dashboard",    icon: LayoutDashboard, href: "/" },
+  { id: "nav-groups",     navKey: "groups",       icon: Layers,          href: "/groups" },
+  { id: "nav-entities",   navKey: "entities",     icon: Box,             href: "/entities" },
+  { id: "nav-search",     navKey: "search",       icon: Search,          href: "/search" },
+  { id: "nav-audit",      navKey: "audit",        icon: ClipboardCheck,  href: "/audit" },
+  { id: "nav-governance", navKey: "governance",   icon: ShieldCheck,     href: "/governance" },
+  { id: "nav-llm",        navKey: "llmSettings",  icon: Sparkles,        href: "/settings/llm" },
+  { id: "nav-tokens",     navKey: null,           icon: KeyRound,        href: "/settings/tokens", label: "API Tokens" },
 ] as const;
 
 // ── Sub-components ────────────────────────────────────────────────────────────
@@ -89,6 +90,8 @@ function Hint({ label }: { label: string }) {
 // ── Main component ────────────────────────────────────────────────────────────
 
 export function CommandPalette({ open, onOpenChange, onToggleSidebar }: CommandPaletteProps) {
+  const t = useTranslations("palette");
+  const tNav = useTranslations("nav");
   const router = useRouter();
   const [query, setQuery] = useState("");
   const deferredQuery = useDeferredValue(query);
@@ -187,16 +190,16 @@ export function CommandPalette({ open, onOpenChange, onToggleSidebar }: CommandP
               ref={inputRef}
               value={query}
               onValueChange={setQuery}
-              placeholder="搜索标签、分组、页面…"
+              placeholder={t("searchPlaceholder")}
               className="flex-1 py-3.5 text-sm text-ink bg-transparent placeholder:text-ink-faint focus:outline-none"
-              aria-label="命令面板搜索"
+              aria-label={t("searchAriaLabel")}
             />
             {query && (
               <button
                 onClick={() => setQuery("")}
                 className="text-xs text-ink-faint hover:text-ink px-1.5 py-0.5 rounded border border-edge-mid hover:border-edge-strong transition-colors"
               >
-                清空
+                {t("clear")}
               </button>
             )}
             <kbd className="hidden sm:flex items-center text-xs text-ink-faint border border-edge-mid rounded px-1.5 py-0.5 font-mono">
@@ -207,15 +210,16 @@ export function CommandPalette({ open, onOpenChange, onToggleSidebar }: CommandP
           {/* Results */}
           <Command.List className="overflow-y-auto max-h-[420px] p-2">
             <Command.Empty className="py-12 text-center text-sm text-ink-faint">
-              {loadingTags ? "搜索中…" : "无匹配结果"}
+              {loadingTags ? t("searching") : t("noResults")}
             </Command.Empty>
 
-            {/* ── 导航 ── */}
+            {/* ── Navigation ── */}
             <Command.Group
-              heading="导航"
+              heading={t("navHeading")}
               className="[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-2xs [&_[cmdk-group-heading]]:font-semibold [&_[cmdk-group-heading]]:text-ink-faint [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:tracking-widest mb-1"
             >
-              {NAV_ITEMS
+              {NAV_ITEM_DEFS
+                .map(item => ({ ...item, label: item.navKey ? tNav(item.navKey as Parameters<typeof tNav>[0]) : item.label }))
                 .filter(item =>
                   !query.trim() ||
                   item.label.toLowerCase().includes(query.toLowerCase())
@@ -230,10 +234,10 @@ export function CommandPalette({ open, onOpenChange, onToggleSidebar }: CommandP
               }
             </Command.Group>
 
-            {/* ── 分组搜索 ── */}
+            {/* ── Groups search ── */}
             {filteredGroups.length > 0 && (
               <Command.Group
-                heading="分组"
+                heading={t("groupsHeading")}
                 className="[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-2xs [&_[cmdk-group-heading]]:font-semibold [&_[cmdk-group-heading]]:text-ink-faint [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:tracking-widest mb-1"
               >
                 {filteredGroups.map(group => (
@@ -244,10 +248,10 @@ export function CommandPalette({ open, onOpenChange, onToggleSidebar }: CommandP
                       <span className="block text-xs text-ink-faint truncate">
                         {group.entityScopes.length > 0
                           ? group.entityScopes.join(" · ")
-                          : "全部实体类型"
+                          : t("allEntityTypes")
                         }
                         {" · "}
-                        {group._count?.tags ?? 0} 个标签
+                        {t("tagCount", { count: group._count?.tags ?? 0 })}
                       </span>
                     </div>
                   </CmdItem>
@@ -255,10 +259,10 @@ export function CommandPalette({ open, onOpenChange, onToggleSidebar }: CommandP
               </Command.Group>
             )}
 
-            {/* ── 标签搜索（API，有查询词时展示）── */}
+            {/* ── Tag search (API, shown when query is set) ── */}
             {query.trim() && tags.length > 0 && (
               <Command.Group
-                heading="标签"
+                heading={t("tagsHeading")}
                 className="[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-2xs [&_[cmdk-group-heading]]:font-semibold [&_[cmdk-group-heading]]:text-ink-faint [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:tracking-widest mb-1"
               >
                 {tags.map(tag => (
@@ -268,19 +272,19 @@ export function CommandPalette({ open, onOpenChange, onToggleSidebar }: CommandP
                       <span className="block text-sm">{tag.name}</span>
                       <span className="block text-xs text-ink-faint font-mono">{tag.slug}</span>
                     </div>
-                    <span className="text-xs text-ink-faint shrink-0 ml-2">跳转分组</span>
+                    <span className="text-xs text-ink-faint shrink-0 ml-2">{t("jumpToGroup")}</span>
                   </CmdItem>
                 ))}
               </Command.Group>
             )}
 
-            {/* ── 操作 ── */}
-            {(!query.trim() || "切换主题".includes(query) || "主题".includes(query) || "侧边栏".includes(query)) && (
+            {/* ── Actions ── */}
+            {(!query.trim() || t("toggleTheme").toLowerCase().includes(query.toLowerCase()) || t("toggleSidebar").toLowerCase().includes(query.toLowerCase())) && (
               <Command.Group
-                heading="操作"
+                heading={t("actionsHeading")}
                 className="[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-2xs [&_[cmdk-group-heading]]:font-semibold [&_[cmdk-group-heading]]:text-ink-faint [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:tracking-widest"
               >
-                {(!query.trim() || "切换主题".includes(query) || "主题".includes(query)) && (
+                {(!query.trim() || t("toggleTheme").toLowerCase().includes(query.toLowerCase())) && (
                   <CmdItem
                     onSelect={() => {
                       close();
@@ -292,11 +296,11 @@ export function CommandPalette({ open, onOpenChange, onToggleSidebar }: CommandP
                     }}
                   >
                     <ItemIcon><SunMoon size={13} /></ItemIcon>
-                    <span className="flex-1">切换主题</span>
+                    <span className="flex-1">{t("toggleTheme")}</span>
                     <Hint label="light / dark" />
                   </CmdItem>
                 )}
-                {(!query.trim() || "侧边栏".includes(query) || "sidebar".includes(query.toLowerCase())) && (
+                {(!query.trim() || t("toggleSidebar").toLowerCase().includes(query.toLowerCase()) || "sidebar".includes(query.toLowerCase())) && (
                   <CmdItem
                     onSelect={() => {
                       close();
@@ -304,7 +308,7 @@ export function CommandPalette({ open, onOpenChange, onToggleSidebar }: CommandP
                     }}
                   >
                     <ItemIcon><PanelLeft size={13} /></ItemIcon>
-                    <span className="flex-1">切换侧边栏</span>
+                    <span className="flex-1">{t("toggleSidebar")}</span>
                     <Hint label="⌘B" />
                   </CmdItem>
                 )}
@@ -315,16 +319,16 @@ export function CommandPalette({ open, onOpenChange, onToggleSidebar }: CommandP
           {/* Footer hint */}
           <div className="px-4 py-2 border-t border-edge flex items-center gap-4 text-2xs text-ink-faint">
             <span className="flex items-center gap-1">
-              <kbd className="px-1 border border-edge rounded font-mono">↑↓</kbd> 导航
+              <kbd className="px-1 border border-edge rounded font-mono">↑↓</kbd> {t("footerNav")}
             </span>
             <span className="flex items-center gap-1">
-              <kbd className="px-1 border border-edge rounded font-mono">↵</kbd> 确认
+              <kbd className="px-1 border border-edge rounded font-mono">↵</kbd> {t("footerConfirm")}
             </span>
             <span className="flex items-center gap-1">
-              <kbd className="px-1 border border-edge rounded font-mono">Esc</kbd> 关闭
+              <kbd className="px-1 border border-edge rounded font-mono">Esc</kbd> {t("footerClose")}
             </span>
             <span className="ml-auto flex items-center gap-1">
-              <kbd className="px-1 border border-edge rounded font-mono">⌘K</kbd> 再次唤起
+              <kbd className="px-1 border border-edge rounded font-mono">⌘K</kbd> {t("footerOpen")}
             </span>
           </div>
         </Command>

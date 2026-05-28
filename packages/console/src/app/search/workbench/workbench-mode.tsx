@@ -426,7 +426,7 @@ function ListView({ data, onDrill }: { data: SearchEntitiesResult; onDrill: () =
             <span className="text-xs text-ink-faint">{item.entityType}</span>
             <span className="text-sm text-ink font-mono">{item.entityId}</span>
             <span className="ml-auto text-xs text-ink-faint">
-              {new Date(item.registeredAt).toLocaleString("zh-CN")}
+              {new Date(item.registeredAt).toLocaleString(undefined)}
             </span>
           </div>
           {item.tags && item.tags.length > 0 && (

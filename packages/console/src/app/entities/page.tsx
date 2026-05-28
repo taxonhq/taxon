@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { Plus, Box, ChevronRight, X } from "lucide-react";
 import { getEntityTypes, registerEntity } from "@/lib/api";
 import { Button } from "@/components/ui/button";
@@ -16,6 +17,9 @@ interface EntityTypeStat {
 }
 
 export default function EntitiesPage() {
+  const t = useTranslations("entities");
+  const tCommon = useTranslations("common");
+
   const [types, setTypes]         = useState<EntityTypeStat[]>([]);
   const [loading, setLoading]     = useState(true);
   const [error, setError]         = useState("");
@@ -29,18 +33,18 @@ export default function EntitiesPage() {
       const data = await getEntityTypes();
       setTypes(data);
     } catch (err) {
-      setError(err instanceof Error ? `加载失败：${err.message}` : "加载失败，请检查服务是否正常运行");
+      setError(err instanceof Error ? tCommon("loadErrorMsg", { message: err.message }) : tCommon("loadError"));
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => { load(); }, []); // load on mount only
+  useEffect(() => { load(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.entityType.trim() || !form.entityId.trim()) {
-      setError("实体类型和 ID 均为必填");
+      setError(t("entityTypeRequired"));
       return;
     }
     setSaving(true);
@@ -51,7 +55,7 @@ export default function EntitiesPage() {
       setShowForm(false);
       load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "注册失败");
+      setError(err instanceof Error ? err.message : t("registerFailed"));
     } finally {
       setSaving(false);
     }
@@ -62,12 +66,12 @@ export default function EntitiesPage() {
   return (
     <div className="space-y-7">
       <PageHeader
-        title="实体管理"
-        description="管理已注册的业务实体及其标签关联"
+        title={t("title")}
+        description={t("description")}
         action={
           <Button size="sm" onClick={() => setShowForm(v => !v)}>
             <Plus size={13} />
-            注册实体
+            {t("registerEntity")}
           </Button>
         }
       />
@@ -79,8 +83,8 @@ export default function EntitiesPage() {
         <div className="card-border overflow-hidden p-5 space-y-4 animate-slide-up">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-md font-semibold text-ink">注册新实体</p>
-              <p className="text-sm text-ink-sub mt-0.5">注册后可为实体打标，实体 ID 来自业务系统</p>
+              <p className="text-md font-semibold text-ink">{t("registerTitle")}</p>
+              <p className="text-sm text-ink-sub mt-0.5">{t("registerDesc")}</p>
             </div>
             <button onClick={() => setShowForm(false)} className="p-1.5 text-ink-faint hover:text-ink transition-colors rounded-lg hover:bg-surface-alt">
               <X size={14} />
@@ -88,26 +92,26 @@ export default function EntitiesPage() {
           </div>
           <form onSubmit={handleRegister} className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
-              <Field label="实体类型" required hint="如 dish、dining、product">
+              <Field label={t("entityTypeLabel")} required hint={t("entityTypeHint")}>
                 <Combobox
                   value={form.entityType}
                   onChange={v => setForm(f => ({ ...f, entityType: v }))}
                   options={knownTypes}
-                  placeholder="输入或选择类型…"
+                  placeholder={t("entityTypePlaceholder")}
                 />
               </Field>
-              <Field label="实体 ID" required hint="业务系统中的唯一标识符">
+              <Field label={t("entityIdLabel")} required hint={t("entityIdHint")}>
                 <Input
                   value={form.entityId}
                   onChange={e => setForm(f => ({ ...f, entityId: e.target.value }))}
-                  placeholder="如 restaurant-123、uuid-..."
+                  placeholder={t("entityIdPlaceholder")}
                   className="font-mono"
                 />
               </Field>
             </div>
             <div className="flex gap-2 justify-end">
-              <Button type="button" variant="ghost" size="sm" onClick={() => setShowForm(false)}>取消</Button>
-              <Button type="submit" size="sm" loading={saving}>注册</Button>
+              <Button type="button" variant="ghost" size="sm" onClick={() => setShowForm(false)}>{tCommon("cancel")}</Button>
+              <Button type="submit" size="sm" loading={saving}>{t("registerEntity")}</Button>
             </div>
           </form>
         </div>
@@ -120,30 +124,25 @@ export default function EntitiesPage() {
         <EmptyEntities onRegister={() => setShowForm(true)} />
       ) : (
         <div className="grid grid-cols-2 gap-3">
-          {types.map((t, i) => (
+          {types.map((type, i) => (
             <Link
-              key={t.entityType}
-              href={`/entities/${encodeURIComponent(t.entityType)}`}
+              key={type.entityType}
+              href={`/entities/${encodeURIComponent(type.entityType)}`}
               className="card-border overflow-hidden p-5 flex items-center gap-4 group/card animate-slide-up"
               style={{ animationDelay: `${Math.min(i, 7) * 30}ms` }}
             >
-              {/* Icon */}
               <div className="w-9 h-9 rounded-xl bg-surface-alt border border-edge-mid flex items-center justify-center shrink-0">
                 <Box size={15} className="text-ink-faint" strokeWidth={1.5} />
               </div>
-
-              {/* Info */}
               <div className="flex-1 min-w-0">
                 <p className="text-base font-semibold text-ink font-mono truncate" style={{ letterSpacing: "-0.01em" }}>
-                  {t.entityType}
+                  {type.entityType}
                 </p>
                 <p className="text-xs text-ink-sub mt-1">
-                  <span className="text-lg font-bold text-ink tabular-nums" style={{ letterSpacing: "-0.03em" }}>{t.count}</span>
-                  {" "}个实体
+                  <span className="text-lg font-bold text-ink tabular-nums" style={{ letterSpacing: "-0.03em" }}>{type.count}</span>
+                  {" "}{t("entityUnit")}
                 </p>
               </div>
-
-              {/* Arrow */}
               <ChevronRight
                 size={14}
                 className="text-ink-faint shrink-0 opacity-0 group-hover/card:opacity-100 group-focus-within/card:opacity-100 transition-opacity -translate-x-1 group-hover/card:translate-x-0 group-focus-within/card:translate-x-0 duration-150"
@@ -173,22 +172,23 @@ function SkeletonGrid() {
 }
 
 function EmptyEntities({ onRegister }: { onRegister: () => void }) {
+  const t = useTranslations("entities");
   return (
     <div className="card-border overflow-hidden animate-fade-in">
       <div className="py-28 flex flex-col items-center text-center">
         <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-surface-alt to-surface border border-edge-mid flex items-center justify-center mb-5 shadow-md">
           <Box size={22} className="text-ink-faint" strokeWidth={1.5} />
         </div>
-        <p className="text-md font-semibold text-ink-sub">暂无已注册实体</p>
+        <p className="text-md font-semibold text-ink-sub">{t("noEntities")}</p>
         <p className="text-sm text-ink-faint mt-1.5 max-w-[220px] leading-relaxed">
-          注册第一个实体后，实体类型将自动出现在这里
+          {t("noEntitiesDesc")}
         </p>
         <button
           onClick={onRegister}
           className="mt-5 inline-flex items-center gap-1.5 text-sm text-ink-dim hover:text-ink border border-edge-mid hover:border-edge-strong px-3 py-1.5 rounded-lg transition-all"
         >
           <Plus size={12} />
-          注册实体
+          {t("registerEntity")}
         </button>
       </div>
     </div>

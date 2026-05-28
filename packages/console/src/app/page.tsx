@@ -13,6 +13,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import ReactGridLayout, { type LayoutItem } from "react-grid-layout/legacy";
 import "react-grid-layout/css/styles.css";
+import { useTranslations } from "next-intl";
 import {
   RefreshCw, Pencil, Check, GripHorizontal, RotateCcw,
 } from "lucide-react";
@@ -27,7 +28,7 @@ import { renderWidget } from "@/components/dashboard/widgets";
 import {
   ROW_H, MARGIN, PAD,
   LAYOUT_VERSION,
-  SIZE_PRESETS, WIDGET_PRESETS, WIDGET_LABELS,
+  SIZE_PRESETS, WIDGET_PRESETS,
   currentPreset,
   getBreakpoint, getCols, getCanvasWidth, getDefaultLayout,
   type SizeKey, type BreakpointKey,
@@ -36,6 +37,7 @@ import {
 type PersistedLayout = PersistedDashboardLayout & { items: LayoutItem[] };
 
 export default function DashboardPage() {
+  const t = useTranslations("dashboard");
   const [layout,      setLayout]      = useState<LayoutItem[]>([]);
   const [editMode,    setEditMode]    = useState(false);
   const [layoutReady, setLayoutReady] = useState(false);
@@ -104,11 +106,12 @@ export default function DashboardPage() {
   }, [persist]);
 
   const resetLayout = useCallback(() => {
-    if (!confirm("确认重置布局为默认？")) return;
+    if (!confirm(t("resetConfirm"))) return;
     const defaultLayout = getDefaultLayout(breakpoint);
     setLayout(defaultLayout);
     persist(defaultLayout);
-  }, [persist, breakpoint]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [persist, breakpoint]); // t is stable from useTranslations — no need to include
 
   // ── 倒计时刷新指示（仅展示模式）────────────────────────────────
   const [countdown, setCountdown] = useState(10);
@@ -128,7 +131,7 @@ export default function DashboardPage() {
             <div className="absolute inset-0 rounded-full border-2 border-edge" />
             <div className="absolute inset-0 rounded-full border-2 border-transparent border-t-ink-sub animate-spin" />
           </div>
-          <p className="text-xs tracking-wider text-ink-faint">加载仪表盘…</p>
+          <p className="text-xs tracking-wider text-ink-faint">{t("loading")}</p>
         </div>
       </div>
     );
@@ -140,7 +143,7 @@ export default function DashboardPage() {
       <PageHeader
         sticky
         title="Taxon Dashboard"
-        description="标签服务运行态全局概览"
+        description={t("description")}
         meta={
           <>
             {!editMode && (
@@ -150,13 +153,13 @@ export default function DashboardPage() {
                   <span className="absolute inset-0 rounded-full bg-brand-1" />
                 </span>
                 <span className="text-2xs tabular-nums text-ink-dim">
-                  自动刷新 · {countdown}s
+                  {t("autoRefresh", { n: countdown })}
                 </span>
               </div>
             )}
             {updatedAt && (
               <span className="text-xs tabular-nums font-mono text-ink-faint">
-                {updatedAt.toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+                {updatedAt.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
               </span>
             )}
           </>
@@ -164,13 +167,13 @@ export default function DashboardPage() {
         action={
           <div className="flex items-center gap-2">
             <ToolBtn onClick={refresh} disabled={refreshing}
-              icon={<RefreshCw size={12} className={refreshing ? "animate-spin" : ""} />} label="刷新" />
+              icon={<RefreshCw size={12} className={refreshing ? "animate-spin" : ""} />} label={t("refreshing")} />
             {editMode && (
-              <ToolBtn onClick={resetLayout} icon={<RotateCcw size={12} />} label="重置" />
+              <ToolBtn onClick={resetLayout} icon={<RotateCcw size={12} />} label={t("resetLayout")} />
             )}
             <ToolBtn onClick={() => setEditMode(v => !v)}
               icon={editMode ? <Check size={12} /> : <Pencil size={12} />}
-              label={editMode ? "完成" : "自定义"}
+              label={editMode ? t("doneEditing") : t("customize")}
               active={editMode} />
           </div>
         }
@@ -246,6 +249,18 @@ function ToolBtn({ icon, label, onClick, disabled, active }: {
 function EditHeader({ id, item, onSwitchSize }: {
   id: string; item: LayoutItem; onSwitchSize: (id: string, size: SizeKey) => void;
 }) {
+  const t = useTranslations("dashboard");
+  const WIDGET_LABEL_MAP: Record<string, string> = {
+    "kpi-hero":      t("widgetLabels.kpiHero"),
+    "entity-pie":    t("widgetLabels.entityPie"),
+    "trend-chart":   t("widgetLabels.trendChart"),
+    "stat-groups":   t("widgetLabels.statGroups"),
+    "stat-tags":     t("widgetLabels.statTags"),
+    "stat-entities": t("widgetLabels.statEntities"),
+    "stat-pending":  t("widgetLabels.statPending"),
+    "activity-feed": t("widgetLabels.activityFeed"),
+    "health-bar":    t("widgetLabels.healthBar"),
+  };
   const presets = WIDGET_PRESETS[id] ?? [];
   return (
     <div
@@ -255,7 +270,7 @@ function EditHeader({ id, item, onSwitchSize }: {
       <div className="flex items-center gap-2 min-w-0">
         <GripHorizontal size={12} className="text-ink-faint" />
         <span className="text-2xs uppercase tracking-[0.1em] truncate text-ink-sub">
-          {WIDGET_LABELS[id] ?? id}
+          {WIDGET_LABEL_MAP[id] ?? id}
         </span>
       </div>
       {presets.length > 1 && (

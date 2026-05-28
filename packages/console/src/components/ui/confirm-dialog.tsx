@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef } from "react";
+import { useTranslations } from "next-intl";
 import { Button } from "./button";
 import { Dialog } from "./dialog";
 
@@ -22,13 +23,16 @@ export function ConfirmDialog({
   open,
   title,
   description,
-  confirmLabel = "确认",
-  cancelLabel = "取消",
+  confirmLabel,
+  cancelLabel,
   danger = false,
   onConfirm,
   onCancel,
 }: ConfirmDialogProps) {
+  const tCommon = useTranslations("common");
   const cancelRef = useRef<HTMLButtonElement>(null);
+  const resolvedConfirmLabel = confirmLabel ?? tCommon("confirm");
+  const resolvedCancelLabel  = cancelLabel  ?? tCommon("cancel");
 
   return (
     <Dialog
@@ -46,14 +50,14 @@ export function ConfirmDialog({
       )}
       <div className="flex justify-end gap-2 pt-2">
         <Button ref={cancelRef} variant="outline" size="sm" onClick={onCancel}>
-          {cancelLabel}
+          {resolvedCancelLabel}
         </Button>
         <Button
           variant={danger ? "danger" : "primary"}
           size="sm"
           onClick={onConfirm}
         >
-          {confirmLabel}
+          {resolvedConfirmLabel}
         </Button>
       </div>
     </Dialog>

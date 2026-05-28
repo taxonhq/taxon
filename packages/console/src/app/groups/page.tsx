@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { Plus, Trash2, Settings2, ChevronRight, Layers, RotateCcw, Trash } from "lucide-react";
 import {
   getTagGroups, createTagGroup, deleteTagGroup, restoreTagGroup,
@@ -31,6 +32,9 @@ interface PendingDelete {
 }
 
 export default function GroupsPage() {
+  const t = useTranslations("groups");
+  const tCommon = useTranslations("common");
+
   const [activeTab, setActiveTab] = useState<"active" | "trash">("active");
   const [groups, setGroups] = useState<GroupWithTags[]>([]);
   const [total, setTotal] = useState(0);
@@ -53,7 +57,7 @@ export default function GroupsPage() {
 
   useEffect(() => {
     getEntityTypes()
-      .then(types => setEntityTypes(types.map(t => t.entityType)))
+      .then(types => setEntityTypes(types.map(et => et.entityType)))
       .catch(() => {});
   }, []);
 
@@ -62,7 +66,6 @@ export default function GroupsPage() {
   const load = async (pageNum = page, ps = pageSize) => {
     setError("");
     try {
-      // withPreviewTags=true：一次请求带回 previewSize 个标签，消除 N+1
       const { items: rawGroups, total: groupTotal } = await getTagGroups({
         page: pageNum, pageSize: ps,
         withPreviewTags: true, previewSize: TAG_PREVIEW_SIZE,
@@ -74,7 +77,7 @@ export default function GroupsPage() {
         tagTotal:    g._count?.tags ?? 0,
       })));
     } catch (err) {
-      setError(err instanceof Error ? `加载失败：${err.message}` : "加载失败，请检查 Taxon 服务是否正常运行");
+      setError(err instanceof Error ? tCommon("loadErrorMsg", { message: err.message }) : tCommon("loadError"));
     } finally {
       setLoading(false);
     }
@@ -87,7 +90,7 @@ export default function GroupsPage() {
 
   const handleCreateGroup = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!groupForm.slug.trim() || !groupForm.name.trim()) { setError("slug 和名称为必填"); return; }
+    if (!groupForm.slug.trim() || !groupForm.name.trim()) { setError(t("slugRequired")); return; }
     setSavingGroup(true); setError("");
     try {
       await createTagGroup({
@@ -99,7 +102,7 @@ export default function GroupsPage() {
       setGroupForm({ slug: "", name: "", description: "", entityScope: "", allowMultiple: "true" });
       setShowGroupForm(false); setPage(1); load(1);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "创建失败");
+      setError(err instanceof Error ? err.message : t("createFailed"));
     } finally { setSavingGroup(false); }
   };
 
@@ -111,7 +114,7 @@ export default function GroupsPage() {
       const { items } = await getTagGroups({ onlyDeleted: true, pageSize: 100 });
       setDeletedGroups(items);
     } catch (err) {
-      setTrashError(err instanceof Error ? err.message : "加载回收站失败");
+      setTrashError(err instanceof Error ? err.message : t("trashLoadError"));
     } finally { setTrashLoading(false); }
   };
 
@@ -123,8 +126,8 @@ export default function GroupsPage() {
       setTotal(prev => prev - 1);
     } catch (err) {
       const msg = err instanceof Error ? err.message : "";
-      if (!force && msg.includes("实体关联")) setConfirm({ type: "group", group, force: true, message: msg });
-      else setError(msg || "删除失败");
+      if (!force && msg) setConfirm({ type: "group", group, force: true, message: msg });
+      else setError(msg || t("deleteFailed"));
     }
   };
 
@@ -133,10 +136,9 @@ export default function GroupsPage() {
     try {
       await restoreTagGroup(group.id);
       setDeletedGroups(prev => prev.filter(g => g.id !== group.id));
-      // Reload active list so restored group appears
       load(1);
     } catch (err) {
-      setTrashError(err instanceof Error ? err.message : "恢复失败");
+      setTrashError(err instanceof Error ? err.message : t("restoreFailed"));
     }
   };
 
@@ -146,7 +148,7 @@ export default function GroupsPage() {
       await deleteTagGroup(group.id, { permanent: true });
       setDeletedGroups(prev => prev.filter(g => g.id !== group.id));
     } catch (err) {
-      setTrashError(err instanceof Error ? err.message : "永久删除失败");
+      setTrashError(err instanceof Error ? err.message : t("permanentDeleteFailed"));
     }
   };
 
@@ -159,14 +161,14 @@ export default function GroupsPage() {
       await deleteTag(tag.id, { force });
       setGroups(prev => prev.map(g =>
         g.id === group.id
-          ? { ...g, previewTags: g.previewTags.filter(t => t.id !== tag.id), tagTotal: g.tagTotal - 1 }
+          ? { ...g, previewTags: g.previewTags.filter(tg => tg.id !== tag.id), tagTotal: g.tagTotal - 1 }
           : g
       ));
     } catch (err) {
       const msg = err instanceof Error ? err.message : "";
-      if (!force && msg.includes("个实体使用")) {
+      if (!force && msg) {
         setConfirm({ type: "tag", group, tag, force: true, message: msg.replace("，如需强制删除请添加 ?force=true", "") });
-      } else setError(msg || "删除标签失败");
+      } else setError(msg || t("deleteTagFailed"));
     }
   };
 
@@ -185,29 +187,29 @@ export default function GroupsPage() {
         const previewTags = g.previewTags.length < TAG_PREVIEW_SIZE ? [...g.previewTags, tag] : g.previewTags;
         return { ...g, previewTags, tagTotal: g.tagTotal + 1 };
       }));
-    } catch (err) { setError(err instanceof Error ? err.message : "创建标签失败"); }
+    } catch (err) { setError(err instanceof Error ? err.message : t("createTagFailed")); }
   };
 
   const dialogProps = (() => {
     if (!confirm) return null;
     if (confirm.type === "group") return confirm.force
-      ? { title: "强制删除分组", description: `${confirm.message}\n\n确认强制删除？该分组下所有标签及实体关联将一并移除，操作不可逆。`, confirmLabel: "强制删除" }
-      : { title: `删除分组「${confirm.group.name}」`, description: "该分组下所有标签和关联将一并删除，操作不可逆。", confirmLabel: "删除" };
+      ? { title: t("forceDeleteGroupTitle"), description: t("forceDeleteGroupDesc", { message: confirm.message ?? "" }), confirmLabel: tCommon("forceDelete") }
+      : { title: t("deleteGroupTitle", { name: confirm.group.name }), description: t("deleteGroupDesc"), confirmLabel: tCommon("delete") };
     return confirm.force
-      ? { title: "强制删除标签", description: `${confirm.message}\n\n确认强制删除？关联关系将一并移除，操作不可逆。`, confirmLabel: "强制删除" }
-      : { title: `删除标签「${confirm.tag?.name}」`, description: undefined, confirmLabel: "删除" };
+      ? { title: t("forceDeleteTagTitle"), description: t("forceDeleteTagDesc", { message: confirm.message ?? "" }), confirmLabel: tCommon("forceDelete") }
+      : { title: t("deleteTagTitle", { name: confirm.tag?.name ?? "" }), description: undefined, confirmLabel: tCommon("delete") };
   })();
 
   return (
     <div className="space-y-7">
       <PageHeader
-        title="分组管理"
-        description="管理标签分组与标签值，点击分组名进入高级配置"
+        title={t("title")}
+        description={t("description")}
         action={
           activeTab === "active" && (
             <Button onClick={() => setShowGroupForm(v => !v)} size="sm">
               <Plus size={13} />
-              新建分组
+              {t("createGroup")}
             </Button>
           )
         }
@@ -215,7 +217,7 @@ export default function GroupsPage() {
 
       {/* ── Tab switcher ── */}
       <div className="flex items-center gap-1 p-0.5 bg-surface-alt border border-edge rounded-lg w-fit">
-        {([["active", "活跃分组"], ["trash", "回收站"]] as const).map(([tab, label]) => (
+        {(["active", "trash"] as const).map(tab => (
           <button
             key={tab}
             onClick={() => {
@@ -229,7 +231,7 @@ export default function GroupsPage() {
             }`}
           >
             {tab === "trash" && <Trash size={11} />}
-            {label}
+            {tab === "active" ? t("activeTab") : t("trashTab")}
           </button>
         ))}
       </div>
@@ -254,41 +256,41 @@ export default function GroupsPage() {
       {showGroupForm && (
         <Card className="space-y-5 animate-slide-up">
           <div>
-            <p className="text-lg font-semibold text-ink">新建标签分组</p>
-            <p className="text-sm text-ink-dim mt-0.5">分组用于对标签进行维度分类，如「菜系」「口味」「烹饪工艺」</p>
+            <p className="text-lg font-semibold text-ink">{t("createGroupTitle")}</p>
+            <p className="text-sm text-ink-dim mt-0.5">{t("createGroupDesc")}</p>
           </div>
           <form onSubmit={handleCreateGroup} className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
-              <Field label="Slug（机器标识）" required hint="小写字母、数字、连字符或下划线">
-                <Input value={groupForm.slug} onChange={e => setGF("slug", e.target.value)} placeholder="如 cuisine" />
+              <Field label={t("slugLabel")} required hint={t("slugHint")}>
+                <Input value={groupForm.slug} onChange={e => setGF("slug", e.target.value)} placeholder="e.g. cuisine" />
               </Field>
-              <Field label="显示名称" required>
-                <Input value={groupForm.name} onChange={e => setGF("name", e.target.value)} placeholder="如 菜系" />
+              <Field label={t("nameLabel")} required>
+                <Input value={groupForm.name} onChange={e => setGF("name", e.target.value)} placeholder="e.g. Cuisine" />
               </Field>
             </div>
             <div className="grid grid-cols-2 gap-4">
-              <Field label="适用实体范围" hint="留空则适用所有实体，可直接输入新类型名">
+              <Field label={t("entityScopeLabel")} hint={t("entityScopeHint")}>
                 <Combobox
                   value={groupForm.entityScope}
                   onChange={v => setGF("entityScope", v)}
                   options={entityTypes}
-                  placeholder="通用（所有实体）"
-                  emptyLabel="通用（所有实体）"
+                  placeholder={t("entityScopePlaceholder")}
+                  emptyLabel={t("entityScopePlaceholder")}
                 />
               </Field>
-              <Field label="默认允许多选">
+              <Field label={t("allowMultipleLabel")}>
                 <Select value={groupForm.allowMultiple} onChange={e => setGF("allowMultiple", e.target.value)}>
-                  <option value="true">是（默认）</option>
-                  <option value="false">否（单选）</option>
+                  <option value="true">{t("allowMultipleYes")}</option>
+                  <option value="false">{t("allowMultipleNo")}</option>
                 </Select>
               </Field>
             </div>
-            <Field label="描述（可选）">
+            <Field label={tCommon("description")} hint={tCommon("optional")}>
               <Textarea value={groupForm.description} onChange={e => setGF("description", e.target.value)} rows={2} />
             </Field>
             <div className="flex gap-2 justify-end pt-1">
-              <Button type="button" variant="ghost" size="sm" onClick={() => setShowGroupForm(false)}>取消</Button>
-              <Button type="submit" size="sm" loading={savingGroup}>创建分组</Button>
+              <Button type="button" variant="ghost" size="sm" onClick={() => setShowGroupForm(false)}>{tCommon("cancel")}</Button>
+              <Button type="submit" size="sm" loading={savingGroup}>{tCommon("create")}</Button>
             </div>
           </form>
         </Card>
@@ -340,6 +342,8 @@ function GroupCard({
   onDeleteTag: (tag: Tag) => void;
   onAddTag: (name: string) => Promise<void>;
 }) {
+  const t = useTranslations("groups");
+
   return (
     <div className="card-border overflow-hidden group/card">
       {/* ── Header ── */}
@@ -370,13 +374,13 @@ function GroupCard({
             {/* cardinality badge */}
             {!group.allowMultiple && (
               <span className="text-xs text-warn border border-warn/20 bg-warn/5 px-1.5 py-0.5 rounded">
-                单选
+                {t("singleSelectBadge")}
               </span>
             )}
             {/* rule count */}
             {group.entityRules.length > 0 && (
               <span className="text-xs text-ink-faint">
-                {group.entityRules.length} 条规则
+                {t("rulesCount", { count: group.entityRules.length })}
               </span>
             )}
           </div>
@@ -387,7 +391,7 @@ function GroupCard({
           <p className="text-display-sm font-bold text-ink tabular-nums" style={{ letterSpacing: "-0.04em" }}>
             {group.tagTotal}
           </p>
-          <p className="text-2xs text-ink-faint uppercase mt-2" style={{ letterSpacing: "0.18em" }}>标签</p>
+          <p className="text-2xs text-ink-faint uppercase mt-2" style={{ letterSpacing: "0.18em" }}>{t("tagsLabel")}</p>
         </div>
 
         {/* Actions — appear on hover or keyboard focus */}
@@ -395,16 +399,16 @@ function GroupCard({
           <button
             onClick={onDelete}
             className="p-1.5 rounded-lg text-ink-faint hover:text-bad hover:bg-bad/10 transition-all"
-            aria-label={`删除分组 ${group.name}`}
-            title="删除分组"
+            aria-label={`delete group ${group.name}`}
+            title="delete"
           >
             <Trash2 size={13} />
           </button>
           <Link
             href={`/groups/${group.id}`}
             className="flex items-center p-1.5 rounded-lg text-ink-faint hover:text-ink hover:bg-surface-alt transition-all"
-            aria-label={`进入「${group.name}」高级配置`}
-            title="高级配置"
+            aria-label={`settings for ${group.name}`}
+            title="settings"
           >
             <Settings2 size={13} />
             <ChevronRight size={11} />
@@ -422,7 +426,7 @@ function GroupCard({
             href={`/groups/${group.id}`}
             className="inline-flex items-center px-2 py-1 text-xs text-ink-faint border border-dashed border-edge-mid rounded-md hover:border-edge-strong hover:text-ink-sub transition-all"
           >
-            还有 {group.tagTotal - group.previewTags.length} 个 →
+            {t("moreTagsLink", { count: group.tagTotal - group.previewTags.length })}
           </Link>
         )}
         <AddTagInput onAdd={onAddTag} />
@@ -439,7 +443,7 @@ function TagChip({ tag, onDelete }: { tag: Tag; onDelete: () => void }) {
       {tag.name}
       <button
         onClick={onDelete}
-        aria-label={`删除标签 ${tag.name}`}
+        aria-label={`delete tag ${tag.name}`}
         className="ml-0.5 -mr-0.5 w-3.5 h-3.5 flex items-center justify-center text-ink-faint hover:text-bad focus:text-bad transition-colors leading-none opacity-0 group-hover/chip:opacity-100 group-focus-within/chip:opacity-100 focus:opacity-100"
       >
         ×
@@ -449,6 +453,7 @@ function TagChip({ tag, onDelete }: { tag: Tag; onDelete: () => void }) {
 }
 
 function AddTagInput({ onAdd }: { onAdd: (name: string) => Promise<void> }) {
+  const t = useTranslations("groups");
   const [active, setActive] = useState(false);
   const [value, setValue] = useState("");
   const [loading, setLoading] = useState(false);
@@ -471,7 +476,7 @@ function AddTagInput({ onAdd }: { onAdd: (name: string) => Promise<void> }) {
       onClick={() => { setActive(true); setTimeout(() => ref.current?.focus(), 0); }}
       className="inline-flex items-center gap-1 px-2 py-1 text-xs text-ink-faint border border-dashed border-edge rounded-md hover:border-edge-mid hover:text-ink-sub transition-all"
     >
-      <Plus size={10} />新增标签
+      <Plus size={10} />{t("addTagButton")}
     </button>
   );
 
@@ -484,19 +489,14 @@ function AddTagInput({ onAdd }: { onAdd: (name: string) => Promise<void> }) {
           if (e.key === "Enter")  { e.preventDefault(); submit(); }
           if (e.key === "Escape") { e.preventDefault(); discard(); }
         }}
-        // blur 仅取消，不提交 —— 防止 Tab/点击其他区域误创建标签
         onBlur={discard}
-        placeholder="输入名称…"
-        aria-label="新标签名称（Enter 确认 · Esc 取消）"
-        title="Enter 确认 · Esc 取消"
+        placeholder={t("tagInputPlaceholder")}
         className="inline-flex px-2 py-1 text-xs border border-edge-mid bg-overlay text-ink rounded-md focus:outline-none focus:border-edge-strong w-32 disabled:opacity-50"
       />
       <button
-        onMouseDown={e => { e.preventDefault(); submit(); }} // mousedown 防止 input blur 先于 click 触发
+        onMouseDown={e => { e.preventDefault(); submit(); }}
         disabled={loading || !value.trim()}
         className="p-1 rounded text-ink-faint hover:text-ok hover:bg-ok/10 disabled:opacity-30 transition-all"
-        aria-label="确认新建标签"
-        title="确认（Enter）"
       >
         <Plus size={11} />
       </button>
@@ -532,15 +532,16 @@ function SkeletonList() {
 }
 
 function EmptyGroups() {
+  const t = useTranslations("groups");
   return (
     <div className="card-border overflow-hidden animate-fade-in">
       <div className="py-28 flex flex-col items-center text-center">
         <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-surface-alt to-surface border border-edge-mid flex items-center justify-center mb-5 shadow-md">
           <Layers size={22} className="text-ink-faint" strokeWidth={1.5} />
         </div>
-        <p className="text-md font-semibold text-ink-sub">暂无标签分组</p>
+        <p className="text-md font-semibold text-ink-sub">{t("noGroups")}</p>
         <p className="text-sm text-ink-faint mt-1.5 max-w-[200px] leading-relaxed">
-          点击右上角「新建分组」开始创建标签维度
+          {t("noGroupsDesc")}
         </p>
       </div>
     </div>
@@ -558,6 +559,8 @@ function RecycleBinSection({
   onRestore: (g: TagGroup) => void;
   onPermanentDelete: (g: TagGroup) => void;
 }) {
+  const t = useTranslations("groups");
+  const tCommon = useTranslations("common");
   const [confirmPerm, setConfirmPerm] = useState<TagGroup | null>(null);
 
   if (loading) return (
@@ -585,8 +588,8 @@ function RecycleBinSection({
         <div className="w-12 h-12 rounded-xl bg-surface-alt border border-edge-mid flex items-center justify-center mb-4">
           <Trash size={18} className="text-ink-faint" strokeWidth={1.5} />
         </div>
-        <p className="text-sm font-medium text-ink-sub">回收站为空</p>
-        <p className="text-xs text-ink-faint mt-1">删除的分组会出现在这里，可以恢复或永久清除</p>
+        <p className="text-sm font-medium text-ink-sub">{t("trashEmpty")}</p>
+        <p className="text-xs text-ink-faint mt-1">{t("trashEmptyDesc")}</p>
       </div>
     </div>
   );
@@ -596,8 +599,8 @@ function RecycleBinSection({
       <div className="card-border overflow-hidden animate-fade-in">
         <div className="px-5 py-3 border-b border-edge bg-surface-alt flex items-center gap-2">
           <Trash size={12} className="text-ink-faint" />
-          <span className="text-xs text-ink-sub">{groups.length} 个已删除分组</span>
-          <span className="text-xs text-ink-faint ml-auto">恢复时若 slug 或名称冲突将提示错误</span>
+          <span className="text-xs text-ink-sub">{t("trashCount", { count: groups.length })}</span>
+          <span className="text-xs text-ink-faint ml-auto">{t("trashRestoreHint")}</span>
         </div>
         {groups.map(group => (
           <div key={group.id} className="flex items-center gap-4 px-5 py-3.5 border-b border-edge last:border-0 hover:bg-row-hover transition-colors">
@@ -607,25 +610,23 @@ function RecycleBinSection({
             </div>
             <p className="text-xs text-ink-faint tabular-nums shrink-0">
               {group.deletedAt
-                ? new Date(group.deletedAt as unknown as string).toLocaleString("zh-CN", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" })
+                ? new Date(group.deletedAt as unknown as string).toLocaleString(undefined, { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" })
                 : ""}
             </p>
             <div className="flex items-center gap-2 shrink-0">
               <button
                 onClick={() => onRestore(group)}
                 className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-ok border border-ok/30 bg-ok/5 hover:bg-ok/10 rounded-lg transition-colors"
-                title="恢复分组"
               >
                 <RotateCcw size={11} />
-                恢复
+                {tCommon("restore")}
               </button>
               <button
                 onClick={() => setConfirmPerm(group)}
                 className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-bad border border-bad/30 bg-bad/5 hover:bg-bad/10 rounded-lg transition-colors"
-                title="永久删除（不可恢复）"
               >
                 <Trash2 size={11} />
-                永久删除
+                {tCommon("permanentDelete")}
               </button>
             </div>
           </div>
@@ -635,9 +636,9 @@ function RecycleBinSection({
       {confirmPerm && (
         <ConfirmDialog
           open
-          title={`永久删除「${confirmPerm.name}」`}
-          description={`该分组下所有标签和历史实体关联将被彻底移除，无法恢复。`}
-          confirmLabel="永久删除"
+          title={`${tCommon("permanentDelete")} "${confirmPerm.name}"`}
+          description={t("permanentDeleteDesc")}
+          confirmLabel={tCommon("permanentDelete")}
           danger
           onConfirm={() => { onPermanentDelete(confirmPerm); setConfirmPerm(null); }}
           onCancel={() => setConfirmPerm(null)}

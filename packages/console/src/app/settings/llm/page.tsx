@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useTranslations } from "next-intl";
 import { Sparkles, Loader2, Eye, EyeOff, CheckCircle2, AlertCircle, Save } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
 import {
@@ -15,6 +16,9 @@ const MODEL_PRESETS: Record<LlmProvider, string[]> = {
 };
 
 export default function LlmSettingsPage() {
+  const t = useTranslations("llm");
+  const tCommon = useTranslations("common");
+
   const [loading,    setLoading]    = useState(true);
   const [saving,     setSaving]     = useState(false);
   const [testing,    setTesting]    = useState(false);
@@ -40,7 +44,7 @@ export default function LlmSettingsPage() {
         if (c.model)    setModel(c.model);
         if (c.baseUrl)  setBaseUrl(c.baseUrl);
         setEnabled(c.enabled);
-        setKeepKey(c.hasApiKey);  // 有 key 默认保持；无 key 必须输入新的
+        setKeepKey(c.hasApiKey);
       })
       .catch(e => setError(String(e.message ?? e)))
       .finally(() => setLoading(false));
@@ -57,7 +61,7 @@ export default function LlmSettingsPage() {
       });
       setCfg(next);
       setApiKey(""); setKeepKey(true);
-      setSavedNotice("配置已保存");
+      setSavedNotice(t("saveSuccess"));
       setTimeout(() => setSavedNotice(null), 2500);
     } catch (e) {
       setError(String((e as Error).message ?? e));
@@ -69,13 +73,13 @@ export default function LlmSettingsPage() {
   const onTest = async () => {
     setTesting(true); setTestResult(null);
     try {
-      const res = await nlToDsl("找川菜");
+      const res = await nlToDsl("find sichuan cuisine");
       setTestResult({
         ok: true,
-        message: `调用成功 · ${res.model}${res.boolExpr ? " · 已生成 BoolExpr" : " · 模型未能生成有效查询"}`,
+        message: `${t("testSuccess")} · ${res.model}${res.boolExpr ? "" : ` · ${t("notConfigured")}`}`,
       });
     } catch (e) {
-      setTestResult({ ok: false, message: String((e as Error).message ?? e) });
+      setTestResult({ ok: false, message: `${t("testFailed")}: ${String((e as Error).message ?? e)}` });
     } finally {
       setTesting(false);
     }
@@ -84,7 +88,7 @@ export default function LlmSettingsPage() {
   if (loading) {
     return (
       <div className="space-y-6 animate-fade-in">
-        <PageHeader title="LLM 设置" description="加载中…" />
+        <PageHeader title={t("title")} description={tCommon("loading")} />
       </div>
     );
   }
@@ -92,8 +96,8 @@ export default function LlmSettingsPage() {
   return (
     <div className="space-y-6 animate-fade-in max-w-3xl">
       <PageHeader
-        title="LLM 设置"
-        description="配置自然语言查询使用的大模型 — API key 会经 AES-256-GCM 加密存入数据库"
+        title={t("title")}
+        description={t("description")}
       />
 
       {error && (
@@ -104,7 +108,7 @@ export default function LlmSettingsPage() {
 
       <div className="rounded-xl border border-edge bg-card p-6 space-y-5">
         {/* Provider */}
-        <Field label="服务商" hint="不同服务商使用各自的官方 SDK">
+        <LlmField label={t("provider")} hint={t("providerHint")}>
           <div className="inline-flex rounded-md border border-edge overflow-hidden">
             {(["anthropic", "openai"] as const).map(p => (
               <button
@@ -112,7 +116,6 @@ export default function LlmSettingsPage() {
                 type="button"
                 onClick={() => {
                   setProvider(p);
-                  // 自动切换到该 provider 的默认模型
                   if (!MODEL_PRESETS[p].includes(model)) setModel(MODEL_PRESETS[p][0]);
                 }}
                 className={cn(
@@ -124,17 +127,17 @@ export default function LlmSettingsPage() {
               </button>
             ))}
           </div>
-        </Field>
+        </LlmField>
 
         {/* Model */}
-        <Field label="模型" hint="结构化输出能力强的模型效果更好">
+        <LlmField label={t("model")} hint={t("modelHint")}>
           <div className="flex flex-wrap items-center gap-2">
             <input
               type="text"
               value={model}
               onChange={e => setModel(e.target.value)}
               className="px-3 py-2 rounded-md border border-edge bg-input text-base text-ink w-72"
-              placeholder="模型 ID（如 claude-sonnet-4-5）"
+              placeholder="claude-sonnet-4-5"
             />
             <div className="flex flex-wrap gap-1.5">
               {MODEL_PRESETS[provider].map(m => (
@@ -154,10 +157,10 @@ export default function LlmSettingsPage() {
               ))}
             </div>
           </div>
-        </Field>
+        </LlmField>
 
         {/* Base URL */}
-        <Field label="Base URL（可选）" hint="自建中转 / Azure / 第三方兼容 endpoint。空 = 使用官方默认">
+        <LlmField label={`${t("baseUrl")} (${tCommon("optional")})`} hint={t("baseUrlHint")}>
           <input
             type="text"
             value={baseUrl}
@@ -165,13 +168,10 @@ export default function LlmSettingsPage() {
             className="px-3 py-2 rounded-md border border-edge bg-input text-base text-ink w-full max-w-md"
             placeholder={provider === "anthropic" ? "https://api.anthropic.com" : "https://api.openai.com/v1"}
           />
-        </Field>
+        </LlmField>
 
         {/* API Key */}
-        <Field
-          label="API Key"
-          hint="存入数据库时经 AES-256-GCM 加密；前端永不回显明文"
-        >
+        <LlmField label={t("apiKey")} hint={t("apiKeyHint")}>
           {cfg?.hasApiKey && keepKey ? (
             <div className="flex items-center gap-3">
               <span className="px-3 py-2 rounded-md bg-overlay text-base text-ink font-mono">
@@ -182,7 +182,7 @@ export default function LlmSettingsPage() {
                 onClick={() => { setKeepKey(false); setApiKey(""); }}
                 className="text-base text-ok hover:underline"
               >
-                替换
+                {t("replaceKey")}
               </button>
             </div>
           ) : (
@@ -193,12 +193,13 @@ export default function LlmSettingsPage() {
                   value={apiKey}
                   onChange={e => setApiKey(e.target.value)}
                   className="w-full pl-3 pr-10 py-2 rounded-md border border-edge bg-input text-base text-ink font-mono"
-                  placeholder={provider === "anthropic" ? "sk-ant-..." : "sk-..."}
+                  placeholder={t("apiKeyPlaceholder")}
                 />
                 <button
                   type="button"
                   onClick={() => setShowKey(s => !s)}
                   className="absolute right-2 top-1/2 -translate-y-1/2 text-ink-sub hover:text-ink"
+                  aria-label={showKey ? t("hideKey") : t("showKey")}
                 >
                   {showKey ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
                 </button>
@@ -209,15 +210,15 @@ export default function LlmSettingsPage() {
                   onClick={() => { setKeepKey(true); setApiKey(""); }}
                   className="text-base text-ink-sub hover:text-ink"
                 >
-                  取消替换
+                  {t("cancelReplaceKey")}
                 </button>
               )}
             </div>
           )}
-        </Field>
+        </LlmField>
 
         {/* Enabled */}
-        <Field label="启用" hint="禁用时所有自然语言查询请求返回 400">
+        <LlmField label={t("enabled")} hint={t("enabledHint")}>
           <label className="inline-flex items-center gap-2 cursor-pointer">
             <input
               type="checkbox"
@@ -225,9 +226,9 @@ export default function LlmSettingsPage() {
               onChange={e => setEnabled(e.target.checked)}
               className="size-4"
             />
-            <span className="text-base text-ink">{enabled ? "已启用" : "已禁用"}</span>
+            <span className="text-base text-ink">{enabled ? t("enabledOn") : t("enabledOff")}</span>
           </label>
-        </Field>
+        </LlmField>
 
         {/* Actions */}
         <div className="flex items-center gap-3 pt-3 border-t border-edge">
@@ -238,17 +239,17 @@ export default function LlmSettingsPage() {
             className="px-4 py-2 rounded-md bg-ink text-surface text-base font-medium hover:opacity-90 disabled:opacity-50 inline-flex items-center gap-2"
           >
             {saving ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />}
-            保存
+            {saving ? tCommon("saving") : tCommon("save")}
           </button>
           <button
             type="button"
             onClick={onTest}
             disabled={testing || !cfg?.hasApiKey || !enabled}
             className="px-4 py-2 rounded-md border border-edge text-base text-ink hover:bg-row-hover disabled:opacity-50 inline-flex items-center gap-2"
-            title={!cfg?.hasApiKey ? "需要先保存配置" : !enabled ? "需要先启用" : "用「找川菜」做一次实际调用"}
+            title={!cfg?.hasApiKey ? t("needSaveFirst") : !enabled ? t("needEnableFirst") : t("testConnection")}
           >
             {testing ? <Loader2 className="size-4 animate-spin" /> : <Sparkles className="size-4" />}
-            测试连接
+            {t("testConnection")}
           </button>
           {savedNotice && (
             <span className="text-base text-ok inline-flex items-center gap-1.5">
@@ -268,19 +269,19 @@ export default function LlmSettingsPage() {
       </div>
 
       <div className="rounded-lg border border-edge bg-card/50 p-4 text-sm text-ink-sub space-y-2">
-        <p className="font-medium text-ink">配置说明</p>
+        <p className="font-medium text-ink">{t("configNotesTitle")}</p>
         <ul className="list-disc list-inside space-y-1">
-          <li>主密钥 <code className="text-ink font-mono">LLM_MASTER_KEY</code> 由 service 的 <code className="text-ink font-mono">.env</code> 提供，丢失或改动会导致已存的 key 无法解密</li>
-          <li>Anthropic 走 messages API + tool use 强制结构化输出，准确率最高</li>
-          <li>OpenAI 走 chat.completions + response_format json_schema，需要 GPT-4o 或更新模型</li>
-          <li>Base URL 留空时使用官方默认；可指向 Azure / 自建中转等兼容 endpoint</li>
+          <li>Master key <code className="text-ink font-mono">LLM_MASTER_KEY</code> is set in the service <code className="text-ink font-mono">.env</code> — losing or rotating it invalidates stored keys</li>
+          <li>Anthropic: messages API + tool use for structured output — highest accuracy</li>
+          <li>OpenAI: chat.completions + response_format json_schema — requires GPT-4o or newer</li>
+          <li>Leave Base URL blank for official defaults; set for Azure / proxy / compatible endpoints</li>
         </ul>
       </div>
     </div>
   );
 }
 
-function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
+function LlmField({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
   return (
     <div className="space-y-1.5">
       <div className="flex items-baseline gap-3">

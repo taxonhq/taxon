@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useCallback, useEffect } from "react";
+import { useTranslations } from "next-intl";
 import {
   useDraggable,
   useDroppable,
@@ -34,6 +35,7 @@ const ROOT_DROP_ID = "__root__";
 // ── Alias sub-panel ───────────────────────────────────────────────
 
 function AliasPanel({ tagId, initialAliases }: { tagId: string; initialAliases?: TagAlias[] }) {
+  const t = useTranslations("groups");
   const [aliases, setAliases]   = useState<TagAlias[]>(initialAliases ?? []);
   const [inputVal, setInputVal] = useState("");
   const [adding, setAdding]     = useState(false);
@@ -52,7 +54,7 @@ function AliasPanel({ tagId, initialAliases }: { tagId: string; initialAliases?:
       setAliases(prev => [...prev, created]);
       setInputVal("");
     } catch (e) {
-      setError(e instanceof Error ? e.message : "添加失败");
+      setError(e instanceof Error ? e.message : t("aliasAddFailed"));
     } finally {
       setAdding(false);
     }
@@ -63,7 +65,7 @@ function AliasPanel({ tagId, initialAliases }: { tagId: string; initialAliases?:
       await deleteTagAlias(tagId, aliasId);
       setAliases(prev => prev.filter(a => a.id !== aliasId));
     } catch (e) {
-      setError(e instanceof Error ? e.message : "删除失败");
+      setError(e instanceof Error ? e.message : t("aliasDeleteFailed"));
     }
   };
 
@@ -81,7 +83,7 @@ function AliasPanel({ tagId, initialAliases }: { tagId: string; initialAliases?:
       {/* alias chips */}
       <div className="flex flex-wrap gap-1.5 min-h-5">
         {aliases.length === 0 && (
-          <span className="text-xs text-ink-faint italic">暂无别名</span>
+          <span className="text-xs text-ink-faint italic">{t("aliasNone")}</span>
         )}
         {aliases.map(a => (
           <span
@@ -105,7 +107,7 @@ function AliasPanel({ tagId, initialAliases }: { tagId: string; initialAliases?:
           value={inputVal}
           onChange={e => setInputVal(e.target.value)}
           onKeyDown={e => { if (e.key === "Enter") handleAdd(); if (e.key === "Escape") setInputVal(""); }}
-          placeholder="输入别名，回车添加"
+          placeholder={t("aliasPlaceholder")}
           className="flex-1 text-xs bg-transparent border border-edge-mid rounded px-2 py-1 text-ink placeholder:text-ink-faint focus:outline-none focus:border-edge-strong"
         />
         <button
@@ -132,6 +134,8 @@ interface NodeProps {
 }
 
 function TagNode({ node, callbacks, draggingId, overId, allNodes }: NodeProps) {
+  const t = useTranslations("groups");
+  const tCommon = useTranslations("common");
   const [open, setOpen]           = useState(true);
   const [aliasOpen, setAliasOpen] = useState(false);
   const hasChildren = node.children.length > 0;
@@ -209,30 +213,30 @@ function TagNode({ node, callbacks, draggingId, overId, allNodes }: NodeProps) {
                 ? "text-ink bg-surface-alt"
                 : "text-ink-faint hover:text-ink hover:bg-surface-alt",
             ].join(" ")}
-            aria-label="管理别名"
-            title="管理别名"
+            aria-label={t("nodeManageAlias")}
+            title={t("nodeManageAlias")}
           >
             <Tag size={11} />
             {aliasCount > 0 && <span>{aliasCount}</span>}
           </button>
 
-          <button onClick={() => callbacks.onAdd(node.id)} className="p-1 rounded text-ink-faint hover:text-ink hover:bg-surface-alt transition-colors" aria-label="新建子标签" title="新建子标签">
+          <button onClick={() => callbacks.onAdd(node.id)} className="p-1 rounded text-ink-faint hover:text-ink hover:bg-surface-alt transition-colors" aria-label={t("nodeAddChild")} title={t("nodeAddChild")}>
             <Plus size={12} />
           </button>
           {callbacks.onMerge && (
-            <button onClick={() => callbacks.onMerge!(node)} className="p-1 rounded text-ink-faint hover:text-ink hover:bg-surface-alt transition-colors" aria-label="合并到…" title="合并到…">
+            <button onClick={() => callbacks.onMerge!(node)} className="p-1 rounded text-ink-faint hover:text-ink hover:bg-surface-alt transition-colors" aria-label={t("nodeMerge")} title={t("nodeMerge")}>
               <GitMerge size={12} />
             </button>
           )}
           {callbacks.onMoveGroup && (
-            <button onClick={() => callbacks.onMoveGroup!(node)} className="p-1 rounded text-ink-faint hover:text-ink hover:bg-surface-alt transition-colors" aria-label="移动到分组…" title="移动到分组…">
+            <button onClick={() => callbacks.onMoveGroup!(node)} className="p-1 rounded text-ink-faint hover:text-ink hover:bg-surface-alt transition-colors" aria-label={t("nodeMoveGroup")} title={t("nodeMoveGroup")}>
               <FolderInput size={12} />
             </button>
           )}
-          <button onClick={() => callbacks.onEdit(node)} className="p-1 rounded text-ink-faint hover:text-ink hover:bg-surface-alt transition-colors" aria-label="编辑" title="编辑">
+          <button onClick={() => callbacks.onEdit(node)} className="p-1 rounded text-ink-faint hover:text-ink hover:bg-surface-alt transition-colors" aria-label={tCommon("edit")} title={tCommon("edit")}>
             <Pencil size={12} />
           </button>
-          <button onClick={() => callbacks.onDelete(node)} className="p-1 rounded text-bad/60 hover:text-bad hover:bg-bad/10 transition-colors" aria-label="删除" title="删除">
+          <button onClick={() => callbacks.onDelete(node)} className="p-1 rounded text-bad/60 hover:text-bad hover:bg-bad/10 transition-colors" aria-label={tCommon("delete")} title={tCommon("delete")}>
             <Trash2 size={12} />
           </button>
         </div>
@@ -265,6 +269,7 @@ function TagNode({ node, callbacks, draggingId, overId, allNodes }: NodeProps) {
 // ── Root droppable zone ────────────────────────────────────────────
 
 function RootDropZone({ isActive }: { isActive: boolean }) {
+  const t = useTranslations("groups");
   const { setNodeRef, isOver } = useDroppable({ id: ROOT_DROP_ID });
   if (!isActive) return null;
   return (
@@ -275,7 +280,7 @@ function RootDropZone({ isActive }: { isActive: boolean }) {
         isOver ? "border-accent text-accent bg-accent/5" : "border-edge text-ink-faint",
       ].join(" ")}
     >
-      拖到这里移至根节点
+      {t("treeRootDrop")}
     </div>
   );
 }
@@ -315,6 +320,7 @@ interface TagTreeProps {
 }
 
 export function TagTree({ nodes, callbacks }: TagTreeProps) {
+  const t = useTranslations("groups");
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [overId, setOverId]         = useState<string | null>(null);
   const movingRef                   = useRef(false);
@@ -365,7 +371,7 @@ export function TagTree({ nodes, callbacks }: TagTreeProps) {
       onDragEnd={handleDragEnd}
     >
       {nodes.length === 0 ? (
-        <p className="text-sm text-ink-faint py-6 text-center">暂无标签，点击「新增标签」开始创建</p>
+        <p className="text-sm text-ink-faint py-6 text-center">{t("treeNoTags")}</p>
       ) : (
         nodes.map(node => (
           <TagNode
