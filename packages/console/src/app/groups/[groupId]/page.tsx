@@ -2,12 +2,12 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useParams } from "next/navigation";
-import { Plus, Save, X } from "lucide-react";
+import { Plus, Save, X, RotateCcw, Trash2, Trash } from "lucide-react";
 import {
-  getTagGroup, getTagGroupTree, createTag, updateTag, deleteTag,
-  updateTagGroup, setEntityRules, getEntityTypes, getTagGroups,
+  getTagGroup, getTagGroupTree, createTag, updateTag, deleteTag, restoreTag,
+  getGroupTags, updateTagGroup, setEntityRules, getEntityTypes, getTagGroups,
   mergeTag, moveTagToGroup,
-  type TagGroup, type TagTreeNode, type TagGroupEntityRule,
+  type TagGroup, type Tag, type TagTreeNode, type TagGroupEntityRule,
 } from "@/lib/api";
 import { toast } from "@/components/ui/toast";
 import { Button } from "@/components/ui/button";
@@ -65,6 +65,12 @@ export default function GroupDetailPage() {
   type MoveGroupState = { tag: TagTreeNode; targetGroupId: string };
   const [moveGroupState, setMoveGroupState] = useState<MoveGroupState | null>(null);
   const [movingGroup, setMovingGroup]       = useState(false);
+
+  // recycle bin (deleted tags)
+  const [deletedTags, setDeletedTags]     = useState<Tag[]>([]);
+  const [trashLoading, setTrashLoading]   = useState(false);
+  const [showTrash, setShowTrash]         = useState(false);
+  const [confirmPermTag, setConfirmPermTag] = useState<Tag | null>(null);
 
   // ── Load ────────────────────────────────────────────────────────
 
@@ -206,7 +212,7 @@ export default function GroupDetailPage() {
   const executeDelete = async (tag: TagTreeNode, force: boolean) => {
     setConfirmDelete(null); setError("");
     try {
-      await deleteTag(tag.id, force);
+      await deleteTag(tag.id, { force });
       load();
     } catch (err) {
       const msg = err instanceof Error ? err.message : "";
@@ -261,6 +267,40 @@ export default function GroupDetailPage() {
       setError(err instanceof Error ? err.message : "迁移失败");
     } finally {
       setMovingGroup(false);
+    }
+  };
+
+  // ── Recycle bin ─────────────────────────────────────────────────
+
+  const loadDeletedTags = async () => {
+    setTrashLoading(true);
+    try {
+      const { items } = await getGroupTags(groupId, { onlyDeleted: true, pageSize: 100 });
+      setDeletedTags(items);
+    } catch { setDeletedTags([]); }
+    finally { setTrashLoading(false); }
+  };
+
+  const handleRestoreTag = async (tag: Tag) => {
+    setError("");
+    try {
+      await restoreTag(tag.id);
+      setDeletedTags(prev => prev.filter(t => t.id !== tag.id));
+      load(); // refresh tag tree
+      toast.success(`「${tag.name}」已恢复`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "恢复失败");
+    }
+  };
+
+  const handlePermanentDeleteTag = async (tag: Tag) => {
+    setConfirmPermTag(null); setError("");
+    try {
+      await deleteTag(tag.id, { permanent: true });
+      setDeletedTags(prev => prev.filter(t => t.id !== tag.id));
+      toast.success(`「${tag.name}」已永久删除`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "永久删除失败");
     }
   };
 
@@ -646,6 +686,78 @@ export default function GroupDetailPage() {
         </div>
         <TagTree nodes={tree} callbacks={treeCallbacks} />
       </Card>
+
+      {/* ── Tag Recycle Bin ── */}
+      <div className="card-border overflow-hidden">
+        <button
+          className="w-full flex items-center gap-2 px-5 py-3 text-xs text-ink-faint hover:bg-row-hover transition-colors"
+          onClick={() => {
+            const next = !showTrash;
+            setShowTrash(next);
+            if (next && deletedTags.length === 0) loadDeletedTags();
+          }}
+        >
+          <Trash size={12} />
+          <span className="font-medium">标签回收站</span>
+          {deletedTags.length > 0 && (
+            <span className="ml-1 text-ink-faint">（{deletedTags.length} 个）</span>
+          )}
+          <span className="ml-auto text-ink-faint">{showTrash ? "▲" : "▼"}</span>
+        </button>
+
+        {showTrash && (
+          trashLoading ? (
+            <div className="px-5 py-4 text-xs text-ink-faint animate-pulse">加载中…</div>
+          ) : deletedTags.length === 0 ? (
+            <div className="px-5 py-4 text-xs text-ink-faint border-t border-edge">该分组暂无已删除标签</div>
+          ) : (
+            <div className="border-t border-edge">
+              {deletedTags.map(tag => (
+                <div key={tag.id} className="flex items-center gap-3 px-5 py-2.5 border-b border-edge last:border-0 hover:bg-row-hover transition-colors">
+                  <div className="flex-1 min-w-0">
+                    <span className="text-sm text-ink-sub">{tag.name}</span>
+                    <span className="ml-2 text-xs font-mono text-ink-faint">{tag.slug}</span>
+                  </div>
+                  <p className="text-xs text-ink-faint tabular-nums shrink-0">
+                    {tag.deletedAt
+                      ? new Date(tag.deletedAt as unknown as string).toLocaleString("zh-CN", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" })
+                      : ""}
+                  </p>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <button
+                      onClick={() => handleRestoreTag(tag)}
+                      className="inline-flex items-center gap-1 px-2 py-1 text-xs text-ok border border-ok/30 bg-ok/5 hover:bg-ok/10 rounded-md transition-colors"
+                      title="恢复标签"
+                    >
+                      <RotateCcw size={10} />恢复
+                    </button>
+                    <button
+                      onClick={() => setConfirmPermTag(tag)}
+                      className="inline-flex items-center gap-1 px-2 py-1 text-xs text-bad border border-bad/30 bg-bad/5 hover:bg-bad/10 rounded-md transition-colors"
+                      title="永久删除"
+                    >
+                      <Trash2 size={10} />永久删除
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )
+        )}
+      </div>
+
+      {/* Permanent delete confirm */}
+      {confirmPermTag && (
+        <ConfirmDialog
+          open
+          title={`永久删除「${confirmPermTag.name}」`}
+          description="该标签及其历史实体关联将被彻底移除，无法恢复。"
+          confirmLabel="永久删除"
+          danger
+          onConfirm={() => handlePermanentDeleteTag(confirmPermTag)}
+          onCancel={() => setConfirmPermTag(null)}
+        />
+      )}
     </div>
   );
 }

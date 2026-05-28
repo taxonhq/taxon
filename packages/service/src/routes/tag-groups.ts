@@ -25,6 +25,7 @@ const listGroupsRoute = createRoute({
       scope:            z.string().optional().openapi({ description: '按实体类型过滤' }),
       withPreviewTags:  z.enum(['true', 'false']).optional(),
       previewSize:      z.coerce.number().int().min(1).max(20).optional(),
+      onlyDeleted:      z.enum(['true', 'false']).optional().openapi({ description: '仅返回软删除分组（回收站）' }),
     }),
   },
   responses: {
@@ -37,9 +38,10 @@ tagGroups.openapi(listGroupsRoute, async (c) => {
   const scopes = c.req.queries('scope') ?? []
   const withPreviewTags = c.req.query('withPreviewTags') === 'true'
   const previewSize = Math.min(20, Math.max(1, parseInt(c.req.query('previewSize') || '20')))
+  const onlyDeleted = c.req.query('onlyDeleted') === 'true'
 
   const where = {
-    deletedAt: null,
+    ...(onlyDeleted ? { deletedAt: { not: null } } : { deletedAt: null }),
     ...(scopes.length > 0
       ? { OR: [
           { entityScopes: scopes.length === 1 ? { has: scopes[0] } : { hasSome: scopes } },
@@ -243,11 +245,14 @@ tagGroups.openapi(updateGroupRoute, async (c) => {
 const deleteGroupRoute = createRoute({
   method: 'delete', path: '/{groupId}',
   tags: ['标签分组'],
-  summary: '删除分组（软删除）',
+  summary: '删除分组（软删除；?permanent=true 硬删）',
   security: [{ BearerAuth: [] }],
   request: {
     params: GroupIdParam,
-    query: z.object({ force: z.enum(['true', '1']).optional() }),
+    query: z.object({
+      force:     z.enum(['true', '1']).optional(),
+      permanent: z.enum(['true', '1']).optional().openapi({ description: '硬删除（不可恢复，含 EntityTag 级联）' }),
+    }),
   },
   responses: {
     200: { content: { 'application/json': { schema: OkMessage } }, description: '成功' },
@@ -258,7 +263,16 @@ const deleteGroupRoute = createRoute({
 
 tagGroups.openapi(deleteGroupRoute, async (c) => {
   const { groupId } = c.req.valid('param')
-  const force = c.req.query('force') === 'true' || c.req.query('force') === '1'
+  const force     = c.req.query('force')     === 'true' || c.req.query('force')     === '1'
+  const permanent = c.req.query('permanent') === 'true' || c.req.query('permanent') === '1'
+
+  if (permanent) {
+    // Hard delete — works whether group is already soft-deleted or still active
+    const group = await prisma.tagGroup.findUnique({ where: { id: groupId }, select: { id: true } })
+    if (!group) return c.json({ code: 404, message: '标签分组不存在' }, 404)
+    await prisma.tagGroup.delete({ where: { id: groupId } })
+    return c.json({ code: 0, message: '已永久删除' }, 200)
+  }
 
   const group = await prisma.tagGroup.findUnique({ where: { id: groupId, deletedAt: null }, select: { id: true } })
   if (!group) return c.json({ code: 404, message: '标签分组不存在' }, 404)
@@ -276,6 +290,45 @@ tagGroups.openapi(deleteGroupRoute, async (c) => {
   return c.json({ code: 0, message: '删除成功' }, 200)
 })
 
+// ── POST /:groupId/restore ────────────────────────────────────────────────────
+const restoreGroupRoute = createRoute({
+  method: 'post', path: '/{groupId}/restore',
+  tags: ['标签分组'],
+  summary: '恢复软删除分组',
+  security: [{ BearerAuth: [] }],
+  request: { params: GroupIdParam },
+  responses: {
+    200: { content: { 'application/json': { schema: okData(TagGroupSchema) } }, description: '成功' },
+    404: { content: { 'application/json': { schema: ApiError } }, description: '不存在' },
+    409: { content: { 'application/json': { schema: ApiError } }, description: 'slug 或 name 冲突' },
+  },
+})
+
+tagGroups.use('/:groupId/restore', requireRole('admin'))
+tagGroups.openapi(restoreGroupRoute, async (c) => {
+  const { groupId } = c.req.valid('param')
+  const group = await prisma.tagGroup.findUnique({
+    where: { id: groupId },
+    select: { id: true, slug: true, name: true, deletedAt: true },
+  })
+  if (!group) return c.json({ code: 404, message: '标签分组不存在' }, 404)
+  if (!group.deletedAt) return c.json({ code: 409, message: '该分组未被删除，无需恢复' }, 409)
+
+  const [slugConflict, nameConflict] = await Promise.all([
+    prisma.tagGroup.findFirst({ where: { slug: group.slug, deletedAt: null }, select: { id: true } }),
+    prisma.tagGroup.findFirst({ where: { name: group.name, deletedAt: null }, select: { id: true } }),
+  ])
+  if (slugConflict) return c.json({ code: 409, message: `slug「${group.slug}」已被其他活跃分组占用，无法恢复` }, 409)
+  if (nameConflict) return c.json({ code: 409, message: `名称「${group.name}」已被其他活跃分组占用，无法恢复` }, 409)
+
+  const restored = await prisma.tagGroup.update({
+    where: { id: groupId },
+    data:  { deletedAt: null },
+    include: { entityRules: true, _count: { select: { tags: { where: { deletedAt: null } } } } },
+  })
+  return c.json({ code: 0, data: { ...restored, createdAt: restored.createdAt.toISOString(), updatedAt: restored.updatedAt.toISOString(), deletedAt: null } }, 200)
+})
+
 // ── GET /:groupId/tags ────────────────────────────────────────────────────────
 const listGroupTagsRoute = createRoute({
   method: 'get', path: '/{groupId}/tags',
@@ -283,7 +336,9 @@ const listGroupTagsRoute = createRoute({
   summary: '获取分组内标签（分页）',
   request: {
     params: GroupIdParam,
-    query: PaginationQuery,
+    query: PaginationQuery.extend({
+      onlyDeleted: z.enum(['true', 'false']).optional().openapi({ description: '仅返回软删除标签（回收站）' }),
+    }),
   },
   responses: {
     200: { content: { 'application/json': { schema: okData(Paginated(TagSchema)) } }, description: '成功' },
@@ -294,11 +349,16 @@ const listGroupTagsRoute = createRoute({
 tagGroups.openapi(listGroupTagsRoute, async (c) => {
   const { groupId } = c.req.valid('param')
   const { page, pageSize, skip, take } = parsePagination(c.req.query())
+  const onlyDeleted = c.req.query('onlyDeleted') === 'true'
 
-  const groupExists = await prisma.tagGroup.findUnique({ where: { id: groupId, deletedAt: null }, select: { id: true } })
+  // Allow browsing deleted group's tags (e.g., restoring individual tags)
+  const groupExists = await prisma.tagGroup.findUnique({ where: { id: groupId }, select: { id: true } })
   if (!groupExists) return c.json({ code: 404, message: '标签分组不存在' }, 404)
 
-  const where = { groupId, deletedAt: null }
+  const where = {
+    groupId,
+    ...(onlyDeleted ? { deletedAt: { not: null } } : { deletedAt: null }),
+  }
   const [items, total] = await Promise.all([
     prisma.tag.findMany({
       where,

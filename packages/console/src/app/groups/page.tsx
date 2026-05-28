@@ -2,9 +2,9 @@
 
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
-import { Plus, Trash2, Settings2, ChevronRight, Layers } from "lucide-react";
+import { Plus, Trash2, Settings2, ChevronRight, Layers, RotateCcw, Trash } from "lucide-react";
 import {
-  getTagGroups, createTagGroup, deleteTagGroup,
+  getTagGroups, createTagGroup, deleteTagGroup, restoreTagGroup,
   createTag, deleteTag, getEntityTypes,
   type TagGroup, type Tag,
 } from "@/lib/api";
@@ -31,6 +31,7 @@ interface PendingDelete {
 }
 
 export default function GroupsPage() {
+  const [activeTab, setActiveTab] = useState<"active" | "trash">("active");
   const [groups, setGroups] = useState<GroupWithTags[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -44,6 +45,11 @@ export default function GroupsPage() {
     slug: "", name: "", description: "", entityScope: "", allowMultiple: "true",
   });
   const [confirm, setConfirm] = useState<PendingDelete | null>(null);
+
+  // Recycle bin state
+  const [deletedGroups, setDeletedGroups] = useState<TagGroup[]>([]);
+  const [trashLoading, setTrashLoading] = useState(false);
+  const [trashError, setTrashError] = useState("");
 
   useEffect(() => {
     getEntityTypes()
@@ -99,10 +105,20 @@ export default function GroupsPage() {
 
   const handleDeleteGroup = (group: GroupWithTags) => setConfirm({ type: "group", group });
 
+  const loadDeleted = async () => {
+    setTrashLoading(true); setTrashError("");
+    try {
+      const { items } = await getTagGroups({ onlyDeleted: true, pageSize: 100 });
+      setDeletedGroups(items);
+    } catch (err) {
+      setTrashError(err instanceof Error ? err.message : "加载回收站失败");
+    } finally { setTrashLoading(false); }
+  };
+
   const executeDeleteGroup = async (group: GroupWithTags, force: boolean) => {
     setConfirm(null); setError("");
     try {
-      await deleteTagGroup(group.id, force);
+      await deleteTagGroup(group.id, { force });
       setGroups(prev => prev.filter(g => g.id !== group.id));
       setTotal(prev => prev - 1);
     } catch (err) {
@@ -112,13 +128,35 @@ export default function GroupsPage() {
     }
   };
 
+  const handleRestoreGroup = async (group: TagGroup) => {
+    setTrashError("");
+    try {
+      await restoreTagGroup(group.id);
+      setDeletedGroups(prev => prev.filter(g => g.id !== group.id));
+      // Reload active list so restored group appears
+      load(1);
+    } catch (err) {
+      setTrashError(err instanceof Error ? err.message : "恢复失败");
+    }
+  };
+
+  const handlePermanentDeleteGroup = async (group: TagGroup) => {
+    setTrashError("");
+    try {
+      await deleteTagGroup(group.id, { permanent: true });
+      setDeletedGroups(prev => prev.filter(g => g.id !== group.id));
+    } catch (err) {
+      setTrashError(err instanceof Error ? err.message : "永久删除失败");
+    }
+  };
+
   const handleDeleteTag = (groupId: string, tag: Tag) =>
     setConfirm({ type: "tag", group: groups.find(g => g.id === groupId)!, tag });
 
   const executeDeleteTag = async (group: GroupWithTags, tag: Tag, force: boolean) => {
     setConfirm(null); setError("");
     try {
-      await deleteTag(tag.id, force);
+      await deleteTag(tag.id, { force });
       setGroups(prev => prev.map(g =>
         g.id === group.id
           ? { ...g, previewTags: g.previewTags.filter(t => t.id !== tag.id), tagTotal: g.tagTotal - 1 }
@@ -166,15 +204,52 @@ export default function GroupsPage() {
         title="分组管理"
         description="管理标签分组与标签值，点击分组名进入高级配置"
         action={
-          <Button onClick={() => setShowGroupForm(v => !v)} size="sm">
-            <Plus size={13} />
-            新建分组
-          </Button>
+          activeTab === "active" && (
+            <Button onClick={() => setShowGroupForm(v => !v)} size="sm">
+              <Plus size={13} />
+              新建分组
+            </Button>
+          )
         }
       />
 
+      {/* ── Tab switcher ── */}
+      <div className="flex items-center gap-1 p-0.5 bg-surface-alt border border-edge rounded-lg w-fit">
+        {([["active", "活跃分组"], ["trash", "回收站"]] as const).map(([tab, label]) => (
+          <button
+            key={tab}
+            onClick={() => {
+              setActiveTab(tab);
+              if (tab === "trash") loadDeleted();
+            }}
+            className={`flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-md transition-all ${
+              activeTab === tab
+                ? "bg-overlay text-ink font-medium shadow-sm border border-edge-mid"
+                : "text-ink-dim hover:text-ink"
+            }`}
+          >
+            {tab === "trash" && <Trash size={11} />}
+            {label}
+          </button>
+        ))}
+      </div>
+
       <ErrorBanner message={error} />
 
+      {/* ── Recycle bin tab ── */}
+      {activeTab === "trash" && (
+        <RecycleBinSection
+          groups={deletedGroups}
+          loading={trashLoading}
+          error={trashError}
+          onRestore={handleRestoreGroup}
+          onPermanentDelete={handlePermanentDeleteGroup}
+        />
+      )}
+
+      {/* ── Active tab ── */}
+      {activeTab === "active" && (
+      <>
       {/* Create form */}
       {showGroupForm && (
         <Card className="space-y-5 animate-slide-up">
@@ -248,6 +323,8 @@ export default function GroupsPage() {
           confirmLabel={dialogProps.confirmLabel} danger
           onConfirm={handleConfirm} onCancel={() => setConfirm(null)}
         />
+      )}
+      </>
       )}
     </div>
   );
@@ -467,5 +544,105 @@ function EmptyGroups() {
         </p>
       </div>
     </div>
+  );
+}
+
+// ── Recycle Bin Section ──────────────────────────────────────────────────────
+
+function RecycleBinSection({
+  groups, loading, error, onRestore, onPermanentDelete,
+}: {
+  groups: TagGroup[];
+  loading: boolean;
+  error: string;
+  onRestore: (g: TagGroup) => void;
+  onPermanentDelete: (g: TagGroup) => void;
+}) {
+  const [confirmPerm, setConfirmPerm] = useState<TagGroup | null>(null);
+
+  if (loading) return (
+    <div className="card-border overflow-hidden animate-pulse">
+      {[1, 2, 3].map(i => (
+        <div key={i} className="flex items-center gap-4 px-5 py-4 border-b border-edge last:border-0">
+          <div className="flex-1 space-y-1.5">
+            <div className="h-4 w-40 bg-edge-mid rounded" />
+            <div className="h-3 w-24 bg-edge rounded" />
+          </div>
+          <div className="flex gap-2">
+            <div className="h-7 w-16 bg-edge rounded-lg" />
+            <div className="h-7 w-20 bg-edge rounded-lg" />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+
+  if (error) return <ErrorBanner message={error} />;
+
+  if (groups.length === 0) return (
+    <div className="card-border overflow-hidden animate-fade-in">
+      <div className="py-20 flex flex-col items-center text-center">
+        <div className="w-12 h-12 rounded-xl bg-surface-alt border border-edge-mid flex items-center justify-center mb-4">
+          <Trash size={18} className="text-ink-faint" strokeWidth={1.5} />
+        </div>
+        <p className="text-sm font-medium text-ink-sub">回收站为空</p>
+        <p className="text-xs text-ink-faint mt-1">删除的分组会出现在这里，可以恢复或永久清除</p>
+      </div>
+    </div>
+  );
+
+  return (
+    <>
+      <div className="card-border overflow-hidden animate-fade-in">
+        <div className="px-5 py-3 border-b border-edge bg-surface-alt flex items-center gap-2">
+          <Trash size={12} className="text-ink-faint" />
+          <span className="text-xs text-ink-sub">{groups.length} 个已删除分组</span>
+          <span className="text-xs text-ink-faint ml-auto">恢复时若 slug 或名称冲突将提示错误</span>
+        </div>
+        {groups.map(group => (
+          <div key={group.id} className="flex items-center gap-4 px-5 py-3.5 border-b border-edge last:border-0 hover:bg-row-hover transition-colors">
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-ink-sub truncate">{group.name}</p>
+              <p className="text-xs text-ink-faint font-mono mt-0.5">{group.slug}</p>
+            </div>
+            <p className="text-xs text-ink-faint tabular-nums shrink-0">
+              {group.deletedAt
+                ? new Date(group.deletedAt as unknown as string).toLocaleString("zh-CN", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" })
+                : ""}
+            </p>
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                onClick={() => onRestore(group)}
+                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-ok border border-ok/30 bg-ok/5 hover:bg-ok/10 rounded-lg transition-colors"
+                title="恢复分组"
+              >
+                <RotateCcw size={11} />
+                恢复
+              </button>
+              <button
+                onClick={() => setConfirmPerm(group)}
+                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-bad border border-bad/30 bg-bad/5 hover:bg-bad/10 rounded-lg transition-colors"
+                title="永久删除（不可恢复）"
+              >
+                <Trash2 size={11} />
+                永久删除
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {confirmPerm && (
+        <ConfirmDialog
+          open
+          title={`永久删除「${confirmPerm.name}」`}
+          description={`该分组下所有标签和历史实体关联将被彻底移除，无法恢复。`}
+          confirmLabel="永久删除"
+          danger
+          onConfirm={() => { onPermanentDelete(confirmPerm); setConfirmPerm(null); }}
+          onCancel={() => setConfirmPerm(null)}
+        />
+      )}
+    </>
   );
 }

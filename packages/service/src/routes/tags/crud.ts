@@ -167,11 +167,14 @@ tagsCrud.openapi(updateTagRoute, async (c) => {
 const deleteTagRoute = createRoute({
   method: 'delete', path: '/{tagId}',
   tags: ['标签'],
-  summary: '删除标签（软删除）',
+  summary: '删除标签（软删除；?permanent=true 硬删）',
   security: [{ BearerAuth: [] }],
   request: {
     params: TagIdParam,
-    query: z.object({ force: z.enum(['true', '1']).optional() }),
+    query: z.object({
+      force:     z.enum(['true', '1']).optional(),
+      permanent: z.enum(['true', '1']).optional().openapi({ description: '硬删除（不可恢复，含 EntityTag 级联）' }),
+    }),
   },
   responses: {
     200: { content: { 'application/json': { schema: OkMessage } }, description: '成功' },
@@ -182,7 +185,15 @@ const deleteTagRoute = createRoute({
 
 tagsCrud.openapi(deleteTagRoute, async (c) => {
   const { tagId } = c.req.valid('param')
-  const force = c.req.query('force') === 'true' || c.req.query('force') === '1'
+  const force     = c.req.query('force')     === 'true' || c.req.query('force')     === '1'
+  const permanent = c.req.query('permanent') === 'true' || c.req.query('permanent') === '1'
+
+  if (permanent) {
+    const tag = await prisma.tag.findUnique({ where: { id: tagId }, select: { id: true } })
+    if (!tag) return c.json({ code: 404, message: '标签不存在' }, 404)
+    await prisma.tag.delete({ where: { id: tagId } })
+    return c.json({ code: 0, message: '已永久删除' }, 200)
+  }
 
   const tag = await prisma.tag.findUnique({ where: { id: tagId, deletedAt: null }, select: { id: true } })
   if (!tag) return c.json({ code: 404, message: '标签不存在' }, 404)
@@ -201,4 +212,43 @@ tagsCrud.openapi(deleteTagRoute, async (c) => {
     data:  { deletedAt: new Date() },
   })
   return c.json({ code: 0, message: '删除成功' }, 200)
+})
+
+// ── POST /:tagId/restore ──────────────────────────────────────────────────────
+const restoreTagRoute = createRoute({
+  method: 'post', path: '/{tagId}/restore',
+  tags: ['标签'],
+  summary: '恢复软删除标签',
+  security: [{ BearerAuth: [] }],
+  request: { params: TagIdParam },
+  responses: {
+    200: { content: { 'application/json': { schema: okData(TagSchema) } }, description: '成功' },
+    404: { content: { 'application/json': { schema: ApiError } }, description: '不存在' },
+    409: { content: { 'application/json': { schema: ApiError } }, description: 'slug 或 name 冲突' },
+  },
+})
+
+tagsCrud.use('/:tagId/restore', requireRole('admin'))
+tagsCrud.openapi(restoreTagRoute, async (c) => {
+  const { tagId } = c.req.valid('param')
+  const tag = await prisma.tag.findUnique({
+    where: { id: tagId },
+    select: { id: true, groupId: true, slug: true, name: true, deletedAt: true },
+  })
+  if (!tag) return c.json({ code: 404, message: '标签不存在' }, 404)
+  if (!tag.deletedAt) return c.json({ code: 409, message: '该标签未被删除，无需恢复' }, 409)
+
+  const [slugConflict, nameConflict] = await Promise.all([
+    prisma.tag.findFirst({ where: { groupId: tag.groupId, slug: tag.slug, deletedAt: null }, select: { id: true } }),
+    prisma.tag.findFirst({ where: { groupId: tag.groupId, name: tag.name, deletedAt: null }, select: { id: true } }),
+  ])
+  if (slugConflict) return c.json({ code: 409, message: `slug「${tag.slug}」在该分组内已被其他活跃标签占用，无法恢复` }, 409)
+  if (nameConflict) return c.json({ code: 409, message: `名称「${tag.name}」在该分组内已被其他活跃标签占用，无法恢复` }, 409)
+
+  const restored = await prisma.tag.update({
+    where: { id: tagId },
+    data:  { deletedAt: null },
+    include: { _count: { select: { entityTags: { where: { status: 'active' } } } } },
+  })
+  return c.json({ code: 0, data: { ...restored, createdAt: restored.createdAt.toISOString(), updatedAt: restored.updatedAt.toISOString(), deletedAt: null } }, 200)
 })

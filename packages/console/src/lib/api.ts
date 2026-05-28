@@ -155,6 +155,7 @@ export async function getTagGroups(params?: {
   pageSize?: number;
   withPreviewTags?: boolean;
   previewSize?: number;
+  onlyDeleted?: boolean;
 }): Promise<Paginated<TagGroup & { tags?: Tag[] }>> {
   const q = new URLSearchParams();
   params?.scope?.forEach(s => q.append("scope", s));
@@ -162,6 +163,7 @@ export async function getTagGroups(params?: {
   if (params?.pageSize)        q.set("pageSize",        String(params.pageSize));
   if (params?.withPreviewTags) q.set("withPreviewTags", "true");
   if (params?.previewSize)     q.set("previewSize",     String(params.previewSize));
+  if (params?.onlyDeleted)     q.set("onlyDeleted",     "true");
   return req<Paginated<TagGroup & { tags?: Tag[] }>>(`/tag-groups${q.size ? `?${q}` : ""}`);
 }
 
@@ -199,8 +201,15 @@ export async function updateTagGroup(groupId: string, body: {
   });
 }
 
-export async function deleteTagGroup(groupId: string, force = false): Promise<void> {
-  await req<unknown>(`/tag-groups/${groupId}${force ? "?force=true" : ""}`, { method: "DELETE" });
+export async function deleteTagGroup(groupId: string, opts: { force?: boolean; permanent?: boolean } = {}): Promise<void> {
+  const q = new URLSearchParams();
+  if (opts.force)     q.set("force",     "true");
+  if (opts.permanent) q.set("permanent", "true");
+  await req<unknown>(`/tag-groups/${groupId}${q.size ? `?${q}` : ""}`, { method: "DELETE" });
+}
+
+export async function restoreTagGroup(groupId: string): Promise<TagGroup> {
+  return req<TagGroup>(`/tag-groups/${groupId}/restore`, { method: "POST" });
 }
 
 // ── Entity Rules ──────────────────────────────────────────────────
@@ -220,11 +229,12 @@ export async function setEntityRules(
 
 export async function getGroupTags(
   groupId: string,
-  params?: { page?: number; pageSize?: number }
+  params?: { page?: number; pageSize?: number; onlyDeleted?: boolean }
 ): Promise<Paginated<Tag>> {
   const q = new URLSearchParams();
-  if (params?.page) q.set("page", String(params.page));
-  if (params?.pageSize) q.set("pageSize", String(params.pageSize));
+  if (params?.page)        q.set("page",        String(params.page));
+  if (params?.pageSize)    q.set("pageSize",    String(params.pageSize));
+  if (params?.onlyDeleted) q.set("onlyDeleted", "true");
   return req<Paginated<Tag>>(`/tag-groups/${groupId}/tags${q.size ? `?${q}` : ""}`);
 }
 
@@ -334,8 +344,17 @@ export async function moveTagToGroup(
   });
 }
 
-export async function deleteTag(tagId: string, force = false): Promise<void> {
-  await req<unknown>(`/tags/${tagId}${force ? "?force=true" : ""}`, { method: "DELETE" });
+export async function deleteTag(tagId: string, opts: { force?: boolean; permanent?: boolean } | boolean = {}): Promise<void> {
+  // Backwards compat: deleteTag(id, true) === deleteTag(id, { force: true })
+  const o = typeof opts === "boolean" ? { force: opts } : opts;
+  const q = new URLSearchParams();
+  if (o.force)     q.set("force",     "true");
+  if (o.permanent) q.set("permanent", "true");
+  await req<unknown>(`/tags/${tagId}${q.size ? `?${q}` : ""}`, { method: "DELETE" });
+}
+
+export async function restoreTag(tagId: string): Promise<Tag> {
+  return req<Tag>(`/tags/${tagId}/restore`, { method: "POST" });
 }
 
 // ── Entity Types ──────────────────────────────────────────────────
