@@ -132,6 +132,16 @@ suggestRouter.openapi(suggestRoute, async (c) => {
   const storedMeta = (entity.metadata ?? {}) as Record<string, string>
   const effectiveContext: Record<string, string> = { ...storedMeta, ...contextMap }
 
+  // 检查推荐字段是否存在，缺失时记录警告（不阻断请求）
+  const recommendedFields = ['name', 'description', 'category'] as const
+  const missingFields = recommendedFields.filter(f => !effectiveContext[f])
+  if (missingFields.length > 0) {
+    logger.warn(
+      { entityType, entityId, missingFields },
+      'AI suggest: 实体缺少推荐 metadata 字段，建议质量可能下降。推荐字段：name、description、category'
+    )
+  }
+
   // ── 3. 加载可用标签 ──────────────────────────────────────────────────────
   // 先确定要查哪些分组的 ID，再查 tag。两步查询比嵌套 where 类型更安全。
   let groupIds: string[]

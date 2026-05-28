@@ -214,24 +214,40 @@ model TagGroupEntityRule {
 // ── 合并操作日志 ──────────────────────────────────────────────
 // 记录每次 merge 的操作结果，保留审计轨迹。
 // 软引用 tag ID（tag 可能被后续删除），不加 FK。
+// 快照字段确保标签删除后仍可追溯操作上下文。
 model TagMergeLog {
-  id              String   @id @default(cuid())
-  targetTagId     String
-  sourceTagIds    String[]
-  entityTagsMoved Int
-  aliasesMoved    Int
-  mergedAt        DateTime @default(now())
+  id               String   @id @default(cuid())
+  targetTagId      String
+  targetTagName    String
+  targetTagSlug    String
+  targetGroupSlug  String
+  sourceTagIds     String[]
+  sourceTagNames   String[]   // 快照：源标签名称列表
+  entityTagsMoved  Int
+  aliasesMoved     Int
+  mergedAt         DateTime @default(now())
+
+  @@index([targetTagId])
+  @@index([mergedAt(sort: Desc)])
 }
 
 // ── 跨分组迁移日志 ────────────────────────────────────────────
 // 记录每次 move（含子孙节点数量），保留审计轨迹。
+// 快照字段确保标签/分组删除后仍可追溯操作上下文。
 model TagMoveLog {
-  id          String   @id @default(cuid())
-  tagId       String
-  fromGroupId String
-  toGroupId   String
-  tagsMoved   Int      // 含子孙节点数量
-  movedAt     DateTime @default(now())
+  id              String   @id @default(cuid())
+  tagId           String
+  tagName         String
+  tagSlug         String
+  fromGroupId     String
+  fromGroupSlug   String
+  toGroupId       String
+  toGroupSlug     String
+  tagsMoved       Int      // 含子孙节点数量
+  movedAt         DateTime @default(now())
+
+  @@index([tagId])
+  @@index([movedAt(sort: Desc)])
 }
 
 // ── 系统配置（键值存储）─────────────────────────────────────────

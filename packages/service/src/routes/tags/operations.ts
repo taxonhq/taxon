@@ -48,12 +48,15 @@ tagsOperations.openapi(mergeTagRoute, async (c) => {
   if (uniqueSourceIds.includes(targetId))
     return c.json({ code: 400, message: 'sourceIds 不能包含 targetId 本身' }, 400)
 
-  const target = await prisma.tag.findUnique({ where: { id: targetId, deletedAt: null }, select: { id: true, groupId: true, name: true, slug: true } })
+  const target = await prisma.tag.findUnique({
+    where: { id: targetId, deletedAt: null },
+    select: { id: true, groupId: true, name: true, slug: true, group: { select: { slug: true } } },
+  })
   if (!target) return c.json({ code: 404, message: '目标标签不存在' }, 404)
 
   const sourceTags = await prisma.tag.findMany({
     where: { id: { in: uniqueSourceIds }, deletedAt: null },
-    select: { id: true, groupId: true, _count: { select: { children: { where: { deletedAt: null } } } } },
+    select: { id: true, groupId: true, name: true, _count: { select: { children: { where: { deletedAt: null } } } } },
   })
   if (sourceTags.length !== uniqueSourceIds.length) {
     const missing = uniqueSourceIds.filter(id => !sourceTags.find(t => t.id === id))
@@ -88,7 +91,18 @@ tagsOperations.openapi(mergeTagRoute, async (c) => {
         aliasesMoved = toMove.length
       }
       await tx.tag.updateMany({ where: { id: { in: uniqueSourceIds } }, data: { deletedAt: new Date() } })
-      await tx.tagMergeLog.create({ data: { targetTagId: targetId, sourceTagIds: uniqueSourceIds, entityTagsMoved, aliasesMoved } })
+      await tx.tagMergeLog.create({
+        data: {
+          targetTagId: targetId,
+          targetTagName: target.name,
+          targetTagSlug: target.slug,
+          targetGroupSlug: target.group.slug,
+          sourceTagIds: uniqueSourceIds,
+          sourceTagNames: sourceTags.map(t => t.name),
+          entityTagsMoved,
+          aliasesMoved,
+        },
+      })
       return { entityTagsMoved, aliasesMoved }
     })
     return c.json({ code: 0, data: result }, 200)
@@ -121,7 +135,10 @@ tagsOperations.openapi(moveTagRoute, async (c) => {
   const { tagId } = c.req.valid('param')
   const { targetGroupId } = c.req.valid('json')
 
-  const tag = await prisma.tag.findUnique({ where: { id: tagId, deletedAt: null }, select: { id: true, groupId: true, slug: true, path: true, depth: true } })
+  const tag = await prisma.tag.findUnique({
+    where: { id: tagId, deletedAt: null },
+    select: { id: true, groupId: true, slug: true, name: true, path: true, depth: true, group: { select: { slug: true } } },
+  })
   if (!tag) return c.json({ code: 404, message: '标签不存在' }, 404)
   if (tag.groupId === targetGroupId) return c.json({ code: 400, message: '目标分组与当前分组相同' }, 400)
 
@@ -172,7 +189,18 @@ tagsOperations.openapi(moveTagRoute, async (c) => {
           WHERE path LIKE ${oldPath + '%'} AND id != ${tagId} AND "deletedAt" IS NULL
         `
       }
-      await tx.tagMoveLog.create({ data: { tagId, fromGroupId: tag.groupId, toGroupId: targetGroupId, tagsMoved: allMoving.length } })
+      await tx.tagMoveLog.create({
+        data: {
+          tagId,
+          tagName: tag.name,
+          tagSlug: tag.slug,
+          fromGroupId: tag.groupId,
+          fromGroupSlug: tag.group.slug,
+          toGroupId: targetGroupId,
+          toGroupSlug: targetGroup.slug,
+          tagsMoved: allMoving.length,
+        },
+      })
       return updatedTag
     })
     return c.json({ code: 0, data: { tag: { ...updated, createdAt: updated.createdAt.toISOString(), updatedAt: updated.updatedAt.toISOString(), deletedAt: updated.deletedAt?.toISOString() ?? null }, tagsMoved: allMoving.length } }, 200)

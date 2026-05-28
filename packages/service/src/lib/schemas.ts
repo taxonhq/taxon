@@ -181,10 +181,18 @@ export const EntityTagItemSchema = z.object({
   taggedAt:   DateTimeStr,
 })
 
-// metadata: 业务方自定义的实体元数据，string 值的 KV map（name、description、imageUrl 等）
+// metadata: 业务方自定义的实体元数据，string 值的 KV map
+// 推荐字段（AI suggest 依赖）：
+//   - name: 实体名称（如菜品名、餐厅名）
+//   - description: 实体描述（如菜品介绍、餐厅特色）
+//   - imageUrl: 实体图片 URL（视觉模型可使用）
+//   - category: 实体分类（如菜系、业态）
 // 设计为 Record<string,string> 而非任意 JSON，便于 LLM prompt 序列化且不引入嵌套复杂度
 export const EntityMetadata = z.record(z.string(), z.string())
-  .openapi({ description: '实体元数据（name、description、imageUrl 等），由调用方自定义' })
+  .openapi({
+    description: '实体元数据 KV 映射。推荐字段：name（名称）、description（描述）、imageUrl（图片URL）、category（分类）。AI 标签建议功能依赖这些字段生成高质量建议。',
+    example: { name: '宫保鸡丁', description: '经典川菜，酸甜微辣', category: '热菜' },
+  })
 
 export const RegisteredEntitySchema = z.object({
   entityType:   z.string(),
