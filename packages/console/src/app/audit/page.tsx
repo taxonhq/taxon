@@ -7,7 +7,8 @@
  *   - 键盘快捷键（J/K 导航，A 通过，R 拒绝，Enter 带备注，Shift+A 全部通过，
  *     X 选中，Shift+X 全选，/ 聚焦筛选，? 显示说明，⌘Z 撤销）
  *   - 快速操作：A/R 直接审核，无需备注弹窗
- *   - 5 秒撤销：操作后可在 5s 内撤销，超时后实际提交
+ *   - 服务端 5 秒撤销：A/R 立即提交并返回 reviewId；5s 内可 ⌘Z 调用
+ *     POST /audit/undo 回滚，超时后 batch 清空（已提交状态保留）
  *   - 行 flash 动效：通过→绿，拒绝→红
  *   - 聚焦行左侧蓝色高亮条
  *   - 置信度区间过滤（issue #9）
@@ -16,7 +17,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { CheckCircle, XCircle, Trash2, RefreshCw, ClipboardCheck, Keyboard } from "lucide-react";
 import {
-  getAuditItems, updateEntityTagStatus, removeEntityTag, getEntityTypes,
+  getAuditItems, updateEntityTagStatus, undoReviews, removeEntityTag, getEntityTypes,
   type AuditItem,
 } from "@/lib/api";
 import { Button } from "@/components/ui/button";
@@ -143,7 +144,7 @@ function CheatsheetDialog({ onClose }: { onClose: () => void }) {
 }
 
 // ── 主页面 ─────────────────────────────────────────────────────────────────────
-type UndoEntry = { key: string; item: AuditItem; newStatus: "active" | "rejected" };
+type UndoEntry = { key: string; reviewId: string };
 
 export default function AuditPage() {
   const [items, setItems] = useState<AuditItem[]>([]);
@@ -175,7 +176,7 @@ export default function AuditPage() {
   const undoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const commitUndoFnRef = useRef<() => void>(() => {});
   const quickActionRef  = useRef<(item: AuditItem, newStatus: "active" | "rejected", origIdx: number) => void>(() => {});
-  const handleUndoRef   = useRef<() => void>(() => {});
+  const handleUndoRef   = useRef<() => void | Promise<void>>(() => {});
   // Stable snapshot for the (once-registered) keyboard handler — updated in useEffect below
   const stateRef = useRef<{ items: AuditItem[]; focusedIdx: number; loading: boolean; anyModalOpen: boolean }>({
     items: [], focusedIdx: -1, loading: true, anyModalOpen: false,
@@ -271,12 +272,7 @@ export default function AuditPage() {
     };
 
     commitUndoFnRef.current = () => {
-      const batch = undoBatchRef.current;
-      if (batch.length === 0) return;
-      batch.forEach(({ item, newStatus }) => {
-        updateEntityTagStatus(item.entityType, item.entityId, item.tagId, newStatus)
-          .catch(() => setError("部分审核提交失败，请手动核查"));
-      });
+      // 5秒窗口过期：仅清空 batch，API 已在 quickAction 时立即提交
       undoBatchRef.current = [];
       undoTimerRef.current = null;
       setUndoBannerCount(0);
@@ -293,21 +289,32 @@ export default function AuditPage() {
           return prev > origIdx ? prev - 1 : Math.min(prev, stateRef.current.items.length - 2);
         });
       }, 300);
-      setSessionReviewed(prev => prev + 1);
-      undoBatchRef.current = [...undoBatchRef.current, { key, item, newStatus }];
-      if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
-      undoTimerRef.current = setTimeout(() => commitUndoFnRef.current(), 5000);
-      setUndoBannerCount(undoBatchRef.current.length);
+
+      // 立即提交，拿回 reviewId 用于服务端撤销
+      updateEntityTagStatus(item.entityType, item.entityId, item.tagId, newStatus)
+        .then(({ reviewId }) => {
+          undoBatchRef.current = [...undoBatchRef.current, { key, reviewId }];
+          if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
+          undoTimerRef.current = setTimeout(() => commitUndoFnRef.current(), 5000);
+          setUndoBannerCount(undoBatchRef.current.length);
+          setSessionReviewed(prev => prev + 1);
+        })
+        .catch(() => setError("审核提交失败，请手动核查"));
     };
 
-    handleUndoRef.current = () => {
-      if (undoBatchRef.current.length === 0) return;
+    handleUndoRef.current = async () => {
+      const batch = undoBatchRef.current;
+      if (batch.length === 0) return;
       if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
       undoTimerRef.current = null;
-      const count = undoBatchRef.current.length;
       undoBatchRef.current = [];
       setUndoBannerCount(0);
-      setSessionReviewed(prev => Math.max(0, prev - count));
+      try {
+        const { reverted } = await undoReviews(batch.map(e => e.reviewId));
+        setSessionReviewed(prev => Math.max(0, prev - reverted));
+      } catch {
+        setError("撤销失败，请手动核查");
+      }
       load(page);
     };
   }); // intentionally no deps — updates refs after every render

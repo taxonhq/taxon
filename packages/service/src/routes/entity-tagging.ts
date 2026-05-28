@@ -218,7 +218,7 @@ const updateEntityTagRoute = createRoute({
     body: { content: { 'application/json': { schema: UpdateEntityTagBody } }, required: true },
   },
   responses: {
-    200: { content: { 'application/json': { schema: OkMessage } }, description: '成功' },
+    200: { content: { 'application/json': { schema: okData(z.object({ reviewId: z.string() })) } }, description: '成功，返回审核记录 ID（可用于撤销）' },
     400: { content: { 'application/json': { schema: ApiError } }, description: '参数错误' },
     403: { content: { 'application/json': { schema: ApiError } }, description: '权限不足（需要 reviewer 或更高）' },
     404: { content: { 'application/json': { schema: ApiError } }, description: '关联不存在' },
@@ -232,7 +232,7 @@ taggingRouter.openapi(updateEntityTagRoute, async (c) => {
   const reviewerId = getTokenId(c)
 
   try {
-    await prisma.$transaction(async (tx) => {
+    const reviewId = await prisma.$transaction(async (tx) => {
       const current = await tx.entityTag.findUnique({ where: { tagId_entityType_entityId: { tagId, entityType, entityId } }, select: { status: true } })
       if (!current) throw Object.assign(new Error('not found'), { code: 'P2025' })
 
@@ -244,9 +244,10 @@ taggingRouter.openapi(updateEntityTagRoute, async (c) => {
       if (current.status === 'pending' && newStatus !== 'pending') decAuditGauge()
       else if (current.status !== 'pending' && newStatus === 'pending') incAuditGauge()
 
-      await tx.entityTagReview.create({ data: { tagId, entityType, entityId, reviewerId, fromStatus: current.status as TagStatus, toStatus: newStatus as TagStatus, note: reviewNote } })
+      const review = await tx.entityTagReview.create({ data: { tagId, entityType, entityId, reviewerId, fromStatus: current.status as TagStatus, toStatus: newStatus as TagStatus, note: reviewNote } })
+      return review.id
     })
-    return c.json({ code: 0, message: '更新成功' }, 200)
+    return c.json({ code: 0, data: { reviewId } }, 200)
   } catch (error: unknown) {
     if (isPrismaError(error, 'P2025') || (error instanceof Error && (error as NodeJS.ErrnoException).code === 'P2025'))
       return c.json({ code: 404, message: '关联不存在' }, 404)

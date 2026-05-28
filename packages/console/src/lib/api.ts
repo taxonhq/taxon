@@ -448,11 +448,21 @@ export async function updateEntityTagStatus(
   tagId: string,
   status: "active" | "rejected" | "pending",
   note?: string
-): Promise<void> {
-  await req<unknown>(`/entities/${encodeURIComponent(entityType)}/${encodeURIComponent(entityId)}/tags/${tagId}`, {
+): Promise<{ reviewId: string }> {
+  return req<{ reviewId: string }>(`/entities/${encodeURIComponent(entityType)}/${encodeURIComponent(entityId)}/tags/${tagId}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ status, ...(note ? { note } : {}) }),
+  });
+}
+
+export async function undoReviews(
+  reviewIds: string[]
+): Promise<{ reverted: number; skipped: number }> {
+  return req<{ reverted: number; skipped: number }>("/entities/audit/undo", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ reviewIds }),
   });
 }
 
