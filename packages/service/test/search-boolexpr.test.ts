@@ -438,6 +438,118 @@ describe('BoolExpr Zod schema 拒绝', () => {
   })
 })
 
+// ── D-2. OR-merge 优化 (#71) ────────────────────────────────────────────
+// 所有 OR 子节点均为可解析为 tagId 集合的 leaf 时，编译器将它们合并为
+// 单个 existsByTagIds(ANY([...]))，而非 N 个独立 EXISTS subplan。
+// 以下用例验证合并路径的语义正确性（与非合并路径结果一致）。
+
+describe('compileBoolExpr — OR-merge 优化', () => {
+  it('全 tag leaf：or: [{tag:A},{tag:B}] 合并命中并集', async () => {
+    const g  = await makeGroup({ slug: 'cuisine' })
+    const tA = await makeTag({ groupId: g.id, slug: 'sichuan' })
+    const tB = await makeTag({ groupId: g.id, slug: 'hunan' })
+    const eA   = await makeEntity('dish')
+    const eB   = await makeEntity('dish')
+    const eAB  = await makeEntity('dish')
+    const eNone = await makeEntity('dish')
+    await attachTag({ tagId: tA.id, entityType: 'dish', entityId: eA.entityId })
+    await attachTag({ tagId: tB.id, entityType: 'dish', entityId: eB.entityId })
+    await attachTag({ tagId: tA.id, entityType: 'dish', entityId: eAB.entityId })
+    await attachTag({ tagId: tB.id, entityType: 'dish', entityId: eAB.entityId })
+    void eNone
+
+    expect(await runFilter('dish', { or: [{ tag: tA.id }, { tag: tB.id }] }))
+      .toEqual([eA.entityId, eB.entityId, eAB.entityId].sort())
+  })
+
+  it('全 tagSlug leaf：or 合并后语义不变', async () => {
+    const g  = await makeGroup({ slug: 'cuisine' })
+    const tA = await makeTag({ groupId: g.id, slug: 'sichuan' })
+    const tB = await makeTag({ groupId: g.id, slug: 'hunan' })
+    const eA = await makeEntity('dish')
+    const eB = await makeEntity('dish')
+    await attachTag({ tagId: tA.id, entityType: 'dish', entityId: eA.entityId })
+    await attachTag({ tagId: tB.id, entityType: 'dish', entityId: eB.entityId })
+
+    expect(await runFilter('dish', { or: [{ tagSlug: 'sichuan', groupSlug: g.slug }, { tagSlug: 'hunan', groupSlug: g.slug }] }))
+      .toEqual([eA.entityId, eB.entityId].sort())
+  })
+
+  it('tag + tagSlug 混合：canMerge=true，命中正确', async () => {
+    const g  = await makeGroup({ slug: 'cuisine' })
+    const tA = await makeTag({ groupId: g.id, slug: 'sichuan' })
+    const tB = await makeTag({ groupId: g.id, slug: 'hunan' })
+    const eA = await makeEntity('dish')
+    const eB = await makeEntity('dish')
+    await attachTag({ tagId: tA.id, entityType: 'dish', entityId: eA.entityId })
+    await attachTag({ tagId: tB.id, entityType: 'dish', entityId: eB.entityId })
+
+    // tA by id, tB by slug — should still merge
+    expect(await runFilter('dish', { or: [{ tag: tA.id }, { tagSlug: 'hunan', groupSlug: g.slug }] }))
+      .toEqual([eA.entityId, eB.entityId].sort())
+  })
+
+  it('source 子节点导致 canMerge=false，退回独立 EXISTS，语义正确', async () => {
+    const g  = await makeGroup({ slug: 'cuisine' })
+    const tA = await makeTag({ groupId: g.id, slug: 'sichuan' })
+    const eTag  = await makeEntity('dish')
+    const eAi   = await makeEntity('dish')
+    const eNone = await makeEntity('dish')
+    await attachTag({ tagId: tA.id, entityType: 'dish', entityId: eTag.entityId, source: 'manual' as any })
+    await attachTag({ tagId: tA.id, entityType: 'dish', entityId: eAi.entityId,  source: 'ai'     as any })
+    void eNone
+
+    // or: [{tag:A}, {source:['ai']}] — source 不可合并；退回两个独立 EXISTS
+    // eTag (manual, non-ai) 仅因 tag 命中；eAi 两个条件都满足但只计一次
+    expect(await runFilter('dish', { or: [{ tag: tA.id }, { source: ['ai'] }] }))
+      .toEqual([eTag.entityId, eAi.entityId].sort())
+  })
+
+  it('OR 子节点之一 slug 不存在（解析为空数组），合并后仍正确命中另一个', async () => {
+    const g  = await makeGroup({ slug: 'cuisine' })
+    const tA = await makeTag({ groupId: g.id, slug: 'sichuan' })
+    const eA = await makeEntity('dish')
+    await attachTag({ tagId: tA.id, entityType: 'dish', entityId: eA.entityId })
+
+    // no-such-slug 解析为 []，tag 解析为 [tA.id]；合并集合 = [tA.id]
+    expect(await runFilter('dish', { or: [{ tagSlug: 'no-such-slug' }, { tag: tA.id }] }))
+      .toEqual([eA.entityId])
+  })
+
+  it('OR 子节点全部解析为空 tagId，合并产生 FALSE（返回空集）', async () => {
+    await makeEntity('dish')
+    expect(await runFilter('dish', { or: [{ tagSlug: 'ghost-a' }, { tagSlug: 'ghost-b' }] }))
+      .toEqual([])
+  })
+
+  it('重复 tagId 去重后不影响结果（幂等）', async () => {
+    const g  = await makeGroup({ slug: 'cuisine' })
+    const tA = await makeTag({ groupId: g.id, slug: 'sichuan' })
+    const eA = await makeEntity('dish')
+    await attachTag({ tagId: tA.id, entityType: 'dish', entityId: eA.entityId })
+
+    // 同一 tagId 出现两次；合并后 Set 去重，只剩一个
+    expect(await runFilter('dish', { or: [{ tag: tA.id }, { tag: tA.id }] }))
+      .toEqual([eA.entityId])
+  })
+
+  it('tag + descendantOf 混合：合并后命中根节点的全部子孙', async () => {
+    const g      = await makeGroup({ slug: 'cuisine' })
+    const root   = await makeTagWithPath({ groupId: g.id, slug: 'chinese' })
+    const child  = await makeTagWithPath({ groupId: g.id, slug: 'sichuan', parentPath: root.path })
+    const tOther = await makeTag({ groupId: g.id, slug: 'italian' })
+
+    const eChild  = await makeEntity('dish')
+    const eOther  = await makeEntity('dish')
+    await attachTag({ tagId: child.id,  entityType: 'dish', entityId: eChild.entityId })
+    await attachTag({ tagId: tOther.id, entityType: 'dish', entityId: eOther.entityId })
+
+    // descendantOf root + tag italian → 两个可合并 leaf
+    expect(await runFilter('dish', { or: [{ descendantOf: root.id }, { tag: tOther.id }] }))
+      .toEqual([eChild.entityId, eOther.entityId].sort())
+  })
+})
+
 // ── E. SQL 注入防御 ──────────────────────────────────────────────────────
 
 describe('compileBoolExpr — SQL 注入防御', () => {

@@ -270,11 +270,13 @@ searchRouter.openapi(searchEntitiesRoute, async (c) => {
     })()
 
     // 3) 主查询 + 总数（COUNT 不需要 ORDER BY/LIMIT）
+    //    当存在 BoolExpr 过滤时，在事务内执行 SET LOCAL jit = off，
+    //    避免 PG JIT 在结果集小、谓词复杂时产生 ~100-200ms 固定开销。
     type ItemRow = { entityType: string; entityId: string; registeredAt: Date }
     type CountRow = { count: bigint }
 
-    const [items, countRows] = await Promise.all([
-      prisma.$queryRaw<ItemRow[]>(Prisma.sql`
+    const runQueries = async (db: Pick<typeof prisma, '$queryRaw'>) => Promise.all([
+      db.$queryRaw<ItemRow[]>(Prisma.sql`
         SELECT re."entityType", re."entityId", re."registeredAt"
         FROM "RegisteredEntity" re
         WHERE re."entityType" = ${entityType}
@@ -282,13 +284,20 @@ searchRouter.openapi(searchEntitiesRoute, async (c) => {
         ${orderBy}
         LIMIT ${pageSize} OFFSET ${offset}
       `),
-      prisma.$queryRaw<CountRow[]>(Prisma.sql`
+      db.$queryRaw<CountRow[]>(Prisma.sql`
         SELECT COUNT(*)::bigint AS count
         FROM "RegisteredEntity" re
         WHERE re."entityType" = ${entityType}
           ${filterSql}
       `),
     ])
+
+    const [items, countRows] = filter
+      ? await prisma.$transaction(async tx => {
+          await tx.$executeRaw`SET LOCAL jit = off`
+          return runQueries(tx)
+        })
+      : await runQueries(prisma)
     const total = Number(countRows[0]?.count ?? 0)
 
     // 4) 可选：include=tags，按当前页 N 个实体批量取活跃标签

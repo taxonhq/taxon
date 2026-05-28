@@ -173,6 +173,20 @@ function compileLeaf(expr: BoolExpr, resolved: Resolved): Prisma.Sql {
   return TRUE
 }
 
+// ── OR 合并优化 ───────────────────────────────────────────────────────────────
+// 当 or 的所有子节点都能解析为 tagId 集合时，合并成单个 existsByTagIds(ANY)。
+// 这样 PG 走单次 EntityTag_tagId_status_idx bitmap scan，而不是 N 个独立 EXISTS subplan。
+//
+// "可合并 leaf" = tag / tagSlug / tagAlias / descendantOf（均在 resolveRefs 阶段预解析）
+// source / confidence / status / and / or / not 不参与合并
+function leafTagIds(expr: BoolExpr, resolved: Resolved): string[] | null {
+  if ('tag'          in expr) return [expr.tag]
+  if ('tagSlug'      in expr) return resolved.slugMap.get(slugKey(expr.tagSlug, expr.groupSlug)) ?? null
+  if ('tagAlias'     in expr) return resolved.aliasMap.get(aliasKey(expr.tagAlias, expr.groupSlug)) ?? null
+  if ('descendantOf' in expr) return resolved.descMap.get(expr.descendantOf) ?? null
+  return null
+}
+
 export function compileExpr(expr: BoolExpr, resolved: Resolved): Prisma.Sql {
   if ('and' in expr) {
     if (expr.and.length === 1) return compileExpr(expr.and[0], resolved)
@@ -181,6 +195,17 @@ export function compileExpr(expr: BoolExpr, resolved: Resolved): Prisma.Sql {
   }
   if ('or' in expr) {
     if (expr.or.length === 1) return compileExpr(expr.or[0], resolved)
+
+    // OR-merge 优化：全同形 tag leaf → 单个 existsByTagIds(ANY)
+    const merged: string[] = []
+    let canMerge = true
+    for (const child of expr.or) {
+      const ids = leafTagIds(child, resolved)
+      if (ids === null) { canMerge = false; break }
+      merged.push(...ids)
+    }
+    if (canMerge) return existsByTagIds([...new Set(merged)])
+
     const parts = expr.or.map(e => compileExpr(e, resolved))
     return Prisma.sql`(${Prisma.join(parts, ' OR ')})`
   }

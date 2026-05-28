@@ -127,14 +127,12 @@ Execution Time: 1436.203 ms
 
 ### 高 ROI（不动 schema，纯编译器层）
 
-1. **`or: [{tag: X}, {tag: Y}, ...]` 合并为单个 `tag = ANY([X, Y, ...])`**
-   编译器在 `compileExpr` 里识别 OR 全是 `tag` / `tagSlug` / `tagAlias` / `descendantOf` 这类同形 leaf 时合并成一个 EXISTS+ANY，让 PG 走单次 `EntityTag_tagId_status_idx` bitmap scan。
+1. ✅ **`or: [{tag: X}, {tag: Y}, ...]` 合并为单个 `tag = ANY([X, Y, ...])`**（issue #71，已实施）
+   `leafTagIds()` helper 检测 OR 下所有子节点是否均为可解析 tagId 的 leaf（`tag` / `tagSlug` / `tagAlias` / `descendantOf`），若是则收集全部 tagId 后调用 `existsByTagIds(ANY([...]))` —— PG 走单次 bitmap scan 而非 N 个独立 EXISTS subplan。
    预期：查询 #3 / #5 都受益，**保守预估 30-50% 加速**。
-   工程量：~30 行 + 单测，半小时。
 
-2. **关闭 JIT for /search/entities**：`SET LOCAL jit = off` 包在查询前，对结果集小的 BoolExpr 查询省 200ms 固定开销。
-   预期：所有 query 减 100-200ms。
-   工程量：5 行。
+2. ✅ **关闭 JIT for /search/entities**（issue #71，已实施）
+   filter 存在时将主查询包在 `prisma.$transaction` 内，事务首行执行 `SET LOCAL jit = off`，对结果集小的 BoolExpr 查询消除 ~200ms JIT 固定开销。
 
 ### 中 ROI（加索引）
 
@@ -161,3 +159,4 @@ Execution Time: 1436.203 ms
 | 日期 | commit | 数据规模 | 三层嵌套 p95 | 单 tag p95 | 备注 |
 |------|--------|---------|------------|----------|------|
 | 2026-05-27 | 0bc6180 | 100k dish × 5 | 1503 ms | 165 ms | 首次基线；客户端 macOS → 远程 PG ~130ms RTT。三层嵌套 SQL 本身 1.4s，瓶颈定位见 EXPLAIN |
+| 2026-05-28 | *(#71)* | 同上 | 待复跑 | 待复跑 | OR-merge + JIT off 已上线。OR 合并消除 N 个独立 EXISTS subplan → 单次 bitmap scan；JIT off 省 ~200ms 固定开销。重跑 `pnpm bench:search` 可获新基线 |
