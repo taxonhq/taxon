@@ -143,7 +143,7 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="flex flex-col min-h-screen bg-surface">
+    <div className="flex flex-col bg-surface">
 
       <PageHeader
         sticky

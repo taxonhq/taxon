@@ -15,6 +15,16 @@
   --sidebar-bg:  #080808;
   --card-bg:     #0F0F0F;
 
+  /* Layered greys — must live in :root so [data-theme="light"] can override them
+     and @theme inline can reference them via var().
+     Tailwind v4 bakes @theme inline values at build time, so hardcoded hex values
+     there cannot be overridden by CSS variables — they must be var() references. */
+  --surface-alt-raw: #111111;
+  --input-raw:       #0A0A0A;
+  --row-head-raw:    #0D0D0D;
+  --row-hover-raw:   #0E0E0E;
+  --overlay-raw:     #151515;
+
   /* Text — four-tier hierarchy
      all tiers ≥ 4.5:1 contrast against --bg (#000) to meet WCAG AA. */
   --text-primary:  #F2F2F2;   /* headings, values   — ~18.5:1 */
@@ -67,15 +77,15 @@
 
 @theme inline {
   --color-surface:      var(--bg);
-  --color-surface-alt:  #111111;
+  --color-surface-alt:  var(--surface-alt-raw);
   --color-card:         var(--card-bg);
 
   /* Layered greys — replace the scattered hex literals in pages.
      Use these via Tailwind: bg-input, bg-row-head, bg-row-hover, bg-overlay */
-  --color-input:        #0A0A0A;   /* form inputs */
-  --color-row-head:     #0D0D0D;   /* table headers / subtle inset */
-  --color-row-hover:    #0E0E0E;   /* row hover state */
-  --color-overlay:      #151515;   /* modal panels, raised surfaces */
+  --color-input:        var(--input-raw);        /* form inputs */
+  --color-row-head:     var(--row-head-raw);     /* table headers / subtle inset */
+  --color-row-hover:    var(--row-hover-raw);    /* row hover state */
+  --color-overlay:      var(--overlay-raw);      /* modal panels, raised surfaces */
 
   --color-ink:          var(--text-primary);
   --color-ink-dim:      var(--text-body);
@@ -154,7 +164,14 @@
   --cyan:    #0891b2;
   --amber:   #d97706;
 
-  /* 浅色模式下 Tailwind layered greys 覆盖 */
+  /* 浅色模式下同时覆盖 raw 变量（供 @theme inline var() 引用）
+     和 --color-* 变量（兜底：防止 Tailwind 增量编译产生混态）。 */
+  --surface-alt-raw: #F1F1F5;
+  --input-raw:       #FAFAFA;
+  --row-head-raw:    #F4F4F8;
+  --row-hover-raw:   #F0F0F4;
+  --overlay-raw:     #FFFFFF;
+  /* Direct overrides — guards against incremental-build mixed states */
   --color-surface-alt: #F1F1F5;
   --color-input:       #FAFAFA;
   --color-row-head:    #F4F4F8;

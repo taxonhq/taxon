@@ -519,7 +519,7 @@ function SummaryBanner() {
   return (
     <div className={cn(
       "rounded-xl card-border px-6 py-4 mb-7 flex items-center gap-5",
-      isHealthy ? "bg-ok/5 border-ok/20" : "bg-warn/5 border-warn/20",
+      isHealthy ? "bg-ok/8 border-ok/30" : "bg-warn/12 border-warn/40",
     )}>
       {isHealthy
         ? <CheckCircle2 size={20} className="text-ok shrink-0" />

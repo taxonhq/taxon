@@ -14,7 +14,7 @@ import {
   CheckCircle2, AlertCircle, ChevronRight, Sparkles,
 } from "lucide-react";
 import {
-  AreaChart, Area, LineChart, Line, PieChart, Pie, Cell,
+  AreaChart, Area, LineChart, Line,
   ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "recharts";
 import type {
@@ -126,7 +126,7 @@ export function KpiHero({ data }: { data: DashboardData }) {
             {t("kpiTitle")}
           </span>
         </div>
-        {todayTags && (
+        {todayTags && todayTags.comparePct !== 0 && todayTags.comparePct > -100 && (
           <div
             className={cn(
               "flex items-center gap-1.5 px-2 py-0.5 rounded-full border",
@@ -196,32 +196,50 @@ export function KpiHero({ data }: { data: DashboardData }) {
 export function EntityPie({ entityTypes }: { entityTypes: EntityTypeStat[] }) {
   const t = useTranslations("dashboard");
   const total = entityTypes.reduce((s, et) => s + et.count, 0);
-  const display = entityTypes.slice(0, 8);
-  // Collapse remaining items into "Other"
-  if (entityTypes.length > 8) {
-    const rest = entityTypes.slice(8).reduce((s, et) => s + et.count, 0);
+  // Filter out 0-count types — they carry no visual weight and confuse the legend
+  const nonEmpty = entityTypes.filter(et => et.count > 0);
+  const display = nonEmpty.slice(0, 8);
+  if (nonEmpty.length > 8) {
+    const rest = nonEmpty.slice(8).reduce((s, et) => s + et.count, 0);
     if (rest > 0) display.push({ entityType: t("entityPieOther"), count: rest });
   }
+
+  // Build CSS conic-gradient for the donut ring.
+  // recharts v3 PieChart fails to render in this layout (initial render with 0
+  // dimensions, ResizeObserver fires after mount but sectors never re-render).
+  // Pure CSS is simpler, zero-dependency, and handles single-100% trivially.
+  let cumPct = 0;
+  const gradientStops = display.map((d, i) => {
+    const pct = total ? (d.count / total) * 100 : 0;
+    const color = PIE_COLORS[i % PIE_COLORS.length];
+    const stop = `${color} ${cumPct.toFixed(3)}% ${(cumPct + pct).toFixed(3)}%`;
+    cumPct += pct;
+    return stop;
+  });
+  // 2px gap between segments for multi-segment pies (transparent border-bg slice)
+  const conicGradient = display.length > 1
+    ? `conic-gradient(from -90deg, ${gradientStops.join(", ")})`
+    : `conic-gradient(${PIE_COLORS[0]} 0% 100%)`;
 
   return (
     <div className="flex flex-col h-full">
       <WidgetHeader icon={<Box size={13} strokeWidth={1.5} />} title={t("entityPieTitle")} href="/entities" />
       {display.length === 0 ? <WidgetEmpty text={t("noEntityData")} /> : (
-        <div className="flex-1 grid grid-cols-[1fr,1fr] gap-3 px-5 py-4 min-h-0">
-          {/* 环形图 + 中心总数 */}
-          <div className="relative flex items-center justify-center min-h-0">
-            <ResponsiveContainer width="100%" height="100%" minHeight={120}>
-              <PieChart>
-                <Pie data={display} dataKey="count" nameKey="entityType"
-                  innerRadius="60%" outerRadius="92%" strokeWidth={0} startAngle={90} endAngle={450}
-                  paddingAngle={1.5}>
-                  {display.map((_, i) => (
-                    <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip content={<PieTooltip total={total} />} />
-              </PieChart>
-            </ResponsiveContainer>
+        <div className="flex-1 grid grid-cols-[1fr,1fr] gap-3 px-5 py-4 min-h-0 items-center">
+          {/* CSS conic-gradient donut — no JS size-measurement required */}
+          <div className="relative flex items-center justify-center min-h-0 h-full">
+            <div
+              className="rounded-full shrink-0"
+              style={{
+                width: "min(80%, 80%)",
+                aspectRatio: "1",
+                maxWidth: 160,
+                background: conicGradient,
+                mask:       "radial-gradient(farthest-side, transparent 56%, black 58%)",
+                WebkitMask: "radial-gradient(farthest-side, transparent 56%, black 58%)",
+              }}
+            />
+            {/* Center text overlay */}
             <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
               <p className="text-2xs uppercase tracking-wider text-ink-faint">{t("statPieTotal")}</p>
               <p
@@ -231,12 +249,12 @@ export function EntityPie({ entityTypes }: { entityTypes: EntityTypeStat[] }) {
                 {fmt(total)}
               </p>
               <p className="text-2xs mt-1 text-ink-sub">
-                {t("statPieTypes", { count: entityTypes.length })}
+                {t("statPieTypes", { count: nonEmpty.length })}
               </p>
             </div>
           </div>
           {/* 图例列表 */}
-          <div className="flex flex-col gap-1.5 min-h-0 overflow-y-auto pr-1">
+          <div className="flex flex-col gap-1.5 min-h-0 overflow-y-auto pr-1 self-center">
             {display.map((et, i) => {
               const pct = total ? Math.round((et.count / total) * 100) : 0;
               return (
@@ -287,7 +305,9 @@ export function TrendChart({ data }: { data: DashboardData }) {
               <XAxis dataKey="date" tickFormatter={d => d.slice(5)} stroke={CHART.ink4}
                 tick={{ fontSize: 10, fill: CHART.ink3 }} axisLine={false} tickLine={false} />
               <YAxis stroke={CHART.ink4} tick={{ fontSize: 10, fill: CHART.ink3 }}
-                axisLine={false} tickLine={false} width={30} />
+                axisLine={false} tickLine={false} width={30}
+                domain={[0, (dataMax: number) => Math.ceil(dataMax * 1.2) || 10]}
+                allowDataOverflow={false} />
               <Tooltip content={<TrendTooltip />} cursor={{ stroke: CHART.edge2, strokeDasharray: 4 }} />
               <Line type="monotone" dataKey="tags"     name={t("trendTagsLine")}     stroke={CHART.brand2} strokeWidth={2} dot={false} />
               <Line type="monotone" dataKey="entities" name={t("trendEntitiesLine")} stroke={CHART.cyan}   strokeWidth={2} dot={false} />
@@ -356,7 +376,7 @@ export function StatMini({ id, data }: { id: keyof typeof STAT_CONFIG; data: Das
             {label}
           </span>
         </div>
-        {today && today.comparePct !== 0 && (
+        {today && today.comparePct !== 0 && today.comparePct > -100 && (
           <span className={cn(
             "text-2xs font-bold tabular-nums flex items-center gap-0.5",
             today.comparePct >= 0 ? "text-ok" : "text-bad",
@@ -498,7 +518,7 @@ export function HealthBar({ health }: { health: HealthInfo | null }) {
     {
       label: t("healthVersion"),
       value: <span className="font-mono text-base font-semibold text-ink">
-        {health?.version ? `v${health.version}` : "—"}
+        {health?.version && health.version !== "unknown" ? `v${health.version}` : "—"}
       </span>,
     },
     {
@@ -549,29 +569,6 @@ function Dot({ ok, text }: { ok: boolean; text: string }) {
   );
 }
 
-// ═══════════════════════════════════════════════════════════════
-// PieChart tooltip
-// ═══════════════════════════════════════════════════════════════
-function PieTooltip({ active, payload, total }: {
-  active?: boolean;
-  payload?: Array<{ name: string; value: number; payload: { fill: string } }>;
-  total: number;
-}) {
-  if (!active || !payload?.length) return null;
-  const p = payload[0];
-  const pct = total ? Math.round((p.value / total) * 100) : 0;
-  return (
-    <div className="text-xs px-3 py-2 rounded-lg bg-overlay border border-edge-mid">
-      <div className="flex items-center gap-2">
-        <span className="w-2 h-2 rounded-sm" style={{ background: p.payload.fill }} />
-        <span className="font-mono text-ink">{p.name}</span>
-      </div>
-      <p className="font-mono tabular-nums mt-0.5 text-ink-dim">
-        {p.value.toLocaleString()} · {pct}%
-      </p>
-    </div>
-  );
-}
 
 // ═══════════════════════════════════════════════════════════════
 // 主入口：根据 widget id 渲染
