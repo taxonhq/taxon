@@ -23,6 +23,7 @@ import {
 } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { PageHeader } from "@/components/ui/page-header";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useDashboardData } from "@/components/dashboard/use-dashboard-data";
 import { renderWidget } from "@/components/dashboard/widgets";
 import {
@@ -39,8 +40,9 @@ type PersistedLayout = PersistedDashboardLayout & { items: LayoutItem[] };
 export default function DashboardPage() {
   const t = useTranslations("dashboard");
   const [layout,      setLayout]      = useState<LayoutItem[]>([]);
-  const [editMode,    setEditMode]    = useState(false);
-  const [layoutReady, setLayoutReady] = useState(false);
+  const [editMode,      setEditMode]      = useState(false);
+  const [layoutReady,   setLayoutReady]   = useState(false);
+  const [confirmReset,  setConfirmReset]  = useState(false);
   const [breakpoint,  setBreakpoint]  = useState<BreakpointKey>("xl");
   const saveTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
@@ -106,12 +108,15 @@ export default function DashboardPage() {
   }, [persist]);
 
   const resetLayout = useCallback(() => {
-    if (!confirm(t("resetConfirm"))) return;
+    setConfirmReset(true);
+  }, []);
+
+  const doResetLayout = useCallback(() => {
+    setConfirmReset(false);
     const defaultLayout = getDefaultLayout(breakpoint);
     setLayout(defaultLayout);
     persist(defaultLayout);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [persist, breakpoint]); // t is stable from useTranslations — no need to include
+  }, [persist, breakpoint]);
 
   // ── 倒计时刷新指示（仅展示模式）────────────────────────────────
   const [countdown, setCountdown] = useState(10);
@@ -177,6 +182,14 @@ export default function DashboardPage() {
               active={editMode} />
           </div>
         }
+      />
+
+      <ConfirmDialog
+        open={confirmReset}
+        title={t("resetLayout")}
+        description={t("resetConfirm")}
+        onConfirm={doResetLayout}
+        onCancel={() => setConfirmReset(false)}
       />
 
       {/* ───── 画布 ───────────────────────────────────────────────── */}

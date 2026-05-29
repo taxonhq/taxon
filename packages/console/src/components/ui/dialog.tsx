@@ -49,6 +49,13 @@ export function Dialog({
   const titleId = useId();
   const descId = useId();
 
+  // Body scroll lock
+  useEffect(() => {
+    if (!open) return;
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = ""; };
+  }, [open]);
+
   // ESC to close
   useEffect(() => {
     if (!open) return;

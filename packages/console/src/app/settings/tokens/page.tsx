@@ -9,6 +9,8 @@ import {
 } from "@/lib/api";
 import { PageHeader } from "@/components/ui/page-header";
 import { Button }     from "@/components/ui/button";
+import { Dialog }     from "@/components/ui/dialog";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { ErrorBanner } from "@/components/ui/error-banner";
 
 // ── Role badge styles ─────────────────────────────────────────────
@@ -21,10 +23,12 @@ const ROLE_STYLE: Record<ApiToken["role"], string> = {
 
 // ── Create Token dialog ────────────────────────────────────────────
 function CreateDialog({
+  open,
   onCreated,
   onClose,
 }: {
-  onCreated: (t: CreatedToken) => void;
+  open:      boolean;
+  onCreated: (tk: CreatedToken) => void;
   onClose:   () => void;
 }) {
   const t = useTranslations("tokens");
@@ -52,90 +56,90 @@ function CreateDialog({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
-      <div className="bg-surface rounded-xl shadow-xl border border-edge w-full max-w-md p-6">
-        <h2 className="text-base font-semibold text-ink mb-4">{t("createTitle")}</h2>
-        {error && <ErrorBanner message={error} />}
-        <form onSubmit={submit} className="space-y-4">
-          <div>
-            <label className="block text-xs text-ink-sub mb-1">{t("nameLabel")} <span className="text-bad">*</span></label>
-            <input
-              className="w-full border border-edge rounded-lg px-3 py-2 text-sm text-ink bg-surface-alt focus:outline-none focus:border-edge-strong focus:ring-2 focus:ring-brand-1/40"
-              placeholder="restaurant-service"
-              value={name}
-              onChange={e => setName(e.target.value)}
-              required
-            />
-          </div>
-          <div>
-            <label className="block text-xs text-ink-sub mb-1">{t("roleLabel")}</label>
-            <select
-              className="w-full border border-edge rounded-lg px-3 py-2 text-sm text-ink bg-surface-alt focus:outline-none"
-              value={role}
-              onChange={e => setRole(e.target.value as ApiToken["role"])}
-            >
-              <option value="reader">{t("roleReader")}</option>
-              <option value="writer">{t("roleWriter")}</option>
-              <option value="reviewer">{t("roleReviewer")}</option>
-              <option value="admin">{t("roleAdmin")}</option>
-            </select>
-          </div>
-          <div>
-            <label className="block text-xs text-ink-sub mb-1">{t("scopeLabel")}</label>
-            <input
-              className="w-full border border-edge rounded-lg px-3 py-2 text-sm text-ink bg-surface-alt focus:outline-none"
-              placeholder={t("scopePlaceholder")}
-              value={scopes}
-              onChange={e => setScopes(e.target.value)}
-            />
-          </div>
-          <div className="flex justify-end gap-2 pt-2">
-            <Button variant="ghost" type="button" onClick={onClose}>{tCommon("cancel")}</Button>
-            <Button type="submit" disabled={saving || !name.trim()}>
-              {saving ? tCommon("creating") : tCommon("create")}
-            </Button>
-          </div>
-        </form>
-      </div>
-    </div>
+    <Dialog open={open} onClose={onClose} title={t("createTitle")} size="sm">
+      {error && <ErrorBanner message={error} />}
+      <form onSubmit={submit} className="space-y-4 mt-2">
+        <div>
+          <label className="block text-xs text-ink-sub mb-1">{t("nameLabel")} <span className="text-bad">*</span></label>
+          <input
+            className="w-full border border-edge rounded-lg px-3 py-2 text-sm text-ink bg-surface-alt focus:outline-none focus:border-edge-strong focus:ring-2 focus:ring-brand-1/40"
+            placeholder="restaurant-service"
+            value={name}
+            onChange={e => setName(e.target.value)}
+            required
+          />
+        </div>
+        <div>
+          <label className="block text-xs text-ink-sub mb-1">{t("roleLabel")}</label>
+          <select
+            className="w-full border border-edge rounded-lg px-3 py-2 text-sm text-ink bg-surface-alt focus:outline-none"
+            value={role}
+            onChange={e => setRole(e.target.value as ApiToken["role"])}
+          >
+            <option value="reader">{t("roleReader")}</option>
+            <option value="writer">{t("roleWriter")}</option>
+            <option value="reviewer">{t("roleReviewer")}</option>
+            <option value="admin">{t("roleAdmin")}</option>
+          </select>
+        </div>
+        <div>
+          <label className="block text-xs text-ink-sub mb-1">{t("scopeLabel")}</label>
+          <input
+            className="w-full border border-edge rounded-lg px-3 py-2 text-sm text-ink bg-surface-alt focus:outline-none"
+            placeholder={t("scopePlaceholder")}
+            value={scopes}
+            onChange={e => setScopes(e.target.value)}
+          />
+        </div>
+        <div className="flex justify-end gap-2 pt-2">
+          <Button variant="ghost" type="button" onClick={onClose}>{tCommon("cancel")}</Button>
+          <Button type="submit" disabled={saving || !name.trim()}>
+            {saving ? tCommon("creating") : tCommon("create")}
+          </Button>
+        </div>
+      </form>
+    </Dialog>
   );
 }
 
 // ── Token reveal dialog ──────────────────────────────────────────
-function TokenRevealDialog({ token, onClose }: { token: CreatedToken; onClose: () => void }) {
+function TokenRevealDialog({ token, onClose }: { token: CreatedToken | null; onClose: () => void }) {
   const t = useTranslations("tokens");
   const [copied, setCopied] = useState(false);
 
   function copy() {
+    if (!token) return;
     navigator.clipboard.writeText(token.token);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
-      <div className="bg-surface rounded-xl shadow-xl border border-edge w-full max-w-lg p-6">
-        <div className="flex items-center gap-2 mb-1">
-          <ShieldCheck size={18} className="text-ok" />
-          <h2 className="text-base font-semibold text-ink">{t("tokenCreated")}</h2>
-        </div>
-        <p className="text-xs text-ink-sub mb-4">{t("tokenRevealDesc")}</p>
-        <div className="flex items-center gap-2 bg-surface-alt border border-edge rounded-lg px-3 py-2 mb-4">
-          <code className="flex-1 text-xs font-mono text-ink break-all">{token.token}</code>
-          <button
-            onClick={copy}
-            className="shrink-0 p-1 rounded hover:bg-edge transition-colors text-ink-faint hover:text-ink"
-            aria-label={t("copyToken")}
-            title={t("copyToken")}
-          >
-            {copied ? <Check size={14} className="text-ok" /> : <Copy size={14} />}
-          </button>
-        </div>
-        <div className="flex justify-end">
-          <Button onClick={onClose}>{t("saveAndClose")}</Button>
-        </div>
+    <Dialog
+      open={token !== null}
+      onClose={onClose}
+      title={t("tokenCreated")}
+      size="md"
+    >
+      <div className="flex items-center gap-2 mb-1 -mt-1">
+        <ShieldCheck size={16} className="text-ok shrink-0" />
+        <p className="text-xs text-ink-sub">{t("tokenRevealDesc")}</p>
       </div>
-    </div>
+      <div className="flex items-center gap-2 bg-surface-alt border border-edge rounded-lg px-3 py-2 my-4">
+        <code className="flex-1 text-xs font-mono text-ink break-all">{token?.token}</code>
+        <button
+          onClick={copy}
+          className="shrink-0 p-1 rounded hover:bg-edge transition-colors text-ink-faint hover:text-ink"
+          aria-label={t("copyToken")}
+          title={t("copyToken")}
+        >
+          {copied ? <Check size={14} className="text-ok" /> : <Copy size={14} />}
+        </button>
+      </div>
+      <div className="flex justify-end">
+        <Button onClick={onClose}>{t("saveAndClose")}</Button>
+      </div>
+    </Dialog>
   );
 }
 
@@ -144,11 +148,12 @@ export default function TokensPage() {
   const t = useTranslations("tokens");
   const tCommon = useTranslations("common");
 
-  const [tokens,     setTokens]     = useState<ApiToken[]>([]);
-  const [loading,    setLoading]    = useState(true);
-  const [error,      setError]      = useState("");
-  const [showCreate, setShowCreate] = useState(false);
-  const [revealed,   setRevealed]   = useState<CreatedToken | null>(null);
+  const [tokens,        setTokens]        = useState<ApiToken[]>([]);
+  const [loading,       setLoading]       = useState(true);
+  const [error,         setError]         = useState("");
+  const [showCreate,    setShowCreate]    = useState(false);
+  const [revealed,      setRevealed]      = useState<CreatedToken | null>(null);
+  const [confirmRevoke, setConfirmRevoke] = useState<{ id: string; name: string } | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -164,13 +169,19 @@ export default function TokensPage() {
 
   useEffect(() => { load(); }, [load]);
 
-  async function handleRevoke(id: string, name: string) {
-    if (!window.confirm(t("revokeConfirm", { name }))) return;
+  function handleRevoke(id: string, name: string) {
+    setConfirmRevoke({ id, name });
+  }
+
+  async function doRevoke() {
+    if (!confirmRevoke) return;
+    const { id } = confirmRevoke;
+    setConfirmRevoke(null);
     try {
       await revokeToken(id);
       setTokens(prev => prev.map(tk => tk.id === id ? { ...tk, revokedAt: new Date().toISOString() } : tk));
     } catch (e) {
-      alert(e instanceof Error ? e.message : t("revokeFailed"));
+      setError(e instanceof Error ? e.message : t("revokeFailed"));
     }
   }
 
@@ -234,12 +245,21 @@ export default function TokensPage() {
         </div>
       )}
 
-      {showCreate && (
-        <CreateDialog onCreated={handleCreated} onClose={() => setShowCreate(false)} />
-      )}
-      {revealed && (
-        <TokenRevealDialog token={revealed} onClose={() => setRevealed(null)} />
-      )}
+      <CreateDialog
+        open={showCreate}
+        onCreated={handleCreated}
+        onClose={() => setShowCreate(false)}
+      />
+      <TokenRevealDialog token={revealed} onClose={() => setRevealed(null)} />
+      <ConfirmDialog
+        open={confirmRevoke !== null}
+        title={t("revokeToken")}
+        description={confirmRevoke ? t("revokeConfirm", { name: confirmRevoke.name }) : ""}
+        confirmLabel={t("revokeToken")}
+        danger
+        onConfirm={doRevoke}
+        onCancel={() => setConfirmRevoke(null)}
+      />
     </>
   );
 }

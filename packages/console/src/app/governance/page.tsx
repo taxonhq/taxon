@@ -8,6 +8,7 @@ import {
   TrendingUp, TrendingDown, AlertTriangle, CheckCircle2,
 } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { toast } from "@/components/ui/toast";
 import {
   getTagUsage, getDeadTags, getDuplicateSuggestions, mergeTags,
@@ -195,6 +196,7 @@ function DeadTagsPanel() {
   const [loading, setLoading] = useState(true);
   const [period, setPeriod]   = useState<DeadPeriod>("90d");
   const [deleting, setDeleting] = useState<Set<string>>(new Set());
+  const [confirmDelete, setConfirmDelete] = useState<DeadTagItem | null>(null);
 
   const relativeTime = useCallback((iso: string | null): string => {
     if (!iso) return t("neverUsed");
@@ -219,8 +221,14 @@ function DeadTagsPanel() {
 
   useEffect(() => { void load(); }, [load]);
 
-  const handleDelete = async (item: DeadTagItem) => {
-    if (!confirm(t("deleteTagConfirm", { name: item.name }))) return;
+  const handleDelete = (item: DeadTagItem) => {
+    setConfirmDelete(item);
+  };
+
+  const doDelete = async () => {
+    const item = confirmDelete;
+    if (!item) return;
+    setConfirmDelete(null);
     setDeleting(prev => new Set(prev).add(item.tagId));
     try {
       await deleteTag(item.tagId);
@@ -321,6 +329,15 @@ function DeadTagsPanel() {
           </tbody>
         </table>
       </div>
+      <ConfirmDialog
+        open={confirmDelete !== null}
+        title={t("deleteDeadTag")}
+        description={confirmDelete ? t("deleteTagConfirm", { name: confirmDelete.name }) : ""}
+        confirmLabel={t("deleteDeadTag")}
+        danger
+        onConfirm={doDelete}
+        onCancel={() => setConfirmDelete(null)}
+      />
     </SectionCard>
   );
 }
@@ -334,6 +351,7 @@ function DuplicatesPanel() {
   const [loading, setLoading]     = useState(true);
   const [dismissed, setDismissed] = useState<Set<string>>(new Set());
   const [merging, setMerging]     = useState<Set<string>>(new Set());
+  const [confirmMerge, setConfirmMerge] = useState<DuplicatePair | null>(null);
 
   const pairKey = (p: DuplicatePair) => `${p.sourceId}-${p.targetId}`;
 
@@ -352,9 +370,15 @@ function DuplicatesPanel() {
     setDismissed(prev => new Set(prev).add(pairKey(pair)));
   };
 
-  const handleMerge = async (pair: DuplicatePair) => {
+  const handleMerge = (pair: DuplicatePair) => {
+    setConfirmMerge(pair);
+  };
+
+  const doMerge = async () => {
+    const pair = confirmMerge;
+    if (!pair) return;
+    setConfirmMerge(null);
     const key = pairKey(pair);
-    if (!confirm(t("mergeTagConfirm", { from: pair.sourceName, to: pair.targetName }))) return;
     setMerging(prev => new Set(prev).add(key));
     try {
       const result = await mergeTags(pair.targetId, [pair.sourceId]);
@@ -460,6 +484,13 @@ function DuplicatesPanel() {
           })}
         </div>
       )}
+      <ConfirmDialog
+        open={confirmMerge !== null}
+        title={t("mergeIntoTarget", { name: confirmMerge?.targetName ?? "" })}
+        description={confirmMerge ? t("mergeTagConfirm", { from: confirmMerge.sourceName, to: confirmMerge.targetName }) : ""}
+        onConfirm={doMerge}
+        onCancel={() => setConfirmMerge(null)}
+      />
     </SectionCard>
   );
 }
