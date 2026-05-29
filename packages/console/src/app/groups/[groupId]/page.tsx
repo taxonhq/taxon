@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useParams } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { Plus, Save, X, RotateCcw, Trash2, Trash } from "lucide-react";
+import { Plus, Save, X, RotateCcw, Trash2, Trash, Search } from "lucide-react";
 import {
   getTagGroup, getTagGroupTree, createTag, updateTag, deleteTag, restoreTag,
   getGroupTags, updateTagGroup, setEntityRules, getEntityTypes, getTagGroups,
@@ -69,6 +69,9 @@ export default function GroupDetailPage() {
   type MoveGroupState = { tag: TagTreeNode; targetGroupId: string };
   const [moveGroupState, setMoveGroupState] = useState<MoveGroupState | null>(null);
   const [movingGroup, setMovingGroup]       = useState(false);
+
+  // tag search filter
+  const [tagSearch, setTagSearch] = useState("");
 
   // recycle bin (deleted tags)
   const [deletedTags, setDeletedTags]       = useState<Tag[]>([]);
@@ -328,6 +331,19 @@ export default function GroupDetailPage() {
   }
   const flatTags = flattenTree(tree);
 
+  /** Filter tree nodes recursively — keep a node if it or any descendant matches. */
+  function filterTree(nodes: TagTreeNode[], q: string): TagTreeNode[] {
+    const result: TagTreeNode[] = [];
+    for (const n of nodes) {
+      const filteredChildren = filterTree(n.children, q);
+      const matches = n.name.toLowerCase().includes(q) || n.slug.toLowerCase().includes(q);
+      if (matches || filteredChildren.length > 0) {
+        result.push({ ...n, children: filteredChildren.length > 0 ? filteredChildren : n.children });
+      }
+    }
+    return result;
+  }
+
   /** Collect IDs of a node and all its descendants (to exclude from parent picker). */
   function getDescendantIds(node: TagTreeNode): Set<string> {
     const ids = new Set<string>([node.id]);
@@ -362,11 +378,33 @@ export default function GroupDetailPage() {
         back={{ href: "/groups", label: t("backToList") }}
         title={group?.name ?? t("title")}
         size="compact"
-        description={
-          group?.slug ? (
+        description={group ? (
+          <div className="flex items-center gap-3 flex-wrap mt-1">
+            {/* slug */}
             <code className="text-xs font-mono text-ink-faint">{group.slug}</code>
-          ) : undefined
-        }
+            <span className="text-edge-strong">·</span>
+            {/* tag count */}
+            <span className="text-xs text-ink-sub">
+              {t("tagsCount", { count: flatTags.length })}
+            </span>
+            <span className="text-edge-strong">·</span>
+            {/* cardinality */}
+            <span className={`text-xs px-1.5 py-0.5 rounded border font-medium ${
+              group.allowMultiple
+                ? "bg-brand-1/8 border-brand-1/25 text-brand-1"
+                : "bg-surface-alt border-edge-mid text-ink-sub"
+            }`}>
+              {group.allowMultiple ? t("allowMultipleYesShort") : t("allowMultipleNo")}
+            </span>
+            {/* entity scopes */}
+            {group.entityScopes && group.entityScopes.length > 0
+              ? group.entityScopes.map(s => (
+                  <span key={s} className="text-xs px-1.5 py-0.5 rounded border bg-surface-alt border-edge-mid text-ink-sub font-mono">{s}</span>
+                ))
+              : <span className="text-xs text-ink-faint">{t("entityScopePlaceholder")}</span>
+            }
+          </div>
+        ) : undefined}
         action={
           <>
             <Button variant="outline" size="sm" onClick={() => setShowGroupEdit(v => !v)}>
@@ -691,11 +729,37 @@ export default function GroupDetailPage() {
 
       {/* Tag Tree */}
       <Card className="space-y-1 min-h-32">
-        <div className="flex items-center justify-between mb-3">
-          <p className="text-sm font-medium text-ink">{t("tagTreeTitle")}</p>
-          <p className="text-xs text-ink-faint">{t("tagTreeHint")}</p>
+        <div className="flex items-center justify-between gap-3 mb-3">
+          <p className="text-sm font-medium text-ink shrink-0">{t("tagTreeTitle")}</p>
+          {flatTags.length > 5 && (
+            <div className="relative flex-1 max-w-64">
+              <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-ink-faint pointer-events-none" />
+              <input
+                type="text"
+                value={tagSearch}
+                onChange={e => setTagSearch(e.target.value)}
+                placeholder={tCommon("search") + "…"}
+                className="w-full pl-7 pr-3 py-1.5 text-xs rounded-md border border-edge bg-input text-ink placeholder:text-ink-faint focus:outline-none focus:border-brand-1 transition-colors"
+              />
+              {tagSearch && (
+                <button
+                  onClick={() => setTagSearch("")}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-ink-faint hover:text-ink"
+                >
+                  <X size={10} />
+                </button>
+              )}
+            </div>
+          )}
+          <p className="text-xs text-ink-faint shrink-0">{t("tagTreeHint")}</p>
         </div>
-        <TagTree nodes={tree} callbacks={treeCallbacks} />
+        <TagTree
+          nodes={tagSearch.trim() ? filterTree(tree, tagSearch.trim().toLowerCase()) : tree}
+          callbacks={treeCallbacks}
+        />
+        {tagSearch.trim() && filterTree(tree, tagSearch.trim().toLowerCase()).length === 0 && (
+          <p className="text-xs text-ink-faint text-center py-4">{tCommon("noResults")}</p>
+        )}
       </Card>
 
       {/* ── Tag Recycle Bin ── */}

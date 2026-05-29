@@ -654,23 +654,28 @@ export default function AuditPage() {
 
       {/* ── Today Stats bar ── */}
       {todayStats !== null && (
-        <div className="flex items-center gap-5 px-4 py-2.5 bg-surface-alt/60 border border-edge rounded-lg text-xs animate-fade-in">
-          <span className="text-ink-faint font-medium shrink-0">{t("todaySection")}</span>
-          <span className="flex items-center gap-1.5 text-ok font-medium tabular-nums">
-            <CheckCircle size={12} strokeWidth={2.5} />
-            {todayStats.approved} {t("todayApproved")}
-          </span>
-          <span className="flex items-center gap-1.5 text-bad font-medium tabular-nums">
-            <XCircle size={12} strokeWidth={2.5} />
-            {todayStats.rejected} {t("todayRejected")}
-          </span>
-          {(todayStats.approved + todayStats.rejected) > 0 && (
-            <span className="text-ink-sub tabular-nums">
-              {t("todayApproveRate")} {Math.round((todayStats.approveRate ?? 0) * 100)}%
-            </span>
-          )}
+        <div className="flex items-center gap-3 animate-fade-in">
+          <span className="text-2xs font-semibold text-ink-faint uppercase tracking-[0.12em] shrink-0">{t("todaySection")}</span>
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-ok/10 border border-ok/20 text-xs font-semibold tabular-nums text-ok">
+              <CheckCircle size={11} strokeWidth={2.5} />
+              {todayStats.approved}
+              <span className="font-normal opacity-80">{t("todayApproved")}</span>
+            </div>
+            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-bad/10 border border-bad/20 text-xs font-semibold tabular-nums text-bad">
+              <XCircle size={11} strokeWidth={2.5} />
+              {todayStats.rejected}
+              <span className="font-normal opacity-80">{t("todayRejected")}</span>
+            </div>
+            {(todayStats.approved + todayStats.rejected) > 0 && (
+              <div className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-surface-alt border border-edge text-xs tabular-nums text-ink-sub">
+                {t("todayApproveRate")}
+                <span className="font-semibold text-ink">{Math.round((todayStats.approveRate ?? 0) * 100)}%</span>
+              </div>
+            )}
+          </div>
           {sessionReviewed > 0 && (
-            <span className="ml-auto text-ink-faint tabular-nums">{t("sessionCount", { count: sessionReviewed })}</span>
+            <span className="ml-auto text-2xs tabular-nums text-ink-faint">{t("sessionCount", { count: sessionReviewed })}</span>
           )}
         </div>
       )}

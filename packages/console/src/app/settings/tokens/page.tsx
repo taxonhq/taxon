@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Plus, Trash2, Copy, Check, ShieldCheck } from "lucide-react";
+import { Plus, Trash2, Copy, Check, ShieldCheck, Code2, ExternalLink } from "lucide-react";
 import { useTranslations } from "next-intl";
 import {
   listTokens, createToken, revokeToken,
@@ -245,6 +245,9 @@ export default function TokensPage() {
         </div>
       )}
 
+      {/* API Usage Guide */}
+      <ApiGuide />
+
       <CreateDialog
         open={showCreate}
         onCreated={handleCreated}
@@ -261,6 +264,60 @@ export default function TokensPage() {
         onCancel={() => setConfirmRevoke(null)}
       />
     </>
+  );
+}
+
+// ── API Usage Guide ───────────────────────────────────────────────
+const BASE_URL = process.env.NEXT_PUBLIC_TAG_SERVICE_URL ?? "http://localhost:3300";
+
+function ApiGuide() {
+  const t = useTranslations("tokens");
+  const ROLES: Array<{ role: ApiToken["role"]; desc: string }> = [
+    { role: "reader",   desc: t("roleDescReader") },
+    { role: "writer",   desc: t("roleDescWriter") },
+    { role: "reviewer", desc: t("roleDescReviewer") },
+    { role: "admin",    desc: t("roleDescAdmin") },
+  ];
+  return (
+    <section className="card-border rounded-xl overflow-hidden mt-4">
+      <div className="flex items-center gap-2.5 px-5 py-4 border-b border-edge bg-surface-alt/40">
+        <Code2 size={15} className="text-ink-sub" />
+        <h3 className="text-sm font-semibold text-ink">{t("apiGuideTitle")}</h3>
+        <a
+          href={`${BASE_URL}/docs`}
+          target="_blank"
+          rel="noreferrer"
+          className="ml-auto flex items-center gap-1 text-xs text-brand-1 hover:underline"
+        >
+          {t("openApiDocs")} <ExternalLink size={10} />
+        </a>
+      </div>
+      <div className="p-5 space-y-5">
+        {/* Auth header example */}
+        <div>
+          <p className="text-xs font-medium text-ink-sub mb-2">{t("authHeaderLabel")}</p>
+          <div className="bg-surface-alt rounded-lg border border-edge px-4 py-3 font-mono text-xs text-ink-dim leading-relaxed">
+            <span className="text-ink-faint">Authorization: </span>
+            <span className="text-ok">Bearer</span>
+            <span className="text-warn"> {"<your-token>"}</span>
+          </div>
+        </div>
+        {/* Role reference */}
+        <div>
+          <p className="text-xs font-medium text-ink-sub mb-2">{t("rolesLabel")}</p>
+          <div className="divide-y divide-edge border border-edge rounded-lg overflow-hidden">
+            {ROLES.map(({ role, desc }) => (
+              <div key={role} className="flex items-center gap-3 px-4 py-2.5">
+                <span className={`text-2xs font-semibold px-1.5 py-0.5 rounded border shrink-0 ${ROLE_STYLE[role]}`}>
+                  {role}
+                </span>
+                <span className="text-xs text-ink-sub">{desc}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </section>
   );
 }
 

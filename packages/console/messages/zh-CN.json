@@ -62,7 +62,9 @@
     "governance": "标签治理",
     "llmSettings": "LLM 设置",
     "apiTokens": "API Tokens",
-    "systemSettings": "系统设置"
+    "systemSettings": "系统设置",
+    "sectionManage": "管理",
+    "sectionSettings": "设置"
   },
   "dashboard": {
     "title": "仪表盘",
@@ -352,6 +354,8 @@
     "entityIdPlaceholder": "如 restaurant-123、uuid-...",
     "entityTypeRequired": "实体类型和 ID 均为必填",
     "registerFailed": "注册失败",
+    "entityTypeCount": "种实体类型",
+    "totalEntitiesCount": "个已注册实体",
     "entityCount": "{count} 个实体",
     "entityUnit": "个实体",
     "noEntities": "暂无已注册实体",
@@ -703,7 +707,15 @@
     "createdBy": "创建于",
     "scopes": "授权范围",
     "scopesAll": "全部类型",
-    "revoked": "已撤销"
+    "revoked": "已撤销",
+    "apiGuideTitle": "API 认证指南",
+    "openApiDocs": "交互式文档",
+    "authHeaderLabel": "请求头",
+    "rolesLabel": "角色权限",
+    "roleDescReader": "查询标签分组、标签、实体标签（只读）",
+    "roleDescWriter": "注册实体、添加 / 修改标签及关联",
+    "roleDescReviewer": "Writer 全部权限 + 审核 AI 打标",
+    "roleDescAdmin": "全部权限，包含删除和配置操作"
   },
   "llm": {
     "title": "LLM 配置",

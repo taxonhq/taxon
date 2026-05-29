@@ -176,7 +176,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           ))}
 
           {open
-            ? <p className="px-3 pt-4 pb-1.5 text-2xs font-semibold text-ink-faint uppercase whitespace-nowrap" style={{ letterSpacing: "0.16em" }}>Manage</p>
+            ? <p className="px-3 pt-4 pb-1.5 text-2xs font-semibold text-ink-faint uppercase whitespace-nowrap" style={{ letterSpacing: "0.16em" }}>{t("sectionManage")}</p>
             : <div className="mx-2 my-2 h-px bg-edge" />
           }
 
@@ -188,7 +188,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           ))}
 
           {open
-            ? <p className="px-3 pt-4 pb-1.5 text-2xs font-semibold text-ink-faint uppercase whitespace-nowrap" style={{ letterSpacing: "0.16em" }}>Settings</p>
+            ? <p className="px-3 pt-4 pb-1.5 text-2xs font-semibold text-ink-faint uppercase whitespace-nowrap" style={{ letterSpacing: "0.16em" }}>{t("sectionSettings")}</p>
             : <div className="mx-2 my-2 h-px bg-edge" />
           }
 

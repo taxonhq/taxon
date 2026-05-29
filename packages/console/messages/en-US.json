@@ -62,7 +62,9 @@
     "governance": "Governance",
     "llmSettings": "LLM Settings",
     "apiTokens": "API Tokens",
-    "systemSettings": "System Settings"
+    "systemSettings": "System Settings",
+    "sectionManage": "Manage",
+    "sectionSettings": "Settings"
   },
   "dashboard": {
     "title": "Dashboard",
@@ -352,6 +354,8 @@
     "entityIdPlaceholder": "e.g. restaurant-123, uuid-...",
     "entityTypeRequired": "Entity type and ID are required",
     "registerFailed": "Registration failed",
+    "entityTypeCount": "entity types",
+    "totalEntitiesCount": "registered entities",
     "entityCount": "{count} entities",
     "entityUnit": "entities",
     "noEntities": "No registered entities",
@@ -703,7 +707,15 @@
     "createdBy": "Created",
     "scopes": "Scopes",
     "scopesAll": "All types",
-    "revoked": "Revoked"
+    "revoked": "Revoked",
+    "apiGuideTitle": "API Authentication Guide",
+    "openApiDocs": "Interactive Docs",
+    "authHeaderLabel": "Request Header",
+    "rolesLabel": "Role Permissions",
+    "roleDescReader": "Read tag groups, tags, and entity tags (read-only)",
+    "roleDescWriter": "Register entities, add/update tags and associations",
+    "roleDescReviewer": "All writer permissions + review AI-generated tags",
+    "roleDescAdmin": "Full access including deletion and configuration"
   },
   "llm": {
     "title": "LLM Settings",

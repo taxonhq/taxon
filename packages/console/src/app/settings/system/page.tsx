@@ -36,7 +36,7 @@ export default function SystemSettingsPage() {
     getHealth()
       .then(h => {
         setHealth(h.status === "ok" ? "ok" : "degraded");
-        setVersion(h.version ?? "—");
+        setVersion(h.version && h.version !== "unknown" ? h.version : "—");
       })
       .catch(() => setHealth("degraded"));
   }, []);

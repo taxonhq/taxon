@@ -257,11 +257,12 @@ export function EntityPie({ entityTypes }: { entityTypes: EntityTypeStat[] }) {
           <div className="flex flex-col gap-1.5 min-h-0 overflow-y-auto pr-1 self-center">
             {display.map((et, i) => {
               const pct = total ? Math.round((et.count / total) * 100) : 0;
+              const pctLabel = pct === 0 && et.count > 0 ? "< 1%" : `${pct}%`;
               return (
                 <div key={et.entityType} className="flex items-center gap-2 text-xs">
                   <span className="w-2 h-2 rounded-sm shrink-0" style={{ background: PIE_COLORS[i % PIE_COLORS.length] }} />
                   <span className="flex-1 truncate font-mono text-ink-dim">{et.entityType}</span>
-                  <span className="tabular-nums shrink-0 text-ink-sub">{pct}%</span>
+                  <span className="tabular-nums shrink-0 text-ink-sub">{pctLabel}</span>
                 </div>
               );
             })}

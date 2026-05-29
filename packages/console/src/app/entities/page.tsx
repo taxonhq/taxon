@@ -117,6 +117,19 @@ export default function EntitiesPage() {
         </div>
       )}
 
+      {/* Summary strip */}
+      {!loading && types.length > 0 && (
+        <div className="flex items-center gap-4 px-4 py-3 rounded-xl border border-edge bg-surface-alt/40 text-xs text-ink-sub animate-fade-in">
+          <span className="font-semibold text-ink">{types.length}</span>
+          {t("entityTypeCount", { count: types.length })}
+          <span className="text-edge-strong">·</span>
+          <span className="font-semibold text-ink">
+            {types.reduce((s, t) => s + t.count, 0).toLocaleString()}
+          </span>
+          {t("totalEntitiesCount")}
+        </div>
+      )}
+
       {/* Entity type cards */}
       {loading ? (
         <SkeletonGrid />
