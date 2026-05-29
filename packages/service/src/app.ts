@@ -11,7 +11,7 @@ import { cors } from 'hono/cors'
 import { secureHeaders } from 'hono/secure-headers'
 import { bearerAuth } from './middleware/auth.js'
 import { rateLimit } from './middleware/rate-limit.js'
-import { requestIdMiddleware } from './middleware/request-id.js'
+import { requestIdMiddleware, getRequestId } from './middleware/request-id.js'
 import { validateEntityParams } from './middleware/validate-params.js'
 import prisma from './lib/db.js'
 import logger from './lib/logger.js'
@@ -100,7 +100,10 @@ export function buildApp(opts: AppOptions = {}) {
     const status = String(c.res.status)
 
     if (!opts.silent) {
-      logger.info(`${method} ${c.req.path} ${c.res.status} ${Math.round(durationSec * 1000)}ms`)
+      logger.info(
+        { requestId: getRequestId(c), method, path: c.req.path, status: c.res.status, durationMs: Math.round(durationSec * 1000) },
+        `${method} ${c.req.path} ${c.res.status} ${Math.round(durationSec * 1000)}ms`,
+      )
     }
     httpRequestsTotal.labels(method, route, status).inc()
     httpRequestDuration.labels(method, route).observe(durationSec)
@@ -290,7 +293,7 @@ export function buildApp(opts: AppOptions = {}) {
 
   // ── 兜底错误处理 ────────────────────────────────────────────────
   app.onError((err, c) => {
-    logger.error({ err, method: c.req.method, path: c.req.path }, 'Unhandled error')
+    logger.error({ err, requestId: getRequestId(c), method: c.req.method, path: c.req.path }, 'Unhandled error')
     return c.json({ code: 500, message: '服务内部错误' }, 500)
   })
 
