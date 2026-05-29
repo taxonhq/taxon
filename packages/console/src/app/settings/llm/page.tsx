@@ -88,7 +88,7 @@ export default function LlmSettingsPage() {
   if (loading) {
     return (
       <div className="space-y-6 animate-fade-in">
-        <PageHeader title={t("title")} description={tCommon("loading")} />
+        <PageHeader title={t("title")} />
       </div>
     );
   }
@@ -97,7 +97,7 @@ export default function LlmSettingsPage() {
     <div className="space-y-6 animate-fade-in max-w-3xl">
       <PageHeader
         title={t("title")}
-        description={t("description")}
+        hint={t("description")}
       />
 
       {error && (

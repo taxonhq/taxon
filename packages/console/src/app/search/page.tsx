@@ -40,7 +40,7 @@ export default function SearchPage() {
     <div className="space-y-6 animate-fade-in">
       <PageHeader
         title={t("title")}
-        description={t("description")}
+        hint={t("description")}
       />
 
       {/* Tab 切换 */}

@@ -625,7 +625,7 @@ export default function AuditPage() {
     <div className="space-y-6">
       <PageHeader
         title={t("title")}
-        description={t("description")}
+        hint={t("description")}
         action={
           <div className="flex items-center gap-2">
             <button

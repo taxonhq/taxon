@@ -205,7 +205,7 @@ export default function GroupsPage() {
     <div className="space-y-7">
       <PageHeader
         title={t("title")}
-        description={t("description")}
+        hint={t("description")}
         action={
           activeTab === "active" && (
             <Button onClick={() => setShowGroupForm(v => !v)} size="sm">

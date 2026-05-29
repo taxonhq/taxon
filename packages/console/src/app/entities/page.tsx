@@ -67,7 +67,7 @@ export default function EntitiesPage() {
     <div className="space-y-7">
       <PageHeader
         title={t("title")}
-        description={t("description")}
+        hint={t("description")}
         action={
           <Button size="sm" onClick={() => setShowForm(v => !v)}>
             <Plus size={13} />

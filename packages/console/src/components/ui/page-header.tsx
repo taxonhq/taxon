@@ -2,6 +2,7 @@ import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { ArrowLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { InfoHint } from "@/components/ui/info-hint";
 
 /**
  * 统一的页面头部组件
@@ -22,9 +23,24 @@ export interface BreadcrumbItem {
 }
 
 export interface PageHeaderProps {
-  title: string;
-  /** Subtitle / hint below title. Accepts ReactNode for inline emphasis. */
+  /**
+   * Page title. Optional — omit for self-evident contexts (e.g. the Dashboard,
+   * where being on the big screen already says "dashboard"). When absent, the
+   * left cluster collapses and only meta/action render.
+   */
+  title?: string;
+  /**
+   * Inline contextual text below the title. Accepts ReactNode for inline
+   * emphasis / live data (counts, slugs). Use for detail-page metadata that
+   * should stay visible — NOT for "what is this page" explanations (use `hint`).
+   */
   description?: React.ReactNode;
+  /**
+   * Explanatory help text shown behind an ⓘ icon next to the title (hover /
+   * focus to reveal). Use for page-level "what this does" copy so the header
+   * stays clean and the title carries the weight.
+   */
+  hint?: string;
   /** Right-aligned action area (typically buttons). */
   action?: React.ReactNode;
   /** Back-arrow link to the parent page. */
@@ -57,6 +73,7 @@ const titleWeight: Record<PageHeaderSize, string> = {
 export function PageHeader({
   title,
   description,
+  hint,
   action,
   back,
   breadcrumb,
@@ -121,17 +138,22 @@ export function PageHeader({
               </nav>
             )}
 
-            <h1
-              className={cn(
-                "text-ink leading-none truncate",
-                titleSize[size],
-                titleWeight[size],
-                mono && "font-mono",
-              )}
-              style={{ letterSpacing: mono ? "-0.02em" : undefined }}
-            >
-              {title}
-            </h1>
+            {title && (
+              <div className="flex items-center gap-2 min-w-0">
+                <h1
+                  className={cn(
+                    "text-ink leading-none truncate",
+                    titleSize[size],
+                    titleWeight[size],
+                    mono && "font-mono",
+                  )}
+                  style={{ letterSpacing: mono ? "-0.02em" : undefined }}
+                >
+                  {title}
+                </h1>
+                {hint && <InfoHint text={hint} className="shrink-0" />}
+              </div>
+            )}
 
             {description && (
               <p

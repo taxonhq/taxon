@@ -198,7 +198,7 @@ export default function TokensPage() {
     <>
       <PageHeader
         title={t("title")}
-        description={t("description")}
+        hint={t("description")}
         action={
           <Button onClick={() => setShowCreate(true)}>
             <Plus size={14} />

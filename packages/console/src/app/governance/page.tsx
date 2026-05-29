@@ -567,7 +567,7 @@ export default function GovernancePage() {
     <div>
       <PageHeader
         title={t("title")}
-        description={t("description")}
+        hint={t("description")}
       />
       <div className="mt-7 space-y-6">
         <SummaryBanner />

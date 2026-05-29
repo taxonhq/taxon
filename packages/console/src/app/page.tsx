@@ -39,6 +39,7 @@ type PersistedLayout = PersistedDashboardLayout & { items: LayoutItem[] };
 
 export default function DashboardPage() {
   const t = useTranslations("dashboard");
+  const tCommon = useTranslations("common");
   const [layout,      setLayout]      = useState<LayoutItem[]>([]);
   const [editMode,      setEditMode]      = useState(false);
   const [layoutReady,   setLayoutReady]   = useState(false);
@@ -147,8 +148,6 @@ export default function DashboardPage() {
 
       <PageHeader
         sticky
-        title="Taxon Dashboard"
-        description={t("description")}
         meta={
           <>
             {!editMode && (
@@ -170,9 +169,11 @@ export default function DashboardPage() {
           </>
         }
         action={
-          <div className="flex items-center gap-2">
+          // mr-24 为右上角全局固定工具栏（主题切换 / 帮助，app-shell 中 fixed top-4 right-5）
+          // 预留空间，避免 dashboard 全宽 sticky 头部的操作按钮与之重叠。
+          <div className="flex items-center gap-2 mr-24">
             <ToolBtn onClick={refresh} disabled={refreshing}
-              icon={<RefreshCw size={12} className={refreshing ? "animate-spin" : ""} />} label={t("refreshing")} />
+              icon={<RefreshCw size={12} className={refreshing ? "animate-spin" : ""} />} label={refreshing ? t("refreshing") : tCommon("refresh")} />
             {editMode && (
               <ToolBtn onClick={resetLayout} icon={<RotateCcw size={12} />} label={t("resetLayout")} />
             )}

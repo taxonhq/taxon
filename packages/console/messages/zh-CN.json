@@ -55,8 +55,8 @@
   },
   "nav": {
     "dashboard": "仪表盘",
-    "groups": "分组管理",
-    "entities": "实体管理",
+    "groups": "分组",
+    "entities": "实体",
     "search": "实体检索",
     "audit": "审核队列",
     "governance": "标签治理",
@@ -157,7 +157,7 @@
     "jumpToGroup": "跳转分组"
   },
   "groups": {
-    "title": "分组管理",
+    "title": "分组",
     "description": "管理标签分组与标签值，点击分组名进入高级配置",
     "createGroup": "新建分组",
     "createGroupTitle": "新建标签分组",
@@ -341,7 +341,7 @@
     "rejectTitle": "拒绝（R 快速拒绝）"
   },
   "entities": {
-    "title": "实体管理",
+    "title": "实体",
     "description": "管理已注册的业务实体及其标签关联",
     "registerEntity": "注册实体",
     "registerTitle": "注册新实体",
