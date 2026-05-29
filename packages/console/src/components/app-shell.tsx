@@ -83,7 +83,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const isWide =
     pathname.startsWith("/audit") ||
     pathname.startsWith("/entities/") ||
-    pathname.startsWith("/governance");
+    pathname.startsWith("/governance") ||
+    pathname.startsWith("/search");
   const containerClass = isWide ? "max-w-[1200px]" : "max-w-[880px]";
 
   const dotClass =

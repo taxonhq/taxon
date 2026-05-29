@@ -637,7 +637,7 @@ export default function GroupDetailPage() {
             <div className="flex gap-3 justify-end pt-2">
               <Button variant="outline" onClick={() => setMergeState(null)}>{tCommon("cancel")}</Button>
               <Button
-                variant="danger"
+                variant="primary"
                 loading={merging}
                 disabled={!mergeState.targetId}
                 onClick={handleMergeConfirm}
@@ -677,7 +677,7 @@ export default function GroupDetailPage() {
             <div className="flex gap-3 justify-end pt-2">
               <Button variant="outline" onClick={() => setMoveGroupState(null)}>{tCommon("cancel")}</Button>
               <Button
-                variant="danger"
+                variant="primary"
                 loading={movingGroup}
                 disabled={!moveGroupState.targetGroupId}
                 onClick={handleMoveGroupConfirm}

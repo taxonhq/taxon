@@ -68,7 +68,7 @@ const META: Record<ToastType, {
   info: {
     icon: <Info size={15} />,
     bar:  "bg-brand-1",
-    bg:   "border-white/10",
+    bg:   "border-edge",
   },
 };
 

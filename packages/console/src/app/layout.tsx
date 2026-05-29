@@ -31,7 +31,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const messages = await getMessages();
 
   return (
-    <html lang={locale} data-theme="dark" className={`h-full ${GeistSans.variable} ${GeistMono.variable}`}>
+    <html lang={locale} data-theme="dark" className={`h-full ${GeistSans.variable} ${GeistMono.variable}`} suppressHydrationWarning>
       <head>
         {/* 防 FOUC 主题脚本：必须是同步脚本，放在 <head> 最前面 */}
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />

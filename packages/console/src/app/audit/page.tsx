@@ -161,7 +161,7 @@ function LeaderboardDialog({
             >
               {/* Rank */}
               <span className={`w-5 text-center text-xs font-bold shrink-0 ${
-                idx === 0 ? "text-amber-400" : idx === 1 ? "text-slate-400" : idx === 2 ? "text-amber-600" : "text-ink-faint"
+                idx === 0 ? "text-amber" : idx === 1 ? "text-ink-sub" : idx === 2 ? "text-amber/60" : "text-ink-faint"
               }`}>
                 {idx + 1}
               </span>
