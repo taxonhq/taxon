@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
+import { useTranslations } from "next-intl";
 import { Loader2, CalendarRange } from "lucide-react";
 import {
   searchEntities, type BoolExpr, type RegisteredEntity,
@@ -81,6 +82,7 @@ function chooseGranularity(items: RegisteredEntity[], field: Field): Granularity
 }
 
 export function TimelineView({ entityType, filter }: TimelineViewProps) {
+  const t = useTranslations("search");
   const [field, setField] = useState<Field>("registeredAt");
   const [granularity, setGranularity] = useState<Granularity | "auto">("auto");
   const [items, setItems] = useState<RegisteredEntity[]>([]);
@@ -165,7 +167,7 @@ export function TimelineView({ entityType, filter }: TimelineViewProps) {
   if (loading && items.length === 0) {
     return (
       <div className="flex items-center justify-center py-16 text-ink-sub gap-2">
-        <Loader2 className="size-4 animate-spin" /> 加载时间线数据中…
+        <Loader2 className="size-4 animate-spin" /> {t("tlCalculating")}
       </div>
     );
   }
@@ -180,7 +182,7 @@ export function TimelineView({ entityType, filter }: TimelineViewProps) {
     return (
       <div className="rounded-lg border border-edge bg-card p-12 text-center text-ink-sub flex flex-col items-center gap-3">
         <CalendarRange className="size-7 opacity-50" />
-        <span>无可视化的时间数据</span>
+        <span>{t("tlEmpty")}</span>
       </div>
     );
   }
@@ -201,7 +203,7 @@ export function TimelineView({ entityType, filter }: TimelineViewProps) {
                   field === f ? "bg-ink text-surface" : "text-ink hover:bg-row-hover",
                 )}
               >
-                {f === "registeredAt" ? "按注册时间" : "按打标时间"}
+                {f === "registeredAt" ? t("tlByRegistered") : t("tlByTagged")}
               </button>
             ))}
           </div>
@@ -216,16 +218,18 @@ export function TimelineView({ entityType, filter }: TimelineViewProps) {
                   granularity === g ? "bg-ink text-surface" : "text-ink hover:bg-row-hover",
                 )}
               >
-                {g === "auto" ? `自动 (${actualGran})` : { day: "日", week: "周", month: "月" }[g]}
+                {g === "auto"
+                  ? t("tlAuto", { gran: actualGran })
+                  : { day: t("tlDay"), week: t("tlWeek"), month: t("tlMonth") }[g]}
               </button>
             ))}
           </div>
         </div>
         <div className="flex items-center gap-4 text-base">
-          <span className="text-ink-sub">样本</span>
+          <span className="text-ink-sub">{t("tlSample")}</span>
           <strong className="text-ink">{items.length}</strong>
           {total > items.length && (
-            <span className="text-xs text-bad">⚠️ 截断（实际 {total}，仅取前 500 计算时间线）</span>
+            <span className="text-xs text-bad">{t("tlTruncated", { total })}</span>
           )}
         </div>
       </div>
@@ -233,10 +237,10 @@ export function TimelineView({ entityType, filter }: TimelineViewProps) {
       {/* 图例 */}
       <div className="flex flex-wrap gap-4 text-xs">
         {[
-          { key: "manual", label: "人工",   color: SRC_COLORS.manual, count: grandStats.manual },
-          { key: "ai",     label: "AI",     color: SRC_COLORS.ai,     count: grandStats.ai },
-          { key: "system", label: "系统",   color: SRC_COLORS.system, count: grandStats.system },
-          { key: "import", label: "导入",   color: SRC_COLORS.import, count: grandStats.import },
+          { key: "manual", label: t("srcManual"), color: SRC_COLORS.manual, count: grandStats.manual },
+          { key: "ai",     label: t("srcAi"),     color: SRC_COLORS.ai,     count: grandStats.ai },
+          { key: "system", label: t("srcSystem"), color: SRC_COLORS.system, count: grandStats.system },
+          { key: "import", label: t("srcImport"), color: SRC_COLORS.import, count: grandStats.import },
         ].map(s => (
           <div key={s.key} className="flex items-center gap-1.5">
             <span className="size-3 rounded-sm" style={{ background: s.color }} />
@@ -259,7 +263,7 @@ export function TimelineView({ entityType, filter }: TimelineViewProps) {
                 <div
                   className="w-7 flex flex-col-reverse rounded-t overflow-hidden border border-edge/30 transition-all hover:outline hover:outline-2 hover:outline-ink"
                   style={{ height: `${h}%` }}
-                  title={`${b.key}\n人工 ${b.manual} · AI ${b.ai} · 系统 ${b.system} · 导入 ${b.import}\n总计 ${b.total}`}
+                  title={`${b.key}\n${t("tlBarTip", { manual: b.manual, ai: b.ai, system: b.system, import: b.import, total: b.total })}`}
                 >
                   {([
                     ["manual", b.manual],
@@ -287,10 +291,8 @@ export function TimelineView({ entityType, filter }: TimelineViewProps) {
       </div>
 
       <p className="text-xs text-ink-faint">
-        {field === "registeredAt"
-          ? "按实体注册时间分桶；source 颜色取自该实体首个 active 标签。"
-          : "按最后打标时间分桶；source 颜色取自最近的 active 标签。"}
-        {" "}时间线为客户端聚合（最多 500 个样本），如需精确大规模统计请后续接入专用 timeline endpoint。
+        {field === "registeredAt" ? t("tlFootByRegistered") : t("tlFootByTagged")}
+        {" "}{t("tlFootSuffix")}
       </p>
     </div>
   );

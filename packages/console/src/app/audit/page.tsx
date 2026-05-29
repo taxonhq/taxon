@@ -401,19 +401,20 @@ export default function AuditPage() {
 
     quickActionRef.current = (item: AuditItem, newStatus: "active" | "rejected", origIdx: number) => {
       const key = itemKey(item);
+      // Show flash animation; clear it after 300ms but keep item in list until API confirms
       setFlashItems(prev => new Map(prev).set(key, newStatus === "active" ? "ok" : "bad"));
       setTimeout(() => {
         setFlashItems(prev => { const m = new Map(prev); m.delete(key); return m; });
-        removeItemFromUI(key);
-        setFocusedIdx(prev => {
-          if (prev < 0) return -1;
-          return prev > origIdx ? prev - 1 : Math.min(prev, stateRef.current.items.length - 2);
-        });
       }, 300);
 
-      // 立即提交，拿回 reviewId 用于服务端撤销
+      // 立即提交，拿回 reviewId 用于服务端撤销；只有成功后才从 UI 移除
       updateEntityTagStatus(item.entityType, item.entityId, item.tagId, newStatus)
         .then(({ reviewId }) => {
+          removeItemFromUI(key);
+          setFocusedIdx(prev => {
+            if (prev < 0) return -1;
+            return prev > origIdx ? prev - 1 : Math.min(prev, stateRef.current.items.length - 2);
+          });
           undoBatchRef.current = [...undoBatchRef.current, { key, reviewId }];
           if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
           undoTimerRef.current = setTimeout(() => commitUndoFnRef.current(), 5000);

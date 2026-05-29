@@ -271,10 +271,10 @@ export default function LlmSettingsPage() {
       <div className="rounded-lg border border-edge bg-card/50 p-4 text-sm text-ink-sub space-y-2">
         <p className="font-medium text-ink">{t("configNotesTitle")}</p>
         <ul className="list-disc list-inside space-y-1">
-          <li>Master key <code className="text-ink font-mono">LLM_MASTER_KEY</code> is set in the service <code className="text-ink font-mono">.env</code> — losing or rotating it invalidates stored keys</li>
-          <li>Anthropic: messages API + tool use for structured output — highest accuracy</li>
-          <li>OpenAI: chat.completions + response_format json_schema — requires GPT-4o or newer</li>
-          <li>Leave Base URL blank for official defaults; set for Azure / proxy / compatible endpoints</li>
+          <li>{t("configNote1")}</li>
+          <li>{t("configNote2")}</li>
+          <li>{t("configNote3")}</li>
+          <li>{t("configNote4")}</li>
         </ul>
       </div>
     </div>

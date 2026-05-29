@@ -20,13 +20,21 @@ function authHeaders(): HeadersInit {
   return TOKEN ? { Authorization: `Bearer ${TOKEN}` } : {};
 }
 
+/** Thrown by {@link req} on non-zero API responses. Carries the HTTP status code. */
+export class ApiError extends Error {
+  constructor(public readonly code: number, message: string) {
+    super(message);
+    this.name = "ApiError";
+  }
+}
+
 async function req<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${BASE}${path}`, {
     ...init,
     headers: { ...authHeaders(), ...(init?.headers ?? {}) },
   });
   const data = await res.json();
-  if (data.code !== 0) throw new Error(data.message || `请求失败 ${res.status}`);
+  if (data.code !== 0) throw new ApiError(data.code as number, data.message || `Request failed ${res.status}`);
   return data.data as T;
 }
 

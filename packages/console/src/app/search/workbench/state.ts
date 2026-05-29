@@ -329,17 +329,27 @@ export function decompileBoolExpr(
 }
 
 // ── 节点描述（用于 chip 显示）────────────────────────────────────────────
-export function describeLeaf(v: LeafValue): string {
+// 纯函数：调用方注入已本地化的标签，避免在此模块依赖 i18n runtime。
+export interface LeafLabels {
+  descendantSuffix: string;
+  source:           string;
+  status:           string;
+  confidence:       string;
+  alias:            (alias: string, groupSlug?: string) => string;
+}
+
+export function describeLeaf(v: LeafValue, L: LeafLabels): string {
   switch (v.type) {
     case "tag":          return `${v.groupName} ▸ ${v.tagName}`;
-    case "descendantOf": return `${v.groupName} ▸ ${v.tagName} (含子孙)`;
-    case "tagAlias":     return v.groupSlug ? `别名 "${v.alias}" @${v.groupSlug}` : `别名 "${v.alias}"`;
-    case "source":       return `来源: ${v.values.join(" / ")}`;
-    case "status":       return `状态: ${v.values.join(" / ")}`;
+    case "descendantOf": return `${v.groupName} ▸ ${v.tagName} (${L.descendantSuffix})`;
+    case "tagAlias":     return L.alias(v.alias, v.groupSlug);
+    case "source":       return `${L.source}: ${v.values.join(" / ")}`;
+    case "status":       return `${L.status}: ${v.values.join(" / ")}`;
     case "confidence": {
       const gte = v.gte !== undefined ? `≥ ${v.gte}` : "";
       const lte = v.lte !== undefined ? `≤ ${v.lte}` : "";
-      return `置信度 ${gte}${gte && lte ? "，" : ""}${lte}` || "置信度";
+      const range = `${gte}${gte && lte ? ", " : ""}${lte}`;
+      return range ? `${L.confidence} ${range}` : L.confidence;
     }
   }
 }

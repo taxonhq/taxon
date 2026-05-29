@@ -59,7 +59,6 @@ export default function EntityTypePage() {
   const [committed, setCommitted]   = useState("");
 
   const [tagsMap, setTagsMap]       = useState<Record<string, EntityTagItem[]>>({});
-  const [tagsLoading, setTagsLoading] = useState(false);
 
   const [showForm, setShowForm] = useState(false);
   const [newId, setNewId]       = useState("");
@@ -86,7 +85,6 @@ export default function EntityTypePage() {
       const map: Record<string, EntityTagItem[]> = {};
       entities.forEach(e => { map[e.entityId] = e.tags ?? []; });
       setTagsMap(map);
-      setTagsLoading(false);
     } catch (err) {
       setError(err instanceof Error ? tCommon("loadErrorMsg", { message: err.message }) : tCommon("loadError"));
     } finally {
@@ -274,13 +272,7 @@ export default function EntityTypePage() {
                     </td>
 
                     <td className="px-3 py-3.5">
-                      {tagsLoading && !(item.entityId in tagsMap) ? (
-                        <div className="flex items-center gap-1.5">
-                          {[52, 44, 60].map(w => (
-                            <div key={w} className="h-[22px] rounded bg-edge animate-pulse shrink-0" style={{ width: w }} />
-                          ))}
-                        </div>
-                      ) : visible.length > 0 ? (
+                      {visible.length > 0 ? (
                         <div className="flex items-center gap-1.5 overflow-hidden">
                           {visible.map(tag => {
                             const p = tagPaletteStyle(tag.groupId);

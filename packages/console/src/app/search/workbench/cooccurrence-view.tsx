@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
+import { useTranslations } from "next-intl";
 import { Loader2, Network } from "lucide-react";
 import { searchCooccurrence, type BoolExpr, type CooccurrenceResult } from "@/lib/api";
 import { cn } from "@/lib/utils";
@@ -14,6 +15,7 @@ interface CooccurrenceViewProps {
 }
 
 export function CooccurrenceView({ entityType, filter, topN = 15 }: CooccurrenceViewProps) {
+  const t = useTranslations("search");
   const [data, setData] = useState<CooccurrenceResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -45,7 +47,7 @@ export function CooccurrenceView({ entityType, filter, topN = 15 }: Cooccurrence
   if (loading && !data) {
     return (
       <div className="flex items-center justify-center py-16 text-ink-sub gap-2">
-        <Loader2 className="size-4 animate-spin" /> 计算共现矩阵中…
+        <Loader2 className="size-4 animate-spin" /> {t("coCalculating")}
       </div>
     );
   }
@@ -60,7 +62,7 @@ export function CooccurrenceView({ entityType, filter, topN = 15 }: Cooccurrence
     return (
       <div className="rounded-lg border border-edge bg-card p-12 text-center text-ink-sub flex flex-col items-center gap-3">
         <Network className="size-7 opacity-50" />
-        <span>当前子集没有足够的标签计算共现</span>
+        <span>{t("coEmpty")}</span>
       </div>
     );
   }
@@ -79,9 +81,9 @@ export function CooccurrenceView({ entityType, filter, topN = 15 }: Cooccurrence
       {/* 顶部统计 + 配色切换 */}
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <div className="flex items-center gap-6 text-base">
-          <span><span className="text-ink-sub">参与标签</span> <strong className="text-ink">{tags.length}</strong></span>
-          <span><span className="text-ink-sub">非零共现</span> <strong className="text-ink">{Object.keys(data.cooccurrence).length}</strong></span>
-          <span><span className="text-ink-sub">子集总实体</span> <strong className="text-ink">{data.totalEntities}</strong></span>
+          <span><span className="text-ink-sub">{t("coParticipating")}</span> <strong className="text-ink">{tags.length}</strong></span>
+          <span><span className="text-ink-sub">{t("coNonzero")}</span> <strong className="text-ink">{Object.keys(data.cooccurrence).length}</strong></span>
+          <span><span className="text-ink-sub">{t("coSubsetTotal")}</span> <strong className="text-ink">{data.totalEntities}</strong></span>
         </div>
         <div className="inline-flex rounded-md border border-edge overflow-hidden">
           {(["lift", "count"] as const).map((m) => (
@@ -94,7 +96,7 @@ export function CooccurrenceView({ entityType, filter, topN = 15 }: Cooccurrence
                 colorBy === m ? "bg-ink text-surface" : "text-ink hover:bg-row-hover",
               )}
             >
-              {m === "lift" ? "按 lift 着色" : "按 count 着色"}
+              {m === "lift" ? t("coColorLift") : t("coColorCount")}
             </button>
           ))}
         </div>
@@ -108,15 +110,15 @@ export function CooccurrenceView({ entityType, filter, topN = 15 }: Cooccurrence
               <th className="sticky left-0 z-10 bg-row-head text-xs font-semibold text-ink-sub px-3 py-2 border-b border-r border-edge min-w-[140px] text-left">
                 <span className="text-ink-sub">↘</span>
               </th>
-              {tags.map((t) => (
+              {tags.map((tag) => (
                 <th
-                  key={t.tagId}
+                  key={tag.tagId}
                   className="text-xs font-medium text-ink px-2 py-2 border-b border-edge whitespace-nowrap"
-                  title={`${t.groupName} · ${t.name} (${t.total} 实体)`}
+                  title={t("coColTip", { group: tag.groupName, name: tag.name, count: tag.total })}
                 >
                   <div className="flex flex-col items-center gap-0.5">
-                    <span className="max-w-[80px] truncate">{t.name}</span>
-                    <span className="text-ink-faint text-2xs">{t.total}</span>
+                    <span className="max-w-[80px] truncate">{tag.name}</span>
+                    <span className="text-ink-faint text-2xs">{tag.total}</span>
                   </div>
                 </th>
               ))}
@@ -140,7 +142,7 @@ export function CooccurrenceView({ entityType, filter, topN = 15 }: Cooccurrence
                       <td
                         key={colTag.tagId}
                         className="text-center text-sm font-bold border border-edge/30 px-2 py-2 bg-overlay/30"
-                        title={`${rowTag.name} 自身 ${rowTag.total} 实体`}
+                        title={t("coDiagTip", { name: rowTag.name, count: rowTag.total })}
                       >
                         {rowTag.total}
                       </td>
@@ -170,14 +172,14 @@ export function CooccurrenceView({ entityType, filter, topN = 15 }: Cooccurrence
         <p className="text-xs text-ink-faint leading-relaxed">
           {colorBy === "lift" ? (
             <>
-              <strong>Lift</strong> = 观察共现 ÷ 期望共现。
-              <span className="text-ok ml-1">&gt; 1</span> 正相关（一起出现的概率高于随机）；
-              <span className="text-ink-sub ml-1">≈ 1</span> 独立；
-              <span className="text-bad ml-1">&lt; 1</span> 负相关。可用于发现冗余 / 互斥标签。
+              <strong>Lift</strong>{t("coLiftFormula")}
+              <span className="text-ok ml-1">&gt; 1</span> {t("coLiftPos")}
+              <span className="text-ink-sub ml-1">≈ 1</span> {t("coLiftIndep")}
+              <span className="text-bad ml-1">&lt; 1</span> {t("coLiftNeg")}
             </>
           ) : (
             <>
-              <strong>Count</strong> = 同时持有 row tag 和 col tag 的活跃实体数。对角线 = 该标签自身实体数。
+              <strong>Count</strong>{t("coCountDesc")}
             </>
           )}
         </p>
@@ -199,7 +201,7 @@ function CooccurrenceCell({
     return (
       <td
         className="text-center text-ink-faint text-base border border-edge/30 px-2 py-2 min-w-[56px]"
-        title={`${rowName} ↔ ${colName}：0`}
+        title={`${rowName} ↔ ${colName}: 0`}
       >
         ·
       </td>
@@ -235,12 +237,13 @@ function CooccurrenceCell({
 }
 
 function Legend({ max, colorBy }: { max: number; colorBy: ColorBy }) {
+  const t = useTranslations("search");
   if (colorBy === "count") {
     if (max === 0) return null;
     const stops = [0, 0.25, 0.5, 0.75, 1];
     return (
       <div className="flex items-center gap-3 text-xs text-ink-sub">
-        <span>少</span>
+        <span>{t("pvLegendLess")}</span>
         <div className="flex">
           {stops.map((s) => (
             <div
@@ -250,15 +253,15 @@ function Legend({ max, colorBy }: { max: number; colorBy: ColorBy }) {
             />
           ))}
         </div>
-        <span>多</span>
-        <span className="ml-2 text-ink-faint">峰值 {max}</span>
+        <span>{t("pvLegendMore")}</span>
+        <span className="ml-2 text-ink-faint">{t("coLegendPeak", { max })}</span>
       </div>
     );
   }
   // lift: 红 → 中性 → 蓝
   return (
     <div className="flex items-center gap-3 text-xs text-ink-sub">
-      <span>负相关</span>
+      <span>{t("coLegendNeg")}</span>
       <div className="flex">
         {[1, 0.6, 0.2].map((r, i) => (
           <div
@@ -276,8 +279,8 @@ function Legend({ max, colorBy }: { max: number; colorBy: ColorBy }) {
           />
         ))}
       </div>
-      <span>正相关</span>
-      <span className="ml-2 text-ink-faint">峰值 lift = {max.toFixed(2)}</span>
+      <span>{t("coLegendPos")}</span>
+      <span className="ml-2 text-ink-faint">{t("coLegendPeakLift", { max: max.toFixed(2) })}</span>
     </div>
   );
 }

@@ -115,7 +115,7 @@ function UsagePanel() {
           <select
             value={period}
             onChange={e => setPeriod(e.target.value as UsagePeriod)}
-            className="text-xs border border-edge rounded-md px-2 py-1 bg-surface text-ink-dim focus:outline-none focus:border-brand"
+            className="text-xs border border-edge rounded-md px-2 py-1 bg-surface text-ink-dim focus:outline-none focus:border-brand-1"
           >
             {PERIODS.map(p => <option key={p.v} value={p.v}>{p.label}</option>)}
           </select>
@@ -249,7 +249,7 @@ function DeadTagsPanel() {
           <select
             value={period}
             onChange={e => setPeriod(e.target.value as DeadPeriod)}
-            className="text-xs border border-edge rounded-md px-2 py-1 bg-surface text-ink-dim focus:outline-none focus:border-brand"
+            className="text-xs border border-edge rounded-md px-2 py-1 bg-surface text-ink-dim focus:outline-none focus:border-brand-1"
           >
             {PERIODS.map(p => <option key={p.v} value={p.v}>{p.label}</option>)}
           </select>
@@ -449,7 +449,7 @@ function DuplicatesPanel() {
                   <button
                     onClick={() => handleMerge(pair)}
                     disabled={isMerging}
-                    className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs border border-brand/40 rounded-md text-brand hover:bg-brand/10 transition-colors disabled:opacity-40"
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs border border-brand-1/40 rounded-md text-brand-1 hover:bg-brand-1/10 transition-colors disabled:opacity-40"
                   >
                     <Merge size={11} />
                     {isMerging ? t("merging") : t("mergeIntoTarget", { name: pair.targetName })}

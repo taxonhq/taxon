@@ -7,7 +7,7 @@ import { Plus, Save, X, RotateCcw, Trash2, Trash } from "lucide-react";
 import {
   getTagGroup, getTagGroupTree, createTag, updateTag, deleteTag, restoreTag,
   getGroupTags, updateTagGroup, setEntityRules, getEntityTypes, getTagGroups,
-  mergeTag, moveTagToGroup,
+  mergeTag, moveTagToGroup, ApiError,
   type TagGroup, type Tag, type TagTreeNode, type TagGroupEntityRule,
 } from "@/lib/api";
 import { toast } from "@/components/ui/toast";
@@ -221,8 +221,8 @@ export default function GroupDetailPage() {
       load();
     } catch (err) {
       const msg = err instanceof Error ? err.message : "";
-      if (!force && msg) {
-        setConfirmDelete({ tag, force: true, message: msg.replace("，如需强制删除请添加 ?force=true", "") });
+      if (!force && err instanceof ApiError && err.code === 409) {
+        setConfirmDelete({ tag, force: true, message: msg });
       } else {
         setError(msg || t("deleteTagFailed"));
       }
@@ -327,6 +327,13 @@ export default function GroupDetailPage() {
     return acc;
   }
   const flatTags = flattenTree(tree);
+
+  /** Collect IDs of a node and all its descendants (to exclude from parent picker). */
+  function getDescendantIds(node: TagTreeNode): Set<string> {
+    const ids = new Set<string>([node.id]);
+    for (const child of flattenTree(node.children)) ids.add(child.id);
+    return ids;
+  }
 
   const availableEntityTypes = entityTypes.filter(et => !rules.some(r => r.entityType === et));
 
@@ -563,13 +570,16 @@ export default function GroupDetailPage() {
                 onChange={e => setEditing(s => s ? { ...s, parentId: e.target.value } : s)}
               >
                 <option value="">{t("rootNodeOption")}</option>
-                {flatTags
-                  .filter(tg => tg.id !== editing.tag.id)
-                  .map(tg => (
-                    <option key={tg.id} value={tg.id}>
-                      {"　".repeat(tg.depth)}{tg.name}
-                    </option>
-                  ))}
+                {(() => {
+                  const excluded = getDescendantIds(editing.tag);
+                  return flatTags
+                    .filter(tg => !excluded.has(tg.id))
+                    .map(tg => (
+                      <option key={tg.id} value={tg.id}>
+                        {"　".repeat(tg.depth)}{tg.name}
+                      </option>
+                    ));
+                })()}
               </Select>
             </Field>
             <div className="flex gap-3 justify-end pt-2">

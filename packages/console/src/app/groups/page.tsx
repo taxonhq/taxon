@@ -6,7 +6,7 @@ import { useTranslations } from "next-intl";
 import { Plus, Trash2, Settings2, ChevronRight, Layers, RotateCcw, Trash } from "lucide-react";
 import {
   getTagGroups, createTagGroup, deleteTagGroup, restoreTagGroup,
-  createTag, deleteTag, getEntityTypes,
+  createTag, deleteTag, getEntityTypes, ApiError,
   type TagGroup, type Tag,
 } from "@/lib/api";
 import { Button } from "@/components/ui/button";
@@ -126,8 +126,9 @@ export default function GroupsPage() {
       setTotal(prev => prev - 1);
     } catch (err) {
       const msg = err instanceof Error ? err.message : "";
-      if (!force && msg) setConfirm({ type: "group", group, force: true, message: msg });
-      else setError(msg || t("deleteFailed"));
+      if (!force && err instanceof ApiError && err.code === 409) {
+        setConfirm({ type: "group", group, force: true, message: msg });
+      } else setError(msg || t("deleteFailed"));
     }
   };
 
@@ -166,8 +167,8 @@ export default function GroupsPage() {
       ));
     } catch (err) {
       const msg = err instanceof Error ? err.message : "";
-      if (!force && msg) {
-        setConfirm({ type: "tag", group, tag, force: true, message: msg.replace("，如需强制删除请添加 ?force=true", "") });
+      if (!force && err instanceof ApiError && err.code === 409) {
+        setConfirm({ type: "tag", group, tag, force: true, message: msg });
       } else setError(msg || t("deleteTagFailed"));
     }
   };

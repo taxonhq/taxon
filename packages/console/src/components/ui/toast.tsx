@@ -13,6 +13,7 @@
  */
 
 import { useEffect, useState, useCallback, useRef } from "react";
+import { useTranslations } from "next-intl";
 import { CheckCircle2, XCircle, Info, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -85,6 +86,7 @@ function ToastBubble({
   item:      ToastItem;
   onDismiss: (id: string) => void;
 }) {
+  const t = useTranslations("common");
   const meta    = META[item.type];
   const timerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
@@ -123,7 +125,7 @@ function ToastBubble({
       <button
         onClick={dismiss}
         className="shrink-0 p-0.5 rounded text-ink-faint hover:text-ink transition-colors"
-        aria-label="关闭"
+        aria-label={t("close")}
       >
         <X size={12} />
       </button>
@@ -133,6 +135,7 @@ function ToastBubble({
 
 // ── Toaster 容器（放在 layout.tsx 的 body 底部）────────────────────
 export function Toaster() {
+  const t = useTranslations("common");
   const [items, setItems] = useState<ToastItem[]>([]);
 
   const add = useCallback((item: ToastItem) => {
@@ -152,7 +155,7 @@ export function Toaster() {
 
   return (
     <div
-      aria-label="通知"
+      aria-label={t("notifications")}
       className="fixed bottom-6 right-6 z-[100] flex flex-col gap-2 items-end pointer-events-none"
     >
       {items.map(item => (

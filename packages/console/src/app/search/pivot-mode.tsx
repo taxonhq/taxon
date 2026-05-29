@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo, useCallback } from "react";
+import { useTranslations } from "next-intl";
 import { Loader2, ArrowRight, Layers, Filter, ChevronDown, X, MoveDown } from "lucide-react";
 import {
   getEntityTypes, getTagGroups, searchPivot, getGroupTags,
@@ -53,6 +54,7 @@ interface PivotModeProps {
 }
 
 export function PivotMode({ onDrill, externalFilter, embeddedEntityType }: PivotModeProps) {
+  const t = useTranslations("search");
   const [entityTypes, setEntityTypes] = useState<{ entityType: string; count: number }[]>([]);
   const [groups, setGroups] = useState<{ id: string; slug: string; name: string }[]>([]);
   const [entityType,    setEntityType]    = useState<string>("");
@@ -117,24 +119,24 @@ export function PivotMode({ onDrill, externalFilter, embeddedEntityType }: Pivot
       }
       // 有切片：先取切片维度 group 的 top-N tags，再为每个 tag 并发 pivot
       const splitGroup = groups.find(g => g.slug === splitGroupSlug);
-      if (!splitGroup) throw new Error("切片维度分组不存在");
+      if (!splitGroup) throw new Error(t("pvSplitGroupMissing"));
       const groupTagsResp = await getGroupTags(splitGroup.id, { page: 1, pageSize: splitTopN });
       const splitTags = groupTagsResp.items.slice(0, splitTopN);
       if (splitTags.length === 0) {
         setSingleData(null);
         setSplitData([]);
-        throw new Error(`切片维度「${splitGroup.name}」下无标签`);
+        throw new Error(t("pvSplitGroupEmpty", { name: splitGroup.name }));
       }
       const pivots = await Promise.all(
-        splitTags.map(async (t) => {
+        splitTags.map(async (st) => {
           const subFilter: BoolExpr = filterExpr
-            ? { and: [filterExpr, { tag: t.id }] }
-            : { tag: t.id };
+            ? { and: [filterExpr, { tag: st.id }] }
+            : { tag: st.id };
           const data = await searchPivot({
             entityType, rowGroupSlug, colGroupSlug,
             filter: subFilter, topN,
           });
-          return { splitTag: { id: t.id, name: t.name, slug: t.slug }, data };
+          return { splitTag: { id: st.id, name: st.name, slug: st.slug }, data };
         })
       );
       setSplitData(pivots);
@@ -144,7 +146,7 @@ export function PivotMode({ onDrill, externalFilter, embeddedEntityType }: Pivot
     } finally {
       setLoading(false);
     }
-  }, [entityType, rowGroupSlug, colGroupSlug, splitGroupSlug, filterExpr, topN, splitTopN, groups]);
+  }, [entityType, rowGroupSlug, colGroupSlug, splitGroupSlug, filterExpr, topN, splitTopN, groups, t]);
 
   useEffect(() => { void runQuery(); }, [runQuery]);
 
@@ -181,46 +183,46 @@ export function PivotMode({ onDrill, externalFilter, embeddedEntityType }: Pivot
         <div className="flex flex-wrap items-end gap-4">
           {!embeddedEntityType && (
             <ControlSelect
-              label="实体类型"
+              label={t("entityType")}
               value={entityType}
               onChange={setEntityType}
-              options={entityTypes.map(t => ({ value: t.entityType, label: `${t.entityType} (${t.count})` }))}
-              placeholder="选择实体类型"
+              options={entityTypes.map(et => ({ value: et.entityType, label: `${et.entityType} (${et.count})` }))}
+              placeholder={t("selectEntityType")}
             />
           )}
           <ControlSelect
-            label="X 轴（行）"
+            label={t("pvX")}
             value={rowGroupSlug}
             onChange={setRowGroupSlug}
             options={groups.map(g => ({ value: g.slug, label: g.name, disabled: g.slug === colGroupSlug || g.slug === splitGroupSlug }))}
-            placeholder="选择分组"
+            placeholder={t("pvSelectGroup")}
           />
           <div className="self-center pb-2 text-ink-faint">
             <ArrowRight className="size-4" />
           </div>
           <ControlSelect
-            label="Y 轴（列）"
+            label={t("pvY")}
             value={colGroupSlug}
             onChange={setColGroupSlug}
             options={groups.map(g => ({ value: g.slug, label: g.name, disabled: g.slug === rowGroupSlug || g.slug === splitGroupSlug }))}
-            placeholder="选择分组"
+            placeholder={t("pvSelectGroup")}
           />
           <div className="self-center pb-2 text-ink-faint">
             <MoveDown className="size-4" />
           </div>
           <ControlSelect
-            label="切片维度（可选）"
+            label={t("pvSplit")}
             value={splitGroupSlug}
             onChange={setSplitGroupSlug}
             options={[
-              { value: "",  label: "无切片" },
+              { value: "",  label: t("pvNoSplit") },
               ...groups.map(g => ({ value: g.slug, label: g.name, disabled: g.slug === rowGroupSlug || g.slug === colGroupSlug })),
             ]}
-            placeholder="无切片"
+            placeholder={t("pvNoSplit")}
             allowEmpty
           />
           <div className="flex flex-col gap-1.5">
-            <label className="text-xs text-ink-sub">Top-N</label>
+            <label className="text-xs text-ink-sub">{t("pvTopN")}</label>
             <input
               type="number" min={1} max={50} value={topN}
               onChange={e => setTopN(Math.max(1, Math.min(50, Number(e.target.value) || 1)))}
@@ -229,7 +231,7 @@ export function PivotMode({ onDrill, externalFilter, embeddedEntityType }: Pivot
           </div>
           {splitGroupSlug && (
             <div className="flex flex-col gap-1.5">
-              <label className="text-xs text-ink-sub">切片数</label>
+              <label className="text-xs text-ink-sub">{t("pvSplitCount")}</label>
               <input
                 type="number" min={1} max={12} value={splitTopN}
                 onChange={e => setSplitTopN(Math.max(1, Math.min(12, Number(e.target.value) || 1)))}
@@ -249,7 +251,7 @@ export function PivotMode({ onDrill, externalFilter, embeddedEntityType }: Pivot
               className="inline-flex items-center gap-1.5 text-xs text-ink-sub hover:text-ink"
             >
               <Filter className="size-3.5" />
-              前置过滤 {filterExpr && <span className="text-ok">（已启用）</span>}
+              {t("pvPrefilter")} {filterExpr && <span className="text-ok">{t("pvEnabled")}</span>}
               <ChevronDown className={cn("size-3.5 transition-transform", filterOpen && "rotate-180")} />
             </button>
             {filterOpen && (
@@ -260,7 +262,7 @@ export function PivotMode({ onDrill, externalFilter, embeddedEntityType }: Pivot
         {externalFilter && (
           <p className="text-xs text-ink-sub flex items-center gap-1.5">
             <Filter className="size-3.5" />
-            过滤条件由工作台查询提供
+            {t("pvFilterFromWb")}
           </p>
         )}
       </div>
@@ -289,16 +291,18 @@ export function PivotMode({ onDrill, externalFilter, embeddedEntityType }: Pivot
         <div className="space-y-4">
           <div className="flex items-baseline gap-3">
             <p className="text-base font-semibold text-ink">
-              按 <span className="text-ink-sub">{groups.find(g => g.slug === splitGroupSlug)?.name}</span> 切片
+              {t("pvSplitBy", { name: groups.find(g => g.slug === splitGroupSlug)?.name ?? splitGroupSlug })}
             </p>
-            <p className="text-xs text-ink-faint">共 {splitData.length} 切片，统一色阶（峰值 {globalMaxCell}）</p>
+            <p className="text-xs text-ink-faint">
+              {t("pvSplitSummary", { count: splitData.length, max: globalMaxCell })}
+            </p>
           </div>
           <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
             {splitData.map(s => (
               <div key={s.splitTag.id} className="rounded-lg border border-edge bg-card overflow-hidden">
                 <div className="px-4 py-2.5 border-b border-edge bg-row-head flex items-baseline justify-between">
                   <span className="text-sm font-medium text-ink">{s.splitTag.name}</span>
-                  <span className="text-xs text-ink-faint">{s.data.grandTotal} 实体</span>
+                  <span className="text-xs text-ink-faint">{t("pvEntities", { count: s.data.grandTotal })}</span>
                 </div>
                 <PivotTable
                   data={s.data}
@@ -316,7 +320,7 @@ export function PivotMode({ onDrill, externalFilter, embeddedEntityType }: Pivot
       {!singleData && splitData.length === 0 && !loading && !error && (
         <div className="flex flex-col items-center justify-center gap-3 py-24 text-ink-sub">
           <Layers className="size-7 opacity-50" />
-          <span>选择 X / Y 维度后自动加载</span>
+          <span>{t("pvSelectXY")}</span>
         </div>
       )}
     </div>
@@ -355,37 +359,38 @@ function ControlSelect({
 }
 
 // ── 过滤面板 ────────────────────────────────────────────────────────────────
-const SRC_OPTS: { v: SrcChoice; label: string }[] = [
-  { v: "manual", label: "人工" }, { v: "ai", label: "AI" },
-  { v: "system", label: "系统" }, { v: "import", label: "导入" },
+const SRC_OPTS: { v: SrcChoice; key: "srcManual" | "srcAi" | "srcSystem" | "srcImport" }[] = [
+  { v: "manual", key: "srcManual" }, { v: "ai", key: "srcAi" },
+  { v: "system", key: "srcSystem" }, { v: "import", key: "srcImport" },
 ];
-const STATUS_OPTS: { v: StatusChoice; label: string }[] = [
-  { v: "active", label: "已生效" }, { v: "pending", label: "待审核" }, { v: "rejected", label: "已拒绝" },
+const STATUS_OPTS: { v: StatusChoice; key: "statusActive" | "statusPending" | "statusRejected" }[] = [
+  { v: "active", key: "statusActive" }, { v: "pending", key: "statusPending" }, { v: "rejected", key: "statusRejected" },
 ];
 
 function FilterPanel({ filter, onChange }: { filter: FilterState; onChange: (f: FilterState) => void }) {
+  const t = useTranslations("search");
   const toggle = <T extends string>(arr: T[], v: T): T[] =>
     arr.includes(v) ? arr.filter(x => x !== v) : [...arr, v];
 
   return (
     <div className="mt-3 pt-3 border-t border-edge/60 space-y-3">
-      <FilterRow label="来源">
+      <FilterRow label={t("filterRowSource")}>
         {SRC_OPTS.map(o => (
           <Chip key={o.v} active={filter.sources.includes(o.v)}
             onClick={() => onChange({ ...filter, sources: toggle(filter.sources, o.v) })}>
-            {o.label}
+            {t(o.key)}
           </Chip>
         ))}
       </FilterRow>
-      <FilterRow label="状态">
+      <FilterRow label={t("filterRowStatus")}>
         {STATUS_OPTS.map(o => (
           <Chip key={o.v} active={filter.statuses.includes(o.v)}
             onClick={() => onChange({ ...filter, statuses: toggle(filter.statuses, o.v) })}>
-            {o.label}
+            {t(o.key)}
           </Chip>
         ))}
       </FilterRow>
-      <FilterRow label="置信度">
+      <FilterRow label={t("filterRowConfidence")}>
         <div className="flex items-center gap-2 text-base text-ink">
           <input
             type="number" min={0} max={1} step={0.05}
@@ -417,7 +422,7 @@ function FilterPanel({ filter, onChange }: { filter: FilterState; onChange: (f: 
       {(filter.sources.length > 0 || filter.statuses.length > 0 ||
         filter.confidence.gte !== undefined || filter.confidence.lte !== undefined) && (
         <button type="button" onClick={() => onChange(EMPTY_FILTER)}
-          className="text-xs text-ink-sub hover:text-ink underline">清空所有过滤</button>
+          className="text-xs text-ink-sub hover:text-ink underline">{t("pvFilterClearAll")}</button>
       )}
     </div>
   );
@@ -448,6 +453,7 @@ function Chip({ active, onClick, children }: { active: boolean; onClick: () => v
 
 // ── 汇总条 ──────────────────────────────────────────────────────────────────
 function SummaryBar({ data }: { data: PivotResult }) {
+  const t = useTranslations("search");
   const stat = (label: string, val: number | string, sub?: string) => (
     <div className="flex flex-col">
       <span className="text-xs text-ink-sub">{label}</span>
@@ -458,12 +464,12 @@ function SummaryBar({ data }: { data: PivotResult }) {
   const totalCells = Object.keys(data.cells).length;
   return (
     <div className="flex flex-wrap items-center gap-x-10 gap-y-3 px-5 py-4 rounded-lg bg-card border border-edge">
-      {stat("实体总数",   data.grandTotal)}
-      {stat("行维度标签", data.rows.length)}
-      {stat("列维度标签", data.cols.length)}
-      {stat("非零交叉",   totalCells, `共 ${data.rows.length * data.cols.length} 格`)}
-      {stat("行未分类",   data.uncategorized.row)}
-      {stat("列未分类",   data.uncategorized.col)}
+      {stat(t("pvStatEntities"),  data.grandTotal)}
+      {stat(t("pvStatRowTags"),   data.rows.length)}
+      {stat(t("pvStatColTags"),   data.cols.length)}
+      {stat(t("pvStatNonzero"),   totalCells, t("pvStatCells", { count: data.rows.length * data.cols.length }))}
+      {stat(t("pvStatRowUncat"),  data.uncategorized.row)}
+      {stat(t("pvStatColUncat"),  data.uncategorized.col)}
     </div>
   );
 }
@@ -477,10 +483,12 @@ function PivotTable({
   onCellClick: (rowTagId: string, colTagId: string) => void;
   compact?: boolean;
 }) {
+  const t = useTranslations("search");
+
   if (data.rows.length === 0 || data.cols.length === 0) {
     return (
       <div className={cn("text-center text-ink-sub", compact ? "p-6 text-sm" : "p-10")}>
-        无数据
+        {t("pvNoData")}
       </div>
     );
   }
@@ -501,7 +509,7 @@ function PivotTable({
               <th key={c.tagId} className={cn(
                 "text-xs font-medium text-ink border-b border-edge whitespace-nowrap",
                 pad,
-              )} title={`${c.name} (${c.total} 条)`}>
+              )} title={t("pvColTip", { name: c.name, count: c.total })}>
                 <div className="flex flex-col items-center gap-0.5">
                   <span>{c.name}</span>
                   <span className="text-ink-faint text-2xs">{c.total}</span>
@@ -516,7 +524,7 @@ function PivotTable({
               <th className={cn(
                 "sticky left-0 z-10 bg-row-head text-left text-xs font-medium text-ink border-r border-edge whitespace-nowrap",
                 pad,
-              )} title={`${r.name} (${r.total} 条)`}>
+              )} title={t("pvColTip", { name: r.name, count: r.total })}>
                 <div className="flex items-baseline justify-between gap-3">
                   <span>{r.name}</span>
                   <span className="text-ink-faint text-2xs">{r.total}</span>
@@ -528,9 +536,10 @@ function PivotTable({
                 return (
                   <PivotCell
                     key={key} count={cnt} max={maxCell}
-                    rowName={r.name} colName={c.name}
+                    cellTip={cnt > 0 ? t("pvCellTip", { row: r.name, col: c.name, count: cnt }) : t("pvCellZero", { row: r.name, col: c.name })}
                     onClick={() => cnt > 0 && onCellClick(r.tagId, c.tagId)}
                     compact={compact}
+                    minW={minW}
                   />
                 );
               })}
@@ -540,51 +549,53 @@ function PivotTable({
       </table>
     </div>
   );
+}
 
-  function PivotCell({
-    count, max, rowName, colName, onClick, compact,
-  }: {
-    count: number; max: number;
-    rowName: string; colName: string;
-    onClick: () => void;
-    compact?: boolean;
-  }) {
-    const ratio = max > 0 && count > 0 ? Math.log(count + 1) / Math.log(max + 1) : 0;
-    const bg = count > 0 ? `oklch(0.62 0.18 250 / ${0.08 + ratio * 0.55})` : "transparent";
-    return (
-      <td
-        onClick={onClick}
-        className={cn(
-          "text-center font-medium border border-edge/40",
-          compact ? "text-xs px-1.5 py-1" : "text-base px-2 py-2",
-          minW,
-          count > 0 ? "cursor-pointer transition-all hover:outline hover:outline-2 hover:outline-ink" : "cursor-default",
-          count === 0 && "text-ink-faint",
-        )}
-        style={{ background: bg }}
-        title={count > 0 ? `${rowName} × ${colName}：${count} 条 — 点击查看明细` : `${rowName} × ${colName}：0`}
-      >
-        {count > 0 ? count : "·"}
-      </td>
-    );
-  }
+function PivotCell({
+  count, max, cellTip, onClick, compact, minW,
+}: {
+  count: number; max: number;
+  cellTip: string;
+  onClick: () => void;
+  compact?: boolean;
+  minW: string;
+}) {
+  const ratio = max > 0 && count > 0 ? Math.log(count + 1) / Math.log(max + 1) : 0;
+  const bg = count > 0 ? `oklch(0.62 0.18 250 / ${0.08 + ratio * 0.55})` : "transparent";
+  return (
+    <td
+      onClick={onClick}
+      className={cn(
+        "text-center font-medium border border-edge/40",
+        compact ? "text-xs px-1.5 py-1" : "text-base px-2 py-2",
+        minW,
+        count > 0 ? "cursor-pointer transition-all hover:outline hover:outline-2 hover:outline-ink" : "cursor-default",
+        count === 0 && "text-ink-faint",
+      )}
+      style={{ background: bg }}
+      title={cellTip}
+    >
+      {count > 0 ? count : "·"}
+    </td>
+  );
 }
 
 // ── 图例 ────────────────────────────────────────────────────────────────────
 function Legend({ max }: { max: number }) {
+  const t = useTranslations("search");
   if (max === 0) return null;
   const stops = [0, 0.25, 0.5, 0.75, 1];
   return (
     <div className="flex items-center gap-3 text-xs text-ink-sub">
-      <span>少</span>
+      <span>{t("pvLegendLess")}</span>
       <div className="flex">
         {stops.map(s => (
           <div key={s} className="w-8 h-3 border border-edge/30"
             style={{ background: `oklch(0.62 0.18 250 / ${0.08 + s * 0.55})` }} />
         ))}
       </div>
-      <span>多</span>
-      <span className="ml-2 text-ink-faint">（峰值 {max}）</span>
+      <span>{t("pvLegendMore")}</span>
+      <span className="ml-2 text-ink-faint">{t("pvLegendPeak", { max })}</span>
     </div>
   );
 }

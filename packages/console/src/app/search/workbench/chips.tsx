@@ -1,12 +1,13 @@
 "use client";
 
 import { createElement, useState } from "react";
+import { useTranslations } from "next-intl";
 import {
   Tag as TagIcon, GitBranch, Languages, Cpu, CheckCircle2, Gauge,
   X, Slash, Plus,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { LeafNode, LeafValue, OrGroupNode } from "./state";
+import type { LeafNode, LeafValue, OrGroupNode, LeafLabels } from "./state";
 import { describeLeaf } from "./state";
 
 // ── leaf 类型 icon ──────────────────────────────────────────────────────────
@@ -29,6 +30,15 @@ export function LeafChip({
   onRemove: () => void;
   onToggleNot: () => void;
 }) {
+  const t = useTranslations("search");
+  const labels: LeafLabels = {
+    descendantSuffix: t("chipDescendantSuffix"),
+    source:           t("chipSource"),
+    status:           t("chipStatus"),
+    confidence:       t("chipConfidence"),
+    alias: (alias, groupSlug) =>
+      groupSlug ? t("chipAliasAt", { alias, group: groupSlug }) : t("chipAlias", { alias }),
+  };
   // 用 createElement 而非 `const Icon = leafIcon(...)` + `<Icon />`，
   // 避免 react-hooks/static-components 把这种"渲染期定义组件"的模式判错。
   return (
@@ -42,12 +52,12 @@ export function LeafChip({
         className: cn("size-3.5 shrink-0", node.negate ? "text-bad" : "text-ink-sub"),
       })}
       {node.negate && <span className="text-xs font-semibold tracking-tight">NOT</span>}
-      <span className="truncate max-w-[260px]">{describeLeaf(node.value)}</span>
+      <span className="truncate max-w-[260px]">{describeLeaf(node.value, labels)}</span>
       <button
         type="button"
         onClick={onToggleNot}
-        aria-label={node.negate ? "取消反向（NOT）" : "标记为反向（NOT）"}
-        title={node.negate ? "取消反向（NOT）" : "标记为反向（NOT）"}
+        aria-label={node.negate ? t("chipUnsetNot") : t("chipToggleNot")}
+        title={node.negate ? t("chipUnsetNot") : t("chipToggleNot")}
         className={cn(
           "ml-0.5 size-4 inline-flex items-center justify-center rounded transition-colors",
           node.negate ? "hover:bg-bad/15 text-bad" : "hover:bg-row-head text-ink-sub",
@@ -58,8 +68,8 @@ export function LeafChip({
       <button
         type="button"
         onClick={onRemove}
-        aria-label="移除该条件"
-        title="移除"
+        aria-label={t("chipRemove")}
+        title={t("chipRemove")}
         className="size-4 inline-flex items-center justify-center rounded hover:bg-row-head text-ink-sub"
       >
         <X className="size-3" />
@@ -78,6 +88,7 @@ export function OrGroupChip({
   onToggleNot: (leafId: string) => void;
   onAddLeaf: () => void;
 }) {
+  const t = useTranslations("search");
   // OR 组用 ok 色 ring + 浅背景，与 AND 链清晰区分：
   // 同一 AND 链上的 chip 是并列条件（AND 文字分隔），
   // OR 组是一个"子表达式"，整体作为 AND 链的一项。
@@ -86,11 +97,11 @@ export function OrGroupChip({
       <span className="text-2xs font-bold text-ok tracking-[0.1em] uppercase">OR</span>
       <div className="flex items-center gap-1.5 flex-wrap">
         {group.children.length === 0 && (
-          <span className="text-xs text-ink-faint italic">空 OR 组</span>
+          <span className="text-xs text-ink-faint italic">{t("wbEmptyOrGroup")}</span>
         )}
         {group.children.map((l, i) => (
           <span key={l.id} className="inline-flex items-center gap-1.5">
-            {i > 0 && <span className="text-xs text-ok/60 font-medium">或</span>}
+            {i > 0 && <span className="text-xs text-ok/60 font-medium">{t("wbOr")}</span>}
             <LeafChip
               node={l}
               onRemove={() => onRemoveLeaf(l.id)}
@@ -101,8 +112,8 @@ export function OrGroupChip({
         <button
           type="button"
           onClick={onAddLeaf}
-          aria-label="向此 OR 组添加标签"
-          title="向此 OR 组添加标签"
+          aria-label={t("orAddTag")}
+          title={t("orAddTag")}
           className="size-5 inline-flex items-center justify-center rounded-md border border-dashed border-edge-mid text-ink-sub hover:text-ink hover:border-edge-strong"
         >
           <Plus className="size-3" />
@@ -111,8 +122,8 @@ export function OrGroupChip({
       <button
         type="button"
         onClick={onRemoveGroup}
-        aria-label="删除整个 OR 组"
-        title="删除整个 OR 组"
+        aria-label={t("orRemoveGroup")}
+        title={t("orRemoveGroup")}
         className="size-5 inline-flex items-center justify-center rounded hover:bg-row-head text-ink-sub"
       >
         <X className="size-3.5" />
@@ -122,12 +133,12 @@ export function OrGroupChip({
 }
 
 // ── 元数据 chip 编辑器（source / status / confidence）────────────────────
-const SRC_OPTS: { v: "manual" | "ai" | "system" | "import"; label: string }[] = [
-  { v: "manual", label: "人工" }, { v: "ai", label: "AI" },
-  { v: "system", label: "系统" }, { v: "import", label: "导入" },
+const SRC_OPTS: { v: "manual" | "ai" | "system" | "import"; key: "srcManual" | "srcAi" | "srcSystem" | "srcImport" }[] = [
+  { v: "manual", key: "srcManual" }, { v: "ai", key: "srcAi" },
+  { v: "system", key: "srcSystem" }, { v: "import", key: "srcImport" },
 ];
-const STATUS_OPTS: { v: "active" | "pending" | "rejected"; label: string }[] = [
-  { v: "active", label: "已生效" }, { v: "pending", label: "待审核" }, { v: "rejected", label: "已拒绝" },
+const STATUS_OPTS: { v: "active" | "pending" | "rejected"; key: "statusActive" | "statusPending" | "statusRejected" }[] = [
+  { v: "active", key: "statusActive" }, { v: "pending", key: "statusPending" }, { v: "rejected", key: "statusRejected" },
 ];
 
 export function MetaPicker({
@@ -137,6 +148,8 @@ export function MetaPicker({
   onClose: () => void;
   onPick: (v: LeafValue) => void;
 }) {
+  const t = useTranslations("search");
+  const tc = useTranslations("common");
   const [tab, setTab] = useState<"source" | "status" | "confidence">("source");
   const [src, setSrc] = useState<("manual" | "ai" | "system" | "import")[]>([]);
   const [st, setSt]   = useState<("active" | "pending" | "rejected")[]>([]);
@@ -170,25 +183,25 @@ export function MetaPicker({
     <div className="fixed inset-0 z-50 flex items-start justify-center pt-[15vh] bg-bg/80 backdrop-blur-sm" onClick={onClose}>
       <div onClick={e => e.stopPropagation()} className="w-[420px] rounded-xl border border-edge bg-card shadow-2xl overflow-hidden">
         <div className="px-4 py-3 border-b border-edge flex items-center">
-          <span className="text-base font-medium text-ink">添加元数据过滤</span>
+          <span className="text-base font-medium text-ink">{t("metaTitle")}</span>
           <button onClick={() => { reset(); onClose(); }} className="ml-auto text-ink-sub hover:text-ink">
             <X className="size-4" />
           </button>
         </div>
         <div className="flex border-b border-edge">
-          {[
-            { id: "source", label: "来源" }, { id: "status", label: "状态" }, { id: "confidence", label: "置信度" },
-          ].map(t => (
+          {([
+            { id: "source", key: "metaTabSource" }, { id: "status", key: "metaTabStatus" }, { id: "confidence", key: "metaTabConfidence" },
+          ] as const).map(tabDef => (
             <button
-              key={t.id}
+              key={tabDef.id}
               type="button"
-              onClick={() => setTab(t.id as "source" | "status" | "confidence")}
+              onClick={() => setTab(tabDef.id)}
               className={cn(
                 "flex-1 py-2.5 text-base transition-colors",
-                tab === t.id ? "text-ink font-medium border-b-2 border-ink -mb-px" : "text-ink-sub hover:text-ink",
+                tab === tabDef.id ? "text-ink font-medium border-b-2 border-ink -mb-px" : "text-ink-sub hover:text-ink",
               )}
             >
-              {t.label}
+              {t(tabDef.key)}
             </button>
           ))}
         </div>
@@ -197,7 +210,7 @@ export function MetaPicker({
             <div className="flex flex-wrap gap-1.5">
               {SRC_OPTS.map(o => (
                 <Chip key={o.v} active={src.includes(o.v)} onClick={() => setSrc(toggle(src, o.v))}>
-                  {o.label}
+                  {t(o.key)}
                 </Chip>
               ))}
             </div>
@@ -206,7 +219,7 @@ export function MetaPicker({
             <div className="flex flex-wrap gap-1.5">
               {STATUS_OPTS.map(o => (
                 <Chip key={o.v} active={st.includes(o.v)} onClick={() => setSt(toggle(st, o.v))}>
-                  {o.label}
+                  {t(o.key)}
                 </Chip>
               ))}
             </div>
@@ -233,7 +246,7 @@ export function MetaPicker({
             onClick={() => { reset(); onClose(); }}
             className="px-3 py-1.5 rounded-md border border-edge text-base text-ink hover:bg-row-hover"
           >
-            取消
+            {tc("cancel")}
           </button>
           <button
             type="button"
@@ -245,7 +258,7 @@ export function MetaPicker({
             }
             className="px-3 py-1.5 rounded-md bg-ink text-surface text-base font-medium hover:opacity-90 disabled:opacity-50"
           >
-            添加
+            {tc("add")}
           </button>
         </div>
       </div>
@@ -274,6 +287,8 @@ export function AliasPicker({
   onClose: () => void;
   onPick: (v: LeafValue) => void;
 }) {
+  const t = useTranslations("search");
+  const tc = useTranslations("common");
   const [alias, setAlias] = useState("");
   const [groupSlug, setGroupSlug] = useState("");
 
@@ -283,41 +298,41 @@ export function AliasPicker({
       <div onClick={e => e.stopPropagation()} className="w-[440px] rounded-xl border border-edge bg-card shadow-2xl overflow-hidden">
         <div className="px-4 py-3 border-b border-edge flex items-center">
           <Languages className="size-4 text-ink-sub mr-2" />
-          <span className="text-base font-medium text-ink">按别名匹配</span>
+          <span className="text-base font-medium text-ink">{t("aliasTitle")}</span>
           <button onClick={onClose} className="ml-auto text-ink-sub hover:text-ink">
             <X className="size-4" />
           </button>
         </div>
         <div className="p-4 space-y-3">
           <div>
-            <label className="text-xs text-ink-sub block mb-1">别名</label>
+            <label className="text-xs text-ink-sub block mb-1">{t("aliasLabel")}</label>
             <input
               autoFocus
               type="text"
               value={alias}
               onChange={e => setAlias(e.target.value)}
-              placeholder='例如："麻辣"、"spicy"'
+              placeholder={t("aliasPlaceholder")}
               className="w-full px-3 py-2 rounded-md border border-edge bg-input text-base text-ink"
             />
           </div>
           <div>
-            <label className="text-xs text-ink-sub block mb-1">限定分组 slug（可选）</label>
+            <label className="text-xs text-ink-sub block mb-1">{t("aliasGroupLabel")}</label>
             <input
               type="text"
               value={groupSlug}
               onChange={e => setGroupSlug(e.target.value)}
-              placeholder="例如：cuisine、taste；空=跨分组匹配"
+              placeholder={t("aliasGroupPlaceholder")}
               className="w-full px-3 py-2 rounded-md border border-edge bg-input text-base text-ink"
             />
           </div>
-          <p className="text-xs text-ink-faint">别名匹配可命中多个 tag — 该 leaf 等价于「这些 tag 中任意一个命中」</p>
+          <p className="text-xs text-ink-faint">{t("aliasHint")}</p>
         </div>
         <div className="px-4 py-3 border-t border-edge flex justify-end gap-2">
           <button
             type="button"
             onClick={onClose}
             className="px-3 py-1.5 rounded-md border border-edge text-base text-ink hover:bg-row-hover"
-          >取消</button>
+          >{tc("cancel")}</button>
           <button
             type="button"
             onClick={() => {
@@ -330,7 +345,7 @@ export function AliasPicker({
             }}
             disabled={!alias.trim()}
             className="px-3 py-1.5 rounded-md bg-ink text-surface text-base font-medium hover:opacity-90 disabled:opacity-50"
-          >添加</button>
+          >{tc("add")}</button>
         </div>
       </div>
     </div>

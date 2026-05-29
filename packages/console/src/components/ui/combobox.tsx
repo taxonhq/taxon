@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
+import { useTranslations } from "next-intl";
 import { ChevronDown, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -20,10 +21,12 @@ export function Combobox({
   value,
   onChange,
   options,
-  placeholder = "输入或选择…",
+  placeholder,
   emptyLabel,
   className,
 }: ComboboxProps) {
+  const t = useTranslations("common");
+  const resolvedPlaceholder = placeholder ?? t("comboboxPlaceholder");
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState(value);
   const [highlighted, setHighlighted] = useState<number>(-1);
@@ -168,7 +171,7 @@ export function Combobox({
 
       {filtered.length === 0 && !query && !emptyLabel && (
         <li className="px-3 py-2 text-xs text-ink-faint select-none">
-          暂无已知实体类型，直接输入新类型名
+          {t("comboboxEmpty")}
         </li>
       )}
 
@@ -182,7 +185,7 @@ export function Combobox({
             highlighted === filtered.length ? "bg-surface-alt text-ink" : "text-ink-dim hover:bg-surface-alt hover:text-ink",
           )}
         >
-          <span className="text-2xs text-ink-faint uppercase tracking-wider shrink-0">新建</span>
+          <span className="text-2xs text-ink-faint uppercase tracking-wider shrink-0">{t("comboboxCreate")}</span>
           <span className="font-mono">{query.trim()}</span>
         </li>
       )}
@@ -202,7 +205,7 @@ export function Combobox({
         <input
           ref={inputRef}
           value={query}
-          placeholder={placeholder}
+          placeholder={resolvedPlaceholder}
           className="flex-1 bg-transparent outline-none text-ink placeholder:text-ink-faint min-w-0 font-mono"
           onFocus={() => setOpen(true)}
           onChange={e => {
@@ -218,7 +221,7 @@ export function Combobox({
               type="button"
               tabIndex={-1}
               onClick={() => { commit(""); inputRef.current?.focus(); }}
-              aria-label="清除"
+              aria-label={t("clear")}
               className="text-ink-faint hover:text-ink transition-colors"
             >
               <X size={12} />

@@ -1,16 +1,19 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { Sun, Moon } from "lucide-react";
 import { useTheme } from "@/components/theme-provider";
 
 export function ThemeToggle({ className }: { className?: string }) {
   const { theme, toggle } = useTheme();
+  const t = useTranslations("theme");
+  const label = theme === "dark" ? t("switchToLight") : t("switchToDark");
 
   return (
     <button
       onClick={toggle}
-      aria-label={theme === "dark" ? "切换到浅色模式" : "切换到深色模式"}
-      title={theme === "dark" ? "切换浅色模式" : "切换深色模式"}
+      aria-label={label}
+      title={label}
       className={`p-2 rounded-lg text-ink-faint hover:text-ink hover:bg-surface-alt transition-all ${className ?? ""}`}
     >
       {theme === "dark"

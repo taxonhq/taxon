@@ -1,4 +1,5 @@
 import { forwardRef } from "react";
+import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
 
 type Variant = "primary" | "outline" | "ghost" | "danger" | "ok";
@@ -65,6 +66,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
   { variant = "primary", size = "md", loading, disabled, className, children, ...props },
   ref,
 ) {
+  const t = useTranslations("common");
   return (
     <button
       ref={ref}
@@ -79,7 +81,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
       )}
       {...props}
     >
-      {loading ? <><Spinner /><span>处理中</span></> : children}
+      {loading ? <><Spinner /><span>{t("processing")}</span></> : children}
     </button>
   );
 });

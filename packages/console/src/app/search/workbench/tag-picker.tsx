@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useMemo } from "react";
+import { useTranslations } from "next-intl";
 import { Search, X, Tag as TagIcon, GitBranch } from "lucide-react";
 import { searchTags, getTagGroups, type Tag, type TagGroup } from "@/lib/api";
 
@@ -20,6 +21,8 @@ interface TagPickerProps {
 }
 
 export function TagPicker({ open, onClose, onPick, mode }: TagPickerProps) {
+  const t = useTranslations("search");
+  const tc = useTranslations("common");
   const [groups, setGroups]   = useState<Pick<TagGroup, "id" | "slug" | "name">[]>([]);
   const [filterGroup, setFilterGroup] = useState<string>("");
   const [query, setQuery]     = useState("");
@@ -97,7 +100,7 @@ export function TagPicker({ open, onClose, onPick, mode }: TagPickerProps) {
             <TagIcon className="size-4 text-ink-sub" />
           )}
           <span className="text-base font-medium text-ink">
-            {mode === "descendantOf" ? "选择子孙根标签" : "选择标签"}
+            {mode === "descendantOf" ? t("pickerSelectDescendant") : t("pickerSelectTag")}
           </span>
           <button onClick={onClose} className="ml-auto text-ink-sub hover:text-ink">
             <X className="size-4" />
@@ -112,7 +115,7 @@ export function TagPicker({ open, onClose, onPick, mode }: TagPickerProps) {
             type="text"
             value={query}
             onChange={e => setQuery(e.target.value)}
-            placeholder="按名称搜索…"
+            placeholder={t("pickerSearchPlaceholder")}
             className="flex-1 bg-transparent text-base text-ink placeholder:text-ink-faint outline-none"
           />
           <select
@@ -120,7 +123,7 @@ export function TagPicker({ open, onClose, onPick, mode }: TagPickerProps) {
             onChange={e => setFilterGroup(e.target.value)}
             className="px-2 py-1 rounded-md border border-edge bg-input text-sm text-ink"
           >
-            <option value="">所有分组</option>
+            <option value="">{t("pickerAllGroups")}</option>
             {groups.map(g => (
               <option key={g.id} value={g.id}>{g.name}</option>
             ))}
@@ -130,24 +133,24 @@ export function TagPicker({ open, onClose, onPick, mode }: TagPickerProps) {
         {/* 标签列表 */}
         <div className="flex-1 overflow-auto">
           {loading && (
-            <div className="p-6 text-center text-sm text-ink-sub">加载中…</div>
+            <div className="p-6 text-center text-sm text-ink-sub">{tc("loading")}</div>
           )}
           {!loading && tags.length === 0 && (
-            <div className="p-10 text-center text-sm text-ink-sub">无匹配标签</div>
+            <div className="p-10 text-center text-sm text-ink-sub">{t("pickerNoMatch")}</div>
           )}
           {!loading && grouped.map(g => (
             <div key={g.groupSlug} className="border-b border-edge/40 last:border-b-0">
               <div className="sticky top-0 z-10 bg-row-head px-4 py-1.5 text-xs font-medium text-ink-sub">
                 {g.groupName}
               </div>
-              {g.items.map(t => (
+              {g.items.map(tag => (
                 <button
-                  key={t.id}
+                  key={tag.id}
                   type="button"
                   onClick={() => {
                     onPick({
-                      tagId: t.id,
-                      tagName: t.name,
+                      tagId: tag.id,
+                      tagName: tag.name,
                       groupName: g.groupName,
                       groupSlug: g.groupSlug,
                     });
@@ -156,15 +159,15 @@ export function TagPicker({ open, onClose, onPick, mode }: TagPickerProps) {
                   className="w-full text-left px-4 py-2 flex items-baseline gap-3 hover:bg-row-hover transition-colors"
                 >
                   {/* hierarchy 缩进 */}
-                  <span style={{ paddingLeft: `${t.depth * 12}px` }} className="text-ink">
-                    {t.name}
+                  <span style={{ paddingLeft: `${tag.depth * 12}px` }} className="text-ink">
+                    {tag.name}
                   </span>
-                  <span className="text-xs text-ink-faint font-mono">{t.slug}</span>
-                  {mode === "descendantOf" && (t.childCount ?? 0) > 0 && (
-                    <span className="ml-auto text-xs text-ok">含 {t.childCount} 子节点</span>
+                  <span className="text-xs text-ink-faint font-mono">{tag.slug}</span>
+                  {mode === "descendantOf" && (tag.childCount ?? 0) > 0 && (
+                    <span className="ml-auto text-xs text-ok">{t("pickerChildCount", { count: tag.childCount ?? 0 })}</span>
                   )}
-                  {mode === "tag" && (t._count?.entityTags ?? 0) > 0 && (
-                    <span className="ml-auto text-xs text-ink-faint">{t._count!.entityTags} 实体</span>
+                  {mode === "tag" && (tag._count?.entityTags ?? 0) > 0 && (
+                    <span className="ml-auto text-xs text-ink-faint">{t("pickerEntityCount", { count: tag._count!.entityTags })}</span>
                   )}
                 </button>
               ))}
@@ -174,10 +177,10 @@ export function TagPicker({ open, onClose, onPick, mode }: TagPickerProps) {
 
         {/* 底部提示 */}
         <div className="px-4 py-2 border-t border-edge text-xs text-ink-faint">
-          ESC 关闭 ·
+          {t("pickerEsc")} ·{" "}
           {mode === "descendantOf"
-            ? " 选中的标签将作为子孙根，自动包含其所有下级"
-            : " 选择一个标签作为查询条件"}
+            ? t("pickerFooterDescendant")
+            : t("pickerFooterTag")}
         </div>
       </div>
     </div>

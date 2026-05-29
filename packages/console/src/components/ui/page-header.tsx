@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { ArrowLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -66,6 +67,7 @@ export function PageHeader({
   noDivider,
   className,
 }: PageHeaderProps) {
+  const t = useTranslations("common");
   const hasCrumb = breadcrumb && breadcrumb.length > 0;
 
   return (
@@ -84,7 +86,7 @@ export function PageHeader({
           {back && (
             <Link
               href={back.href}
-              aria-label={back.label ?? "返回"}
+              aria-label={back.label ?? t("back")}
               className="mt-0.5 p-2 -ml-2 rounded-lg hover:bg-surface-alt transition-colors text-ink-faint hover:text-ink shrink-0"
             >
               <ArrowLeft size={15} />

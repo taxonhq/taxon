@@ -174,7 +174,7 @@ function TagNode({ node, callbacks, draggingId, overId, allNodes }: NodeProps) {
         ref={setRef}
         className={[
           "flex items-center gap-1 py-1.5 px-2 rounded-md group/node transition-colors",
-          isDraggingOver ? "bg-accent/10 ring-1 ring-accent/40" : "hover:bg-row-hover",
+          isDraggingOver ? "bg-brand-1/10 ring-1 ring-brand-1/40" : "hover:bg-row-hover",
         ].join(" ")}
       >
         {/* expand/collapse children */}
@@ -277,7 +277,7 @@ function RootDropZone({ isActive }: { isActive: boolean }) {
       ref={setNodeRef}
       className={[
         "mt-2 h-8 rounded-md border-2 border-dashed flex items-center justify-center text-xs transition-colors",
-        isOver ? "border-accent text-accent bg-accent/5" : "border-edge text-ink-faint",
+        isOver ? "border-brand-1 text-brand-1 bg-brand-1/5" : "border-edge text-ink-faint",
       ].join(" ")}
     >
       {t("treeRootDrop")}

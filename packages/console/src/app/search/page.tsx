@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 import { Wrench, Grid3x3, Sparkles, Braces } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
 import { cn } from "@/lib/utils";
@@ -12,14 +13,15 @@ import type { SearchEntitiesRequest, BoolExpr } from "@/lib/api";
 
 type Mode = "workbench" | "pivot" | "nl" | "dsl";
 
-const MODES: { id: Mode; label: string; icon: React.ComponentType<{ className?: string }>; hint: string }[] = [
-  { id: "workbench", label: "查询工作台", icon: Wrench,   hint: "可视化 BoolExpr 构建器 — 标签 / 子孙 / 别名 / 元数据 任意组合" },
-  { id: "pivot",     label: "Pivot 透视",  icon: Grid3x3,  hint: "二维标签交叉 + 切片 + 前置过滤" },
-  { id: "nl",        label: "自然语言",    icon: Sparkles, hint: "用中文描述，AI 自动翻译为 BoolExpr" },
-  { id: "dsl",       label: "JSON DSL",    icon: Braces,   hint: "直接编辑布尔表达式，开发者精确控制" },
+const MODE_DEFS: { id: Mode; labelKey: "tabWorkbench" | "tabPivot" | "tabNl" | "tabDsl"; hintKey: "tabWorkbenchHint" | "tabPivotHint" | "tabNlHint" | "tabDslHint"; icon: React.ComponentType<{ className?: string }> }[] = [
+  { id: "workbench", labelKey: "tabWorkbench", hintKey: "tabWorkbenchHint", icon: Wrench },
+  { id: "pivot",     labelKey: "tabPivot",     hintKey: "tabPivotHint",     icon: Grid3x3 },
+  { id: "nl",        labelKey: "tabNl",        hintKey: "tabNlHint",        icon: Sparkles },
+  { id: "dsl",       labelKey: "tabDsl",       hintKey: "tabDslHint",       icon: Braces },
 ];
 
 export default function SearchPage() {
+  const t = useTranslations("search");
   const [mode, setMode] = useState<Mode>("workbench");
   const [dslPrefill, setDslPrefill] = useState<{ body: SearchEntitiesRequest; ts: number } | null>(null);
   const [workbenchPrefill, setWorkbenchPrefill] = useState<{ boolExpr: BoolExpr; entityType: string; ts: number } | null>(null);
@@ -37,18 +39,18 @@ export default function SearchPage() {
   return (
     <div className="space-y-6 animate-fade-in">
       <PageHeader
-        title="实体检索"
-        description="基于标签的多维查询 — BoolExpr 工作台 / Pivot 透视 / 自然语言 / 原生 DSL"
+        title={t("title")}
+        description={t("description")}
       />
 
       {/* Tab 切换 */}
       <div className="border-b border-edge flex items-end gap-1">
-        {MODES.map(({ id, label, icon: Icon, hint }) => (
+        {MODE_DEFS.map(({ id, labelKey, icon: Icon, hintKey }) => (
           <button
             key={id}
             type="button"
             onClick={() => setMode(id)}
-            title={hint}
+            title={t(hintKey)}
             className={cn(
               "relative flex items-center gap-2 px-4 py-3 text-base transition-colors",
               "border-b-2 -mb-px",
@@ -58,7 +60,7 @@ export default function SearchPage() {
             )}
           >
             <Icon className="size-4" />
-            <span>{label}</span>
+            <span>{t(labelKey)}</span>
           </button>
         ))}
       </div>

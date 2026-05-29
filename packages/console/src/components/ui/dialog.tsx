@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useId, useRef, type ReactNode, type RefObject } from "react";
+import { useTranslations } from "next-intl";
 import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -43,6 +44,7 @@ export function Dialog({
   showClose = true,
   className,
 }: DialogProps) {
+  const t = useTranslations("common");
   const dialogRef = useRef<HTMLDivElement>(null);
   const titleId = useId();
   const descId = useId();
@@ -124,7 +126,7 @@ export function Dialog({
             {showClose && (
               <button
                 onClick={onClose}
-                aria-label="关闭"
+                aria-label={t("close")}
                 className="p-1.5 rounded-lg text-ink-faint hover:text-ink hover:bg-surface-alt transition-colors shrink-0 -mr-1"
               >
                 <X size={14} />

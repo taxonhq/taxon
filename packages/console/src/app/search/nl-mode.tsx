@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useTranslations } from "next-intl";
 import { Sparkles, Loader2, AlertCircle, Wrench, Braces, Send, Settings, Lightbulb } from "lucide-react";
 import Link from "next/link";
 import {
@@ -9,14 +10,7 @@ import {
 } from "@/lib/api";
 import type { BoolExpr } from "@/lib/api";
 
-const SUGGESTIONS = [
-  "找川菜",
-  "蒸或炖的菜",
-  "麻辣鲜香的川菜",
-  "热菜但不要川菜",
-  "酸甜口味的菜",
-  "粤菜的清淡鲜美菜",
-];
+const SUGGESTION_KEYS = ["nlSug1", "nlSug2", "nlSug3", "nlSug4", "nlSug5", "nlSug6"] as const;
 
 interface NlModeProps {
   /** 应用到 DSL tab */
@@ -26,6 +20,7 @@ interface NlModeProps {
 }
 
 export function NlMode({ onApplyToDsl, onApplyToWorkbench }: NlModeProps) {
+  const t = useTranslations("search");
   const [entityTypes, setEntityTypes] = useState<{ entityType: string; count: number }[]>([]);
   const [entityType,  setEntityType]  = useState<string>("");
   const [text,        setText]        = useState<string>("");
@@ -65,9 +60,9 @@ export function NlMode({ onApplyToDsl, onApplyToWorkbench }: NlModeProps) {
           <Settings className="size-7 text-ink-sub" />
         </div>
         <div className="space-y-2 max-w-md">
-          <p className="text-lg font-semibold text-ink">自然语言查询尚未启用</p>
+          <p className="text-lg font-semibold text-ink">{t("nlNotEnabledTitle")}</p>
           <p className="text-base text-ink-sub">
-            管理员需要先在「LLM 设置」中配置一个大模型 API key 并启用，才能使用此功能。
+            {t("nlNotEnabledDesc")}
           </p>
         </div>
         <Link
@@ -75,7 +70,7 @@ export function NlMode({ onApplyToDsl, onApplyToWorkbench }: NlModeProps) {
           className="px-4 py-2 rounded-md bg-ink text-surface text-base font-medium hover:opacity-90 inline-flex items-center gap-2"
         >
           <Settings className="size-4" />
-          前往配置
+          {t("nlGoConfigure")}
         </Link>
       </div>
     );
@@ -87,29 +82,29 @@ export function NlMode({ onApplyToDsl, onApplyToWorkbench }: NlModeProps) {
       <div className="rounded-xl border border-edge bg-card p-5 space-y-4">
         <div className="flex items-end gap-4">
           <div className="flex flex-col gap-1.5 min-w-[200px]">
-            <label className="text-xs text-ink-sub">实体类型</label>
+            <label className="text-xs text-ink-sub">{t("entityType")}</label>
             <select
               value={entityType}
               onChange={e => setEntityType(e.target.value)}
               className="px-3 py-2 rounded-md border border-edge bg-input text-base text-ink"
             >
-              <option value="">所有类型（更慢）</option>
-              {entityTypes.map(t => (
-                <option key={t.entityType} value={t.entityType}>
-                  {t.entityType} ({t.count})
+              <option value="">{t("nlAllTypes")}</option>
+              {entityTypes.map(et => (
+                <option key={et.entityType} value={et.entityType}>
+                  {et.entityType} ({et.count})
                 </option>
               ))}
             </select>
           </div>
           <p className="text-xs text-ink-faint pb-2 flex-1">
-            指定实体类型可大幅提升翻译准确率（AI 能更精确地从该类型可用的标签上下文中匹配）
+            {t("nlEntityHint")}
           </p>
         </div>
 
         <div className="space-y-2">
           <label className="text-xs text-ink-sub flex items-center gap-1.5">
             <Sparkles className="size-3" />
-            自然语言描述
+            {t("nlDescLabel")}
           </label>
           <div className="relative">
             <textarea
@@ -119,7 +114,7 @@ export function NlMode({ onApplyToDsl, onApplyToWorkbench }: NlModeProps) {
                 if ((e.metaKey || e.ctrlKey) && e.key === "Enter") submit();
               }}
               rows={3}
-              placeholder='例：「川菜或湘菜，但不要素食，要 AI 高置信度的」'
+              placeholder={t("nlPlaceholder")}
               className="w-full px-4 py-3 rounded-lg border border-edge bg-input text-base text-ink resize-none"
             />
             <button
@@ -129,27 +124,27 @@ export function NlMode({ onApplyToDsl, onApplyToWorkbench }: NlModeProps) {
               className="absolute bottom-3 right-3 px-3 py-1.5 rounded-md bg-ink text-surface text-sm font-medium hover:opacity-90 disabled:opacity-50 inline-flex items-center gap-1.5"
             >
               {loading ? <Loader2 className="size-3.5 animate-spin" /> : <Send className="size-3.5" />}
-              翻译
+              {t("nlTranslate")}
             </button>
           </div>
-          <p className="text-xs text-ink-faint">⌘ + Enter 快捷发送</p>
+          <p className="text-xs text-ink-faint">{t("nlShortcut")}</p>
         </div>
 
         {/* 建议 */}
         <div>
           <p className="text-xs text-ink-sub flex items-center gap-1 mb-2">
             <Lightbulb className="size-3" />
-            示例查询
+            {t("nlExamples")}
           </p>
           <div className="flex flex-wrap gap-1.5">
-            {SUGGESTIONS.map(s => (
+            {SUGGESTION_KEYS.map(key => (
               <button
-                key={s}
+                key={key}
                 type="button"
-                onClick={() => setText(s)}
+                onClick={() => setText(t(key))}
                 className="px-2.5 py-1 rounded-md border border-edge text-xs text-ink-sub hover:text-ink hover:border-edge-mid transition-colors"
               >
-                {s}
+                {t(key)}
               </button>
             ))}
           </div>
@@ -169,14 +164,14 @@ export function NlMode({ onApplyToDsl, onApplyToWorkbench }: NlModeProps) {
         <div className="rounded-xl border border-edge bg-card overflow-hidden">
           <div className="px-5 py-3 border-b border-edge bg-row-head flex items-center gap-2">
             <Sparkles className="size-4 text-ok" />
-            <span className="text-base font-medium text-ink">翻译结果</span>
+            <span className="text-base font-medium text-ink">{t("nlResult")}</span>
             <span className="text-xs text-ink-faint ml-auto font-mono">{result.model}</span>
           </div>
 
           {/* AI 解释 */}
           {result.explanation && (
             <div className="px-5 py-3 border-b border-edge bg-card text-base text-ink-sub">
-              <span className="text-ink">解释：</span>
+              <span className="text-ink">{t("nlExplanation")}</span>
               {result.explanation}
             </div>
           )}
@@ -185,22 +180,22 @@ export function NlMode({ onApplyToDsl, onApplyToWorkbench }: NlModeProps) {
           {result.boolExpr ? (
             <>
               <div className="px-5 py-4 bg-card">
-                <p className="text-xs text-ink-sub mb-2">生成的 BoolExpr：</p>
+                <p className="text-xs text-ink-sub mb-2">{t("nlGeneratedExpr")}</p>
                 <pre className="text-sm font-mono text-ink bg-input rounded-md p-3 overflow-auto max-h-72 leading-relaxed">
                   {JSON.stringify(result.boolExpr, null, 2)}
                 </pre>
               </div>
               <div className="px-5 py-3 border-t border-edge bg-row-head flex items-center gap-2 flex-wrap">
-                <span className="text-sm text-ink-sub">应用：</span>
+                <span className="text-sm text-ink-sub">{t("nlApply")}</span>
                 <button
                   type="button"
                   onClick={() => result.boolExpr && entityType && onApplyToWorkbench(result.boolExpr, entityType)}
                   disabled={!entityType}
-                  title={!entityType ? "请先选择实体类型" : "把 BoolExpr 反编译为工作台 chip，继续可视化编辑"}
+                  title={!entityType ? t("nlEditInWbDisabled") : t("nlEditInWbTitle")}
                   className="px-3 py-1.5 rounded-md border border-edge text-sm text-ink hover:bg-row-hover inline-flex items-center gap-1.5 disabled:opacity-50"
                 >
                   <Wrench className="size-3.5" />
-                  在工作台编辑
+                  {t("nlEditInWb")}
                 </button>
                 <button
                   type="button"
@@ -213,17 +208,17 @@ export function NlMode({ onApplyToDsl, onApplyToWorkbench }: NlModeProps) {
                   className="px-3 py-1.5 rounded-md bg-ink text-surface text-sm font-medium inline-flex items-center gap-1.5 hover:opacity-90"
                 >
                   <Braces className="size-3.5" />
-                  发送到 DSL 并执行
+                  {t("nlSendToDsl")}
                 </button>
                 <span className="text-xs text-ink-faint ml-auto">
-                  不满意？修改文字后重新翻译
+                  {t("nlNotSatisfied")}
                 </span>
               </div>
             </>
           ) : (
             <div className="px-5 py-6 text-center text-ink-sub">
-              <p>模型未能从这句话中解析出有效查询。</p>
-              <p className="text-xs text-ink-faint mt-1">请尝试更具体的描述，或参考上方示例查询。</p>
+              <p>{t("nlNoExpr")}</p>
+              <p className="text-xs text-ink-faint mt-1">{t("nlNoExprHint")}</p>
             </div>
           )}
         </div>

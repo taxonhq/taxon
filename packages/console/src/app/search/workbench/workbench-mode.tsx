@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useReducer, useEffect, useMemo, useCallback } from "react";
+import { useTranslations } from "next-intl";
 import {
   Plus, Tag as TagIcon, GitBranch, Languages, Sliders, FoldVertical, UnfoldVertical,
   List, Grid3x3, BarChart3, Network, CalendarRange, Loader2, Trash2, Copy, ExternalLink,
@@ -42,6 +43,7 @@ function collectTagIdRefs(expr: unknown, into: Set<string>): void {
 }
 
 export function WorkbenchMode({ onDrillToDsl, prefill }: WorkbenchModeProps) {
+  const t = useTranslations("search");
   const [entityTypes, setEntityTypes] = useState<{ entityType: string; count: number }[]>([]);
   const [entityType, setEntityType]   = useState<string>("");
   const [state, dispatch] = useReducer(reducer, INITIAL_STATE);
@@ -120,12 +122,12 @@ export function WorkbenchMode({ onDrillToDsl, prefill }: WorkbenchModeProps) {
           };
           for (const tRaw of all.items) {
             if (!tagIdRefs.has(tRaw.id)) continue;
-            const t = tRaw as TagWithGroup;
-            tagInfoMap.set(t.id, {
-              tagId:     t.id,
-              tagName:   t.name,
-              groupSlug: t.group?.slug ?? "",
-              groupName: t.group?.name ?? "?",
+            const tg = tRaw as TagWithGroup;
+            tagInfoMap.set(tg.id, {
+              tagId:     tg.id,
+              tagName:   tg.name,
+              groupSlug: tg.group?.slug ?? "",
+              groupName: tg.group?.name ?? "?",
             });
           }
         } catch { /* 失败也继续，用 tagId 占位 */ }
@@ -139,11 +141,11 @@ export function WorkbenchMode({ onDrillToDsl, prefill }: WorkbenchModeProps) {
       if (decompiled) {
         dispatch({ type: "load", state: decompiled });
       } else {
-        setError("此 BoolExpr 结构超出工作台的可视化能力（含深层嵌套），请改用 DSL 模式编辑。");
+        setError(t("wbDecompileError"));
       }
     })();
     return () => { cancelled = true; };
-  }, [prefill]);
+  }, [prefill, t]);
 
   // tag picker 选中回调
   const onTagPicked = (t: PickedTag) => {
@@ -168,15 +170,15 @@ export function WorkbenchMode({ onDrillToDsl, prefill }: WorkbenchModeProps) {
       {/* ── 顶部控制：entityType + 视图切换 ─────────────────────── */}
       <div className="flex flex-wrap items-end gap-4">
         <div className="flex flex-col gap-1.5 min-w-[200px]">
-          <label className="text-xs text-ink-sub">实体类型</label>
+          <label className="text-xs text-ink-sub">{t("entityType")}</label>
           <select
             value={entityType}
             onChange={e => setEntityType(e.target.value)}
             className="px-3 py-2 rounded-md border border-edge bg-input text-base text-ink"
           >
-            {entityTypes.map(t => (
-              <option key={t.entityType} value={t.entityType}>
-                {t.entityType} ({t.count})
+            {entityTypes.map(et => (
+              <option key={et.entityType} value={et.entityType}>
+                {et.entityType} ({et.count})
               </option>
             ))}
           </select>
@@ -185,11 +187,11 @@ export function WorkbenchMode({ onDrillToDsl, prefill }: WorkbenchModeProps) {
         {/* 视图切换器 — 紧凑图标模式 */}
         <div className="flex items-center gap-0.5 p-1 rounded-lg bg-surface-alt border border-edge">
           {[
-            { id: "list"         as const, icon: List,          label: "列表" },
-            { id: "facet"        as const, icon: BarChart3,     label: "Facet" },
-            { id: "pivot"        as const, icon: Grid3x3,       label: "透视" },
-            { id: "cooccurrence" as const, icon: Network,       label: "共现" },
-            { id: "timeline"     as const, icon: CalendarRange, label: "时间线" },
+            { id: "list"         as const, icon: List,          label: t("viewList") },
+            { id: "facet"        as const, icon: BarChart3,     label: t("viewFacet") },
+            { id: "pivot"        as const, icon: Grid3x3,       label: t("viewPivot") },
+            { id: "cooccurrence" as const, icon: Network,       label: t("viewCooccurrence") },
+            { id: "timeline"     as const, icon: CalendarRange, label: t("viewTimeline") },
           ].map(v => (
             <button
               key={v.id}
@@ -214,7 +216,7 @@ export function WorkbenchMode({ onDrillToDsl, prefill }: WorkbenchModeProps) {
           <div className="ml-auto self-end pb-1 flex items-center gap-2">
             <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-brand-1/10 border border-brand-1/25">
               <span className="text-lg font-bold text-ink tabular-nums">{data.total.toLocaleString()}</span>
-              <span className="text-xs text-ink-sub">条结果</span>
+              <span className="text-xs text-ink-sub">{t("resultsCount")}</span>
             </div>
           </div>
         )}
@@ -224,17 +226,17 @@ export function WorkbenchMode({ onDrillToDsl, prefill }: WorkbenchModeProps) {
       {/* ── 查询构建区 ──────────────────────────────────────────── */}
       <div className="rounded-xl border border-edge bg-card p-4 space-y-3">
         <div className="flex items-center justify-between">
-          <span className="text-xs text-ink-sub uppercase tracking-wider font-medium">查询条件</span>
+          <span className="text-xs text-ink-sub uppercase tracking-wider font-medium">{t("wbConditions")}</span>
           <div className="flex items-center gap-1">
             {state.children.length > 0 && (
               <button
                 type="button"
                 onClick={() => dispatch({ type: "reset" })}
-                title="清空查询"
+                title={t("wbClearTitle")}
                 className="text-xs text-ink-sub hover:text-bad flex items-center gap-1 px-2 py-1 rounded hover:bg-row-hover"
               >
                 <Trash2 className="size-3" />
-                清空
+                {t("wbClear")}
               </button>
             )}
             <button
@@ -243,7 +245,7 @@ export function WorkbenchMode({ onDrillToDsl, prefill }: WorkbenchModeProps) {
               className="text-xs text-ink-sub hover:text-ink flex items-center gap-1 px-2 py-1 rounded hover:bg-row-hover"
             >
               {showDsl ? <FoldVertical className="size-3" /> : <UnfoldVertical className="size-3" />}
-              DSL 镜像
+              {t("wbDslMirror")}
             </button>
           </div>
         </div>
@@ -252,7 +254,7 @@ export function WorkbenchMode({ onDrillToDsl, prefill }: WorkbenchModeProps) {
         <div className="flex flex-wrap items-center gap-2 min-h-[40px]">
           {state.children.length === 0 && (
             <span className="text-sm text-ink-faint italic">
-              未设置任何条件 — 默认返回该实体类型的全集
+              {t("wbEmptyHint")}
             </span>
           )}
           {state.children.map((c, i) => (
@@ -283,31 +285,31 @@ export function WorkbenchMode({ onDrillToDsl, prefill }: WorkbenchModeProps) {
 
         {/* 添加按钮组 */}
         <div className="flex flex-wrap items-center gap-1.5 pt-2 border-t border-edge/50">
-          <AddBtn onClick={() => setTagPicker({ mode: "tag" })}          icon={TagIcon}   label="标签" />
-          <AddBtn onClick={() => setTagPicker({ mode: "descendantOf" })} icon={GitBranch} label="子孙" />
-          <AddBtn onClick={() => setAliasOpen(true)}                     icon={Languages} label="别名" />
-          <AddBtn onClick={() => setMetaOpen(true)}                      icon={Sliders}   label="元数据" />
+          <AddBtn onClick={() => setTagPicker({ mode: "tag" })}          icon={TagIcon}   label={t("wbAddTag")} />
+          <AddBtn onClick={() => setTagPicker({ mode: "descendantOf" })} icon={GitBranch} label={t("wbAddDescendant")} />
+          <AddBtn onClick={() => setAliasOpen(true)}                     icon={Languages} label={t("wbAddAlias")} />
+          <AddBtn onClick={() => setMetaOpen(true)}                      icon={Sliders}   label={t("wbAddMeta")} />
           <div className="w-px h-5 bg-edge mx-1" />
-          <AddBtn onClick={() => dispatch({ type: "add-or-group" })}     icon={Plus}      label="OR 组" emphasis="ok" />
+          <AddBtn onClick={() => dispatch({ type: "add-or-group" })}     icon={Plus}      label={t("wbAddOrGroup")} emphasis="ok" />
         </div>
 
         {/* DSL 镜像 */}
         {showDsl && (
           <div className="mt-3 pt-3 border-t border-edge/50">
             <div className="flex items-center justify-between mb-1.5">
-              <p className="text-xs text-ink-sub">实时编译的 BoolExpr</p>
+              <p className="text-xs text-ink-sub">{t("wbCompiledExpr")}</p>
               <div className="flex items-center gap-1">
                 <button
                   type="button"
                   onClick={() => {
-                    const json = filter ? JSON.stringify(filter, null, 2) : "// 空 — 无过滤";
+                    const json = filter ? JSON.stringify(filter, null, 2) : t("wbEmptyExpr");
                     navigator.clipboard.writeText(json);
                   }}
-                  title="复制 JSON"
+                  title={t("wbCopyTitle")}
                   className="flex items-center gap-1 px-2 py-1 text-xs text-ink-faint hover:text-ink hover:bg-surface-alt rounded transition-colors"
                 >
                   <Copy size={10} />
-                  复制
+                  {t("wbCopy")}
                 </button>
                 <button
                   type="button"
@@ -316,18 +318,18 @@ export function WorkbenchMode({ onDrillToDsl, prefill }: WorkbenchModeProps) {
                     const query = filter ? encodeURIComponent(JSON.stringify(filter)) : "";
                     router.push(`/search?mode=dsl&filter=${query}`);
                   }}
-                  title="在 DSL 模式中打开"
+                  title={t("wbOpenInDslTitle")}
                   className="flex items-center gap-1 px-2 py-1 text-xs text-ink-faint hover:text-ink hover:bg-surface-alt rounded transition-colors"
                 >
                   <ExternalLink size={10} />
-                  DSL 模式
+                  {t("wbOpenInDsl")}
                 </button>
               </div>
             </div>
             <pre className="text-xs font-mono text-ink bg-input rounded-md p-3 overflow-auto max-h-48">
               {filter
                 ? JSON.stringify(filter, null, 2)
-                : "// 空 — 无过滤"}
+                : t("wbEmptyExpr")}
             </pre>
           </div>
         )}
@@ -415,8 +417,9 @@ function AddBtn({
 
 // ── 视图：实体列表 ──────────────────────────────────────────────────────────
 function ListView({ data, onDrill }: { data: SearchEntitiesResult; onDrill: () => void }) {
+  const t = useTranslations("search");
   if (data.items.length === 0) {
-    return <div className="rounded-lg border border-edge bg-card p-12 text-center text-ink-sub">无匹配实体</div>;
+    return <div className="rounded-lg border border-edge bg-card p-12 text-center text-ink-sub">{t("noMatch")}</div>;
   }
   return (
     <div className="rounded-lg border border-edge bg-card divide-y divide-edge max-h-[700px] overflow-auto">
@@ -431,13 +434,13 @@ function ListView({ data, onDrill }: { data: SearchEntitiesResult; onDrill: () =
           </div>
           {item.tags && item.tags.length > 0 && (
             <div className="flex flex-wrap gap-1.5">
-              {item.tags.map(t => (
+              {item.tags.map(tg => (
                 <span
-                  key={t.id}
+                  key={tg.id}
                   className="px-2 py-0.5 rounded-md bg-overlay text-xs text-ink"
-                  title={`${t.group.name} · ${t.source}${t.confidence != null ? ` · ${(t.confidence * 100).toFixed(0)}%` : ""}`}
+                  title={`${tg.group.name} · ${tg.source}${tg.confidence != null ? ` · ${(tg.confidence * 100).toFixed(0)}%` : ""}`}
                 >
-                  {t.name}
+                  {tg.name}
                 </span>
               ))}
             </div>
@@ -451,7 +454,7 @@ function ListView({ data, onDrill }: { data: SearchEntitiesResult; onDrill: () =
             onClick={onDrill}
             className="text-sm text-ok hover:underline"
           >
-            还有 {data.total - data.items.length} 条 → 跳转 DSL 模式查看全部
+            {t("wbListMore", { count: data.total - data.items.length })}
           </button>
         </div>
       )}
@@ -461,9 +464,10 @@ function ListView({ data, onDrill }: { data: SearchEntitiesResult; onDrill: () =
 
 // ── 视图：Facet 分布 ────────────────────────────────────────────────────────
 function FacetView({ data }: { data: SearchEntitiesResult }) {
+  const t = useTranslations("search");
   const facets = data.facets?.groupId;
   if (!facets || Object.keys(facets).length === 0) {
-    return <div className="rounded-lg border border-edge bg-card p-12 text-center text-ink-sub">当前结果无标签分布</div>;
+    return <div className="rounded-lg border border-edge bg-card p-12 text-center text-ink-sub">{t("wbFacetEmpty")}</div>;
   }
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
@@ -473,7 +477,7 @@ function FacetView({ data }: { data: SearchEntitiesResult }) {
           <div key={groupSlug} className="rounded-lg border border-edge bg-card overflow-hidden">
             <div className="px-4 py-2.5 border-b border-edge bg-row-head flex items-baseline justify-between">
               <span className="text-sm font-medium text-ink">{groupSlug}</span>
-              <span className="text-xs text-ink-faint">{tags.length} 标签</span>
+              <span className="text-xs text-ink-faint">{t("wbFacetTags", { count: tags.length })}</span>
             </div>
             <div className="p-3 space-y-1.5 max-h-72 overflow-auto">
               {tags.slice(0, 30).map(t => {

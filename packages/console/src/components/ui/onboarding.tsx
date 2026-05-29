@@ -2,39 +2,16 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { X, ChevronRight, ChevronLeft, Terminal, Layers, Tag, Box, ClipboardCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const STORAGE_KEY = "taxon.onboarding.completed";
 const STEPS = [
-  {
-    id: "groups",
-    title: "分组管理",
-    description: "先建分组，定义你的标签维度。例如「菜系」「饮食偏好」等",
-    icon: Layers,
-    href: "/groups",
-  },
-  {
-    id: "tags",
-    title: "标签",
-    description: "在分组内创建标签值，如「川菜」「素食」",
-    icon: Tag,
-    href: "/groups",
-  },
-  {
-    id: "entities",
-    title: "实体管理",
-    description: "给业务实体打标签，支持手动和 API 两种方式",
-    icon: Box,
-    href: "/entities",
-  },
-  {
-    id: "audit",
-    title: "审核队列",
-    description: "AI 生成的标签需要人工审核，在这里完成审核工作流",
-    icon: ClipboardCheck,
-    href: "/audit",
-  },
+  { id: "groups",   icon: Layers,         href: "/groups" },
+  { id: "tags",     icon: Tag,            href: "/groups" },
+  { id: "entities", icon: Box,            href: "/entities" },
+  { id: "audit",    icon: ClipboardCheck, href: "/audit" },
 ] as const;
 
 interface OnboardingTourProps {
@@ -42,9 +19,12 @@ interface OnboardingTourProps {
 }
 
 export function OnboardingTour({ onComplete }: OnboardingTourProps) {
+  const t = useTranslations("onboarding");
   const [step, setStep] = useState(0);
   const currentStep = STEPS[step];
   const Icon = currentStep.icon;
+  const titleKey = `step${step + 1}Title` as Parameters<typeof t>[0];
+  const descKey  = `step${step + 1}Desc`  as Parameters<typeof t>[0];
 
   const handleNext = useCallback(() => {
     if (step < STEPS.length - 1) {
@@ -101,8 +81,8 @@ export function OnboardingTour({ onComplete }: OnboardingTourProps) {
             <Icon size={20} className="text-brand-1" />
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-lg font-semibold text-ink">{currentStep.title}</p>
-            <p className="text-sm text-ink-sub mt-1 leading-relaxed">{currentStep.description}</p>
+            <p className="text-lg font-semibold text-ink">{t(titleKey)}</p>
+            <p className="text-sm text-ink-sub mt-1 leading-relaxed">{t(descKey)}</p>
           </div>
         </div>
 
@@ -112,7 +92,7 @@ export function OnboardingTour({ onComplete }: OnboardingTourProps) {
             onClick={handleSkip}
             className="text-sm text-ink-faint hover:text-ink transition-colors"
           >
-            跳过引导
+            {t("skip")}
           </button>
           <div className="flex items-center gap-2">
             {step > 0 && (
@@ -121,14 +101,14 @@ export function OnboardingTour({ onComplete }: OnboardingTourProps) {
                 className="flex items-center gap-1 px-3 py-1.5 text-sm text-ink-dim hover:text-ink transition-colors"
               >
                 <ChevronLeft size={14} />
-                上一步
+                {t("prev")}
               </button>
             )}
             <button
               onClick={handleNext}
               className="flex items-center gap-1 px-4 py-1.5 text-sm font-medium bg-ink text-surface rounded-lg hover:bg-ink-dim transition-colors"
             >
-              {step === STEPS.length - 1 ? "完成" : "下一步"}
+              {step === STEPS.length - 1 ? t("done") : t("next")}
               {step < STEPS.length - 1 && <ChevronRight size={14} />}
             </button>
           </div>
@@ -182,17 +162,18 @@ interface EmptyStateCTAProps {
 }
 
 export function EmptyStateCTA({
-  title = "还没有数据",
+  title,
   description,
   actions,
   className,
 }: EmptyStateCTAProps) {
+  const t = useTranslations("onboarding");
   return (
     <div className={cn("flex flex-col items-center justify-center py-12 text-center", className)}>
       <div className="w-16 h-16 rounded-2xl bg-edge/40 flex items-center justify-center mb-4">
         <Box size={24} className="text-ink-faint" />
       </div>
-      <p className="text-lg font-medium text-ink mb-1">{title}</p>
+      <p className="text-lg font-medium text-ink mb-1">{title ?? t("emptyTitle")}</p>
       {description && (
         <p className="text-sm text-ink-sub mb-4 max-w-sm">{description}</p>
       )}
@@ -208,6 +189,7 @@ interface SeedCTAProps {
 }
 
 export function SeedCTA({ onDismiss }: SeedCTAProps) {
+  const t = useTranslations("onboarding");
   const handleCopy = () => {
     navigator.clipboard.writeText("pnpm seed:demo");
   };
@@ -215,7 +197,7 @@ export function SeedCTA({ onDismiss }: SeedCTAProps) {
   return (
     <div className="card-border p-4 space-y-3">
       <div className="flex items-center justify-between">
-        <p className="text-sm font-medium text-ink">快速填充示例数据</p>
+        <p className="text-sm font-medium text-ink">{t("seedTitle")}</p>
         <button
           onClick={onDismiss}
           className="p-1 text-ink-faint hover:text-ink transition-colors"
@@ -224,7 +206,7 @@ export function SeedCTA({ onDismiss }: SeedCTAProps) {
         </button>
       </div>
       <p className="text-xs text-ink-sub">
-        运行以下命令填充示例数据，快速体验系统功能
+        {t("seedDesc")}
       </p>
       <div className="flex items-center gap-2">
         <code className="flex-1 px-3 py-2 bg-input rounded-lg text-sm font-mono text-ink border border-edge">
@@ -235,7 +217,7 @@ export function SeedCTA({ onDismiss }: SeedCTAProps) {
           className="flex items-center gap-1.5 px-3 py-2 text-sm text-ink-dim hover:text-ink bg-surface-alt rounded-lg border border-edge transition-colors"
         >
           <Terminal size={12} />
-          复制
+          {t("seedCopy")}
         </button>
       </div>
       <div className="flex items-center gap-3 pt-1">
@@ -243,7 +225,7 @@ export function SeedCTA({ onDismiss }: SeedCTAProps) {
           href="/groups?new"
           className="text-xs text-brand-1 hover:underline"
         >
-          创建第一个分组 →
+          {t("seedCreateFirst")}
         </Link>
       </div>
     </div>

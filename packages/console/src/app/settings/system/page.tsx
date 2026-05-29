@@ -15,6 +15,7 @@ type HealthStatus = "ok" | "degraded" | "checking";
 
 export default function SystemSettingsPage() {
   const t = useTranslations("system");
+  const tCommon = useTranslations("common");
 
   const [locale,   setLocale]   = useState<SystemConfig["locale"]>("zh-CN");
   const [loading,  setLoading]  = useState(true);
@@ -116,16 +117,14 @@ export default function SystemSettingsPage() {
                 </div>
               )}
               <p className="text-xs text-ink-faint mt-2">
-                {locale === "zh-CN"
-                  ? "保存后页面将自动刷新以应用新语言"
-                  : "Page will reload after saving to apply the new language"}
+                {t("reloadHint")}
               </p>
             </div>
           </div>
 
           <div className="flex justify-end pt-1">
             <Button onClick={handleSave} loading={saving} disabled={loading}>
-              {t("save", { ns: "common" }) ?? "Save"}
+              {tCommon("save")}
             </Button>
           </div>
         </div>

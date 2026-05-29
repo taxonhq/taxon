@@ -1,3 +1,5 @@
+import { useTranslations } from "next-intl";
+
 interface Props {
   page: number;
   pageSize: number;
@@ -14,6 +16,7 @@ export function Pagination({
   onPageSizeChange,
   pageSizes = [20, 50, 100],
 }: Props) {
+  const t = useTranslations("common");
   const totalPages = Math.ceil(total / pageSize);
 
   // Build page number window: up to 5 pages centred on current
@@ -34,24 +37,23 @@ export function Pagination({
     <div className="flex items-center justify-between px-4 py-3 border-t border-edge gap-4">
       {/* 左侧：总数 + pageSize 切换 */}
       <div className="flex items-center gap-3">
-        <span className="text-xs text-ink-faint tabular-nums shrink-0">共 {total} 条</span>
+        <span className="text-xs text-ink-faint tabular-nums shrink-0">{t("paginationTotal", { count: total })}</span>
 
         {onPageSizeChange && (
           <div className="flex items-center gap-1.5">
-            <span className="text-xs text-ink-faint">每页</span>
+            <span className="text-xs text-ink-faint">{t("perPage")}</span>
             <select
               value={pageSize}
               onChange={e => {
                 onPageSizeChange(Number(e.target.value));
               }}
               className="h-7 px-1.5 text-xs rounded-md border border-edge bg-surface text-ink-dim hover:border-edge-strong focus:outline-none focus:border-edge-strong transition-colors cursor-pointer"
-              aria-label="每页条数"
+              aria-label={t("perPage")}
             >
               {pageSizes.map(s => (
                 <option key={s} value={s}>{s}</option>
               ))}
             </select>
-            <span className="text-xs text-ink-faint">条</span>
           </div>
         )}
       </div>

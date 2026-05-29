@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useTranslations } from "next-intl";
 import { ExternalLink, Tag, CheckCircle2, XCircle, Loader2 } from "lucide-react";
 import { getHealth, type HealthInfo } from "@/lib/api";
 import { Dialog } from "./dialog";
@@ -14,6 +15,7 @@ interface Props {
 }
 
 export function AboutDialog({ open, onClose }: Props) {
+  const t = useTranslations("about");
   const [health, setHealth] = useState<HealthInfo | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(false);
@@ -36,16 +38,16 @@ export function AboutDialog({ open, onClose }: Props) {
         </div>
         <div className="flex-1 min-w-0">
           <p className="text-lg font-bold text-ink" style={{ letterSpacing: "-0.03em" }}>Taxon</p>
-          <p className="text-xs text-ink-faint mt-0.5">标签微服务管理控制台</p>
+          <p className="text-xs text-ink-faint mt-0.5">{t("subtitle")}</p>
         </div>
       </div>
 
       <div className="space-y-4 pt-4">
         {/* Version rows */}
         <div className="space-y-2.5">
-          <Row label="控制台版本" value={`v${CONSOLE_VERSION}`} mono />
+          <Row label={t("consoleVersion")} value={`v${CONSOLE_VERSION}`} mono />
           <Row
-            label="服务版本"
+            label={t("serviceVersion")}
             value={loading ? null : error ? "—" : `v${health?.version ?? "—"}`}
             mono
             loading={loading}
@@ -62,22 +64,22 @@ export function AboutDialog({ open, onClose }: Props) {
 
         {/* Service info */}
         <div className="space-y-2.5">
-          <Row label="服务地址" value={BASE.replace(/^https?:\/\//, "")} mono />
+          <Row label={t("serviceUrl")} value={BASE.replace(/^https?:\/\//, "")} mono />
           <div className="flex items-center justify-between">
-            <span className="text-sm text-ink-faint">数据库</span>
+            <span className="text-sm text-ink-faint">{t("database")}</span>
             {loading ? (
               <Loader2 size={12} className="text-ink-faint animate-spin" />
             ) : error ? (
               <span className="flex items-center gap-1.5 text-sm text-bad">
-                <XCircle size={12} /> 无法连接
+                <XCircle size={12} /> {t("dbUnreachable")}
               </span>
             ) : health?.db === "ok" ? (
               <span className="flex items-center gap-1.5 text-sm text-ok">
-                <CheckCircle2 size={12} /> 正常
+                <CheckCircle2 size={12} /> {t("dbOk")}
               </span>
             ) : (
               <span className="flex items-center gap-1.5 text-sm text-bad">
-                <XCircle size={12} /> 异常
+                <XCircle size={12} /> {t("dbError")}
               </span>
             )}
           </div>
@@ -93,7 +95,7 @@ export function AboutDialog({ open, onClose }: Props) {
           className="flex items-center justify-between w-full px-3.5 py-2.5 rounded-lg border border-edge hover:border-edge-strong hover:bg-surface-alt transition-all group"
         >
           <span className="text-base font-medium text-ink-dim group-hover:text-ink transition-colors">
-            API 接口文档
+            {t("apiDocs")}
           </span>
           <ExternalLink size={12} className="text-ink-faint group-hover:text-ink transition-colors" />
         </a>

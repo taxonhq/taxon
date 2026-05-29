@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
+import { useTranslations } from "next-intl";
 import { Play, FileText, Loader2, Copy, Check } from "lucide-react";
 import {
   searchEntities, getEntityTypes,
@@ -8,16 +9,18 @@ import {
 } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
+type TemplateLabelKey = "tmplAll" | "tmplSingle" | "tmplOr" | "tmplAndNot" | "tmplAudit" | "tmplFacet";
+
 // 预置模板：从 issue #17 的 10 个示例中精选最有代表性的
-const TEMPLATES: { id: string; label: string; body: SearchEntitiesRequest }[] = [
+const TEMPLATES: { id: string; labelKey: TemplateLabelKey; body: SearchEntitiesRequest }[] = [
   {
     id: "all",
-    label: "全集（无过滤）",
+    labelKey: "tmplAll",
     body: { entityType: "dish", pageSize: 20, include: ["tags"] },
   },
   {
     id: "single-tag",
-    label: "单标签：川菜",
+    labelKey: "tmplSingle",
     body: {
       entityType: "dish",
       filter: { tagSlug: "sichuan", groupSlug: "cuisine" },
@@ -26,7 +29,7 @@ const TEMPLATES: { id: string; label: string; body: SearchEntitiesRequest }[] = 
   },
   {
     id: "or",
-    label: "OR：川菜 或 湘菜",
+    labelKey: "tmplOr",
     body: {
       entityType: "dish",
       filter: { or: [
@@ -38,7 +41,7 @@ const TEMPLATES: { id: string; label: string; body: SearchEntitiesRequest }[] = 
   },
   {
     id: "and-not",
-    label: "AND + NOT：川菜 且 非素食",
+    labelKey: "tmplAndNot",
     body: {
       entityType: "dish",
       filter: { and: [
@@ -50,7 +53,7 @@ const TEMPLATES: { id: string; label: string; body: SearchEntitiesRequest }[] = 
   },
   {
     id: "audit",
-    label: "审核流：待审 AI 标签",
+    labelKey: "tmplAudit",
     body: {
       entityType: "dish",
       filter: { and: [{ source: ["ai"] }, { status: ["pending"] }] },
@@ -59,7 +62,7 @@ const TEMPLATES: { id: string; label: string; body: SearchEntitiesRequest }[] = 
   },
   {
     id: "facet-only",
-    label: "看 facet 分布",
+    labelKey: "tmplFacet",
     body: {
       entityType: "dish",
       pageSize: 1,
@@ -76,6 +79,7 @@ interface DslModeProps {
 }
 
 export function DslMode({ prefill }: DslModeProps) {
+  const t = useTranslations("search");
   const [entityTypes, setEntityTypes] = useState<{ entityType: string; count: number }[]>([]);
   const [raw, setRaw]       = useState<string>(DEFAULT_BODY);
   const [data, setData]     = useState<SearchEntitiesResult | null>(null);
@@ -129,8 +133,8 @@ export function DslMode({ prefill }: DslModeProps) {
   }, [autoRunPending, parsed, parseError]);
 
   const applyTemplate = (id: string) => {
-    const t = TEMPLATES.find(x => x.id === id);
-    if (t) setRaw(JSON.stringify(t.body, null, 2));
+    const tpl = TEMPLATES.find(x => x.id === id);
+    if (tpl) setRaw(JSON.stringify(tpl.body, null, 2));
   };
 
   const copyCurl = () => {
@@ -150,23 +154,23 @@ export function DslMode({ prefill }: DslModeProps) {
       <div className="space-y-3">
         <div className="flex items-center gap-2 flex-wrap">
           <FileText className="size-4 text-ink-sub" />
-          <span className="text-base font-medium text-ink">BoolExpr 请求体</span>
+          <span className="text-base font-medium text-ink">{t("dslReqBody")}</span>
           <select
             onChange={e => { if (e.target.value) applyTemplate(e.target.value); e.target.value = ""; }}
             className="ml-auto px-3 py-1.5 rounded-md border border-edge bg-input text-base text-ink"
           >
-            <option value="">载入示例…</option>
-            {TEMPLATES.map(t => <option key={t.id} value={t.id}>{t.label}</option>)}
+            <option value="">{t("dslLoadTemplate")}</option>
+            {TEMPLATES.map(tpl => <option key={tpl.id} value={tpl.id}>{t(tpl.labelKey)}</option>)}
           </select>
           <button
             type="button"
             onClick={copyCurl}
             disabled={!parsed}
-            title="复制为 curl 命令"
+            title={t("dslCopyCurl")}
             className="px-3 py-1.5 rounded-md border border-edge bg-card text-base text-ink hover:bg-row-hover disabled:opacity-50 flex items-center gap-1.5"
           >
             {copied ? <Check className="size-3.5 text-ok" /> : <Copy className="size-3.5" />}
-            curl
+            {t("dslCurl")}
           </button>
           <button
             type="button"
@@ -175,7 +179,7 @@ export function DslMode({ prefill }: DslModeProps) {
             className="px-4 py-1.5 rounded-md bg-ink text-surface text-base font-medium hover:opacity-90 disabled:opacity-50 flex items-center gap-1.5"
           >
             {loading ? <Loader2 className="size-3.5 animate-spin" /> : <Play className="size-3.5" />}
-            发送
+            {t("dslSend")}
           </button>
         </div>
 
@@ -193,13 +197,13 @@ export function DslMode({ prefill }: DslModeProps) {
 
         {parseError && (
           <div className="rounded-md border border-bad/30 bg-bad/5 px-3 py-2 text-sm text-bad font-mono">
-            JSON 语法错误: {parseError}
+            {t("dslParseError", { message: parseError })}
           </div>
         )}
 
         {entityTypes.length > 0 && parsed && !parseError && (
           <div className="text-xs text-ink-faint">
-            可用实体类型: {entityTypes.map(t => `${t.entityType}(${t.count})`).join("、")}
+            {t("dslAvailableTypes", { types: entityTypes.map(et => `${et.entityType}(${et.count})`).join(", ") })}
           </div>
         )}
       </div>
@@ -207,10 +211,10 @@ export function DslMode({ prefill }: DslModeProps) {
       {/* 右：结果 */}
       <div className="space-y-3">
         <div className="flex items-center gap-2">
-          <span className="text-base font-medium text-ink">响应结果</span>
+          <span className="text-base font-medium text-ink">{t("dslResponse")}</span>
           {data && (
             <span className="text-xs text-ink-sub">
-              共 <strong className="text-ink">{data.total}</strong> 条，本页 {data.items.length} 条
+              {t("dslTotalPage", { total: data.total, count: data.items.length })}
             </span>
           )}
         </div>
@@ -225,7 +229,7 @@ export function DslMode({ prefill }: DslModeProps) {
 
         {!data && !error && (
           <div className="rounded-lg border border-edge bg-card/50 p-10 text-center text-ink-sub text-base">
-            点击「发送」执行查询
+            {t("dslClickSend")}
           </div>
         )}
       </div>
@@ -235,21 +239,22 @@ export function DslMode({ prefill }: DslModeProps) {
 
 // ── 结果展示 ──────────────────────────────────────────────────────────────
 function ResultPanel({ data }: { data: SearchEntitiesResult }) {
+  const t = useTranslations("search");
   return (
     <div className="space-y-4">
       {/* facets */}
       {data.facets && Object.keys(data.facets).length > 0 && (
         <div className="rounded-lg border border-edge bg-card p-4">
-          <p className="text-xs text-ink-sub mb-2 font-medium">Facets</p>
+          <p className="text-xs text-ink-sub mb-2 font-medium">{t("dslFacets")}</p>
           {Object.entries(data.facets).map(([dim, byGroup]) => (
             <div key={dim} className="space-y-3">
               {Object.entries(byGroup).map(([group, tags]) => (
                 <div key={group}>
                   <p className="text-xs text-ink-faint mb-1.5">{group}</p>
                   <div className="flex flex-wrap gap-1.5">
-                    {tags.slice(0, 8).map(t => (
-                      <span key={t.tagId} className="px-2 py-0.5 rounded-md bg-overlay text-xs text-ink">
-                        {t.tagName} <span className="text-ink-faint">{t.count}</span>
+                    {tags.slice(0, 8).map(tg => (
+                      <span key={tg.tagId} className="px-2 py-0.5 rounded-md bg-overlay text-xs text-ink">
+                        {tg.tagName} <span className="text-ink-faint">{tg.count}</span>
                       </span>
                     ))}
                   </div>
@@ -263,7 +268,7 @@ function ResultPanel({ data }: { data: SearchEntitiesResult }) {
       {/* items */}
       <div className="rounded-lg border border-edge bg-card divide-y divide-edge max-h-[680px] overflow-auto">
         {data.items.length === 0 ? (
-          <div className="p-8 text-center text-ink-sub text-base">无匹配实体</div>
+          <div className="p-8 text-center text-ink-sub text-base">{t("noMatch")}</div>
         ) : (
           data.items.map(item => (
             <div key={`${item.entityType}:${item.entityId}`} className="p-3.5 hover:bg-row-hover">
@@ -276,13 +281,13 @@ function ResultPanel({ data }: { data: SearchEntitiesResult }) {
               </div>
               {item.tags && item.tags.length > 0 && (
                 <div className="flex flex-wrap gap-1.5">
-                  {item.tags.map(t => (
+                  {item.tags.map(tg => (
                     <span
-                      key={t.id}
+                      key={tg.id}
                       className="px-2 py-0.5 rounded-md bg-overlay text-xs text-ink"
-                      title={`${t.group.name} · ${t.source}${t.confidence != null ? ` · ${(t.confidence * 100).toFixed(0)}%` : ""}`}
+                      title={`${tg.group.name} · ${tg.source}${tg.confidence != null ? ` · ${(tg.confidence * 100).toFixed(0)}%` : ""}`}
                     >
-                      {t.name}
+                      {tg.name}
                     </span>
                   ))}
                 </div>
