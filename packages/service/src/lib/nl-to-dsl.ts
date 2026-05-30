@@ -21,6 +21,7 @@ const BOOL_EXPR_JSON_SCHEMA: Record<string, unknown> = {
         { type: 'object', required: ['tagSlug'],      properties: { tagSlug: { type: 'string' }, groupSlug: { type: 'string' } }, additionalProperties: false },
         { type: 'object', required: ['tagAlias'],     properties: { tagAlias: { type: 'string' }, groupSlug: { type: 'string' } }, additionalProperties: false },
         { type: 'object', required: ['descendantOf'], properties: { descendantOf: { type: 'string' } }, additionalProperties: false },
+        { type: 'object', required: ['text'],         properties: { text: { type: 'string' } },         additionalProperties: false },
         { type: 'object', required: ['source'],       properties: { source: { type: 'array', items: { enum: ['manual', 'ai', 'system', 'import'] }, minItems: 1 } }, additionalProperties: false },
         { type: 'object', required: ['confidence'],   properties: { confidence: { type: 'object', properties: { gte: { type: 'number', minimum: 0, maximum: 1 }, lte: { type: 'number', minimum: 0, maximum: 1 } }, additionalProperties: false } }, additionalProperties: false },
         { type: 'object', required: ['status'],       properties: { status: { type: 'array', items: { enum: ['active', 'pending', 'rejected'] }, minItems: 1 } }, additionalProperties: false },
@@ -48,6 +49,7 @@ BoolExpr 是一个 JSON 树，叶子节点是以下几种之一：
 - { "tagSlug": "<slug>", "groupSlug"?: "<...>" } 按 tag slug（最常用）
 - { "tagAlias": "<alias>", "groupSlug"?: "<...>" } 按别名（一个 alias 可能命中多个 tag）
 - { "descendantOf": "<tagId>" }                  匹配该节点或任意子孙
+- { "text": "<关键词>" }                          按实体名字/描述里的关键词【子串】匹配（实体内容，不是标签维度）
 - { "source": ["manual"|"ai"|"system"|"import",...] }  按打标来源
 - { "confidence": { "gte"?: 0~1, "lte"?: 0~1 } } 按 AI 置信度区间
 - { "status": ["active"|"pending"|"rejected",...] } 按状态
@@ -65,6 +67,8 @@ BoolExpr 是一个 JSON 树，叶子节点是以下几种之一：
 5. "AI 高置信度" = confidence ≥ 0.7。
 6. "待审核" = status:["pending"]；"已审核 / 生效" = status:["active"]。
 7. 如果用户提到的标签名不在下面的上下文里，仍按你最接近的猜测输出，后端会做匹配；不要因此放弃。
+8. 如果用户描述的是实体【内容本身】——名字 / 描述里出现的字眼（如"名字里有鸡"、"描述提到酸甜"、某个具体菜名片段），且这部分对应不到任何标签维度，用 { "text": "<关键词>" }。它对 name + description 做子串匹配（"鸡"能命中"宫保鸡丁"）。只取关键词，不要带"名字里有""包含"这类措辞。
+9. 内容关键词常与标签条件并存（如"川菜里名字带鱼的"）：用 and 把 tagSlug 和 text 组合起来。
 
 【绝对要求】
 你必须**始终输出有效的 boolExpr JSON 结构**，不要返回 null。即使你不确定某个标签是否存在，按你的最佳猜测输出对应的 tagSlug 即可。仅在用户输入完全无法解析为查询（例如"你好"、"今天天气怎么样"）时才返回 null。
@@ -85,6 +89,12 @@ BoolExpr 是一个 JSON 树，叶子节点是以下几种之一：
 
 输入: "AI 高置信度的菜"
 输出: { "boolExpr": { "and": [ { "source": ["ai"] }, { "confidence": { "gte": 0.7 } } ] }, "explanation": "AI 来源且置信度 ≥ 0.7" }
+
+输入: "名字里有鸡的菜"
+输出: { "boolExpr": { "text": "鸡" }, "explanation": "按名字/描述关键词「鸡」子串匹配" }
+
+输入: "川菜里名字带鱼的"
+输出: { "boolExpr": { "and": [ { "tagSlug": "sichuan", "groupSlug": "cuisine" }, { "text": "鱼" } ] }, "explanation": "川菜，且名字/描述含「鱼」" }
 `
 
 interface TagContextRow {
