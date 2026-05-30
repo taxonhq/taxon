@@ -906,7 +906,9 @@ export default function AuditPage() {
                       {formatTime(item.taggedAt)}
                     </td>
                     <td className="pr-4 py-3">
-                      <div className="flex items-center justify-end gap-0.5 opacity-0 group-hover/row:opacity-100 focus-within:opacity-100 transition-opacity">
+                      {/* #108：行内审核操作常显（图标默认 faint，hover 才上色，
+                          可发现性优先；原 opacity-0 隐藏导致审核员不知有此操作） */}
+                      <div className="flex items-center justify-end gap-0.5 opacity-80 group-hover/row:opacity-100 focus-within:opacity-100 transition-opacity">
                         {item.status !== "active" && (
                           <button
                             disabled={busy}

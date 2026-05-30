@@ -51,16 +51,21 @@ const CHART = {
 } as const;
 
 
+// 菌丝调色（#109）：bio teal / lime / amber 暖调谱，取代通用 indigo/purple
 const PIE_COLORS = [
-  "#6366f1", "#a855f7", "#06b6d4", "#f59e0b", "#22c55e",
-  "#ec4899", "#14b8a6", "#f97316", "#84cc16", "#8b5cf6",
+  "#6ff5c8", "#c4f85a", "#eaa066", "#5fe3b4", "#a8d96b",
+  "#d98a5a", "#8fd9c0", "#e0b87a", "#b0e85a", "#cf9a6a",
 ];
 
 // ═══════════════════════════════════════════════════════════════
 // 工具
 // ═══════════════════════════════════════════════════════════════
+// #105：统一数字格式。≥1万用 locale 紧凑记法（zh→「10万」/ en→「10K」，
+// 取代网络俚语「w」）；其余用千分位。locale 由运行时决定，与页面 next-intl 一致。
 export function fmt(n: number) {
-  if (n >= 10_000) return `${(n / 10_000).toFixed(1)}w`;
+  if (n >= 10_000) {
+    return new Intl.NumberFormat(undefined, { notation: "compact", maximumFractionDigits: 1 }).format(n);
+  }
   return n.toLocaleString(undefined);
 }
 function pctSign(p: number) { return p > 0 ? `+${p}%` : `${p}%`; }
