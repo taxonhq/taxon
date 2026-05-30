@@ -9,3 +9,6 @@ generated/
 
 # Claude Code: 个人本地配置（权限覆盖等），团队共享配置走 .claude/settings.json
 .claude/settings.local.json
+
+# 设计探索临时产物（frontend-slides skill scratch）；正式存档在 docs/design/
+.claude-design/
