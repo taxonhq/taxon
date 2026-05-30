@@ -627,6 +627,7 @@ export type BoolExpr =
   | { tagSlug: string; groupSlug?: string }
   | { tagAlias: string; groupSlug?: string }
   | { descendantOf: string }
+  | { text: string }
   | { source: ("manual" | "ai" | "system" | "import")[] }
   | { confidence: { gte?: number; lte?: number } }
   | { status: ("active" | "pending" | "rejected")[] }

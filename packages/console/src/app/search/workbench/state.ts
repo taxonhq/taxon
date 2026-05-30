@@ -22,6 +22,7 @@ export type LeafValue =
   | { type: "tag";          tagId: string;          tagName: string; groupName: string }
   | { type: "descendantOf"; tagId: string;          tagName: string; groupName: string }
   | { type: "tagAlias";     alias: string;          groupSlug?: string; matchedTagIds?: string[] }
+  | { type: "text";         text: string }
   | { type: "source";       values: ("manual" | "ai" | "system" | "import")[] }
   | { type: "status";       values: ("active" | "pending" | "rejected")[] }
   | { type: "confidence";   gte?: number; lte?: number };
@@ -147,6 +148,7 @@ export function compileLeafValue(v: LeafValue): BoolExpr {
   switch (v.type) {
     case "tag":          return { tag: v.tagId };
     case "descendantOf": return { descendantOf: v.tagId };
+    case "text":         return { text: v.text };
     case "tagAlias":     return v.groupSlug ? { tagAlias: v.alias, groupSlug: v.groupSlug } : { tagAlias: v.alias };
     case "source":       return { source: v.values };
     case "status":       return { status: v.values };
@@ -209,6 +211,7 @@ interface RawBoolLeaf {
   tagSlug?: string; groupSlug?: string
   tagAlias?: string
   descendantOf?: string
+  text?: string
   source?: ('manual' | 'ai' | 'system' | 'import')[]
   confidence?: { gte?: number; lte?: number }
   status?: ('active' | 'pending' | 'rejected')[]
@@ -241,6 +244,9 @@ function leafToValue(e: RawBoolLeaf, resolve: TagResolver): LeafValue | null {
   }
   if (e.tagAlias) {
     return { type: 'tagAlias', alias: e.tagAlias, groupSlug: e.groupSlug }
+  }
+  if (e.text) {
+    return { type: 'text', text: e.text }
   }
   if (e.descendantOf) {
     const info = resolve(e.descendantOf)
@@ -335,6 +341,7 @@ export interface LeafLabels {
   source:           string;
   status:           string;
   confidence:       string;
+  text:             string;
   alias:            (alias: string, groupSlug?: string) => string;
 }
 
@@ -343,6 +350,7 @@ export function describeLeaf(v: LeafValue, L: LeafLabels): string {
     case "tag":          return `${v.groupName} ▸ ${v.tagName}`;
     case "descendantOf": return `${v.groupName} ▸ ${v.tagName} (${L.descendantSuffix})`;
     case "tagAlias":     return L.alias(v.alias, v.groupSlug);
+    case "text":         return `${L.text}: "${v.text}"`;
     case "source":       return `${L.source}: ${v.values.join(" / ")}`;
     case "status":       return `${L.status}: ${v.values.join(" / ")}`;
     case "confidence": {

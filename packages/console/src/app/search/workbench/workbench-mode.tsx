@@ -3,7 +3,7 @@
 import { useState, useReducer, useEffect, useMemo, useCallback } from "react";
 import { useTranslations } from "next-intl";
 import {
-  Plus, Tag as TagIcon, GitBranch, Languages, Sliders, FoldVertical, UnfoldVertical,
+  Plus, Tag as TagIcon, GitBranch, Languages, Sliders, Search, FoldVertical, UnfoldVertical,
   List, Grid3x3, BarChart3, Network, CalendarRange, Loader2, Trash2, Copy, ExternalLink,
 } from "lucide-react";
 import {
@@ -13,7 +13,7 @@ import {
 } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { TagPicker, type PickedTag } from "./tag-picker";
-import { LeafChip, OrGroupChip, MetaPicker, AliasPicker } from "./chips";
+import { LeafChip, OrGroupChip, MetaPicker, AliasPicker, TextPicker } from "./chips";
 import {
   reducer, INITIAL_STATE, compileState, decompileBoolExpr,
   type LeafValue, type TagInfo,
@@ -55,6 +55,7 @@ export function WorkbenchMode({ onDrillToDsl, prefill }: WorkbenchModeProps) {
   const [tagPicker,   setTagPicker]   = useState<{ mode: "tag" | "descendantOf"; targetOrId?: string } | null>(null);
   const [aliasOpen,   setAliasOpen]   = useState(false);
   const [metaOpen,    setMetaOpen]    = useState(false);
+  const [textOpen,    setTextOpen]    = useState(false);
 
   const [data, setData]     = useState<SearchEntitiesResult | null>(null);
   const [loading, setLoading] = useState(false);
@@ -288,6 +289,7 @@ export function WorkbenchMode({ onDrillToDsl, prefill }: WorkbenchModeProps) {
           <AddBtn onClick={() => setTagPicker({ mode: "tag" })}          icon={TagIcon}   label={t("wbAddTag")} />
           <AddBtn onClick={() => setTagPicker({ mode: "descendantOf" })} icon={GitBranch} label={t("wbAddDescendant")} />
           <AddBtn onClick={() => setAliasOpen(true)}                     icon={Languages} label={t("wbAddAlias")} />
+          <AddBtn onClick={() => setTextOpen(true)}                      icon={Search}    label={t("wbAddText")} />
           <AddBtn onClick={() => setMetaOpen(true)}                      icon={Sliders}   label={t("wbAddMeta")} />
           <div className="w-px h-5 bg-edge mx-1" />
           <AddBtn onClick={() => dispatch({ type: "add-or-group" })}     icon={Plus}      label={t("wbAddOrGroup")} emphasis="ok" />
@@ -383,6 +385,11 @@ export function WorkbenchMode({ onDrillToDsl, prefill }: WorkbenchModeProps) {
       <MetaPicker
         open={metaOpen}
         onClose={() => setMetaOpen(false)}
+        onPick={(v) => dispatch({ type: "add-leaf", value: v })}
+      />
+      <TextPicker
+        open={textOpen}
+        onClose={() => setTextOpen(false)}
         onPick={(v) => dispatch({ type: "add-leaf", value: v })}
       />
     </div>

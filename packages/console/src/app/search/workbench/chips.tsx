@@ -3,7 +3,7 @@
 import { createElement, useState } from "react";
 import { useTranslations } from "next-intl";
 import {
-  Tag as TagIcon, GitBranch, Languages, Cpu, CheckCircle2, Gauge,
+  Tag as TagIcon, GitBranch, Languages, Cpu, CheckCircle2, Gauge, Search,
   X, Slash, Plus,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -16,6 +16,7 @@ function leafIcon(v: LeafValue) {
     case "tag":          return TagIcon;
     case "descendantOf": return GitBranch;
     case "tagAlias":     return Languages;
+    case "text":         return Search;
     case "source":       return Cpu;
     case "status":       return CheckCircle2;
     case "confidence":   return Gauge;
@@ -36,6 +37,7 @@ export function LeafChip({
     source:           t("chipSource"),
     status:           t("chipStatus"),
     confidence:       t("chipConfidence"),
+    text:             t("chipText"),
     alias: (alias, groupSlug) =>
       groupSlug ? t("chipAliasAt", { alias, group: groupSlug }) : t("chipAlias", { alias }),
   };
@@ -344,6 +346,69 @@ export function AliasPicker({
               setAlias(""); setGroupSlug(""); onClose();
             }}
             disabled={!alias.trim()}
+            className="px-3 py-1.5 rounded-md bg-ink text-surface text-base font-medium hover:opacity-90 disabled:opacity-50"
+          >{tc("add")}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── 关键词（text leaf）输入弹窗 ───────────────────────────────────────────────
+export function TextPicker({
+  open, onClose, onPick,
+}: {
+  open: boolean;
+  onClose: () => void;
+  onPick: (v: LeafValue) => void;
+}) {
+  const t = useTranslations("search");
+  const tc = useTranslations("common");
+  const [text, setText] = useState("");
+
+  if (!open) return null;
+  const submit = () => {
+    const v = text.trim();
+    if (!v) return;
+    onPick({ type: "text", text: v });
+    setText("");
+    onClose();
+  };
+  return (
+    <div className="fixed inset-0 z-50 flex items-start justify-center pt-[20vh] bg-bg/80 backdrop-blur-sm" onClick={onClose}>
+      <div onClick={e => e.stopPropagation()} className="w-[440px] rounded-xl border border-edge bg-card shadow-2xl overflow-hidden">
+        <div className="px-4 py-3 border-b border-edge flex items-center">
+          <Search className="size-4 text-ink-sub mr-2" />
+          <span className="text-base font-medium text-ink">{t("textTitle")}</span>
+          <button onClick={onClose} className="ml-auto text-ink-sub hover:text-ink">
+            <X className="size-4" />
+          </button>
+        </div>
+        <div className="p-4 space-y-3">
+          <div>
+            <label className="text-xs text-ink-sub block mb-1">{t("textLabel")}</label>
+            <input
+              autoFocus
+              type="text"
+              value={text}
+              onChange={e => setText(e.target.value)}
+              onKeyDown={e => { if (e.key === "Enter") submit(); }}
+              placeholder={t("textPlaceholder")}
+              className="w-full px-3 py-2 rounded-md border border-edge bg-input text-base text-ink"
+            />
+          </div>
+          <p className="text-xs text-ink-faint">{t("textHint")}</p>
+        </div>
+        <div className="px-4 py-3 border-t border-edge flex justify-end gap-2">
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-3 py-1.5 rounded-md border border-edge text-base text-ink hover:bg-row-hover"
+          >{tc("cancel")}</button>
+          <button
+            type="button"
+            onClick={submit}
+            disabled={!text.trim()}
             className="px-3 py-1.5 rounded-md bg-ink text-surface text-base font-medium hover:opacity-90 disabled:opacity-50"
           >{tc("add")}</button>
         </div>
