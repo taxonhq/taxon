@@ -14,49 +14,49 @@
 /* 单一来源原则：所有颜色先在 :root 中定义为语义化 CSS 变量，
    再在下方 @theme 中暴露给 Tailwind。light mode 只需覆盖此处变量。 */
 :root {
-  /* Surfaces */
-  --bg:          #000000;
-  --sidebar-bg:  #080808;
-  --card-bg:     #0F0F0F;
+  /* Surfaces — 菌丝暖土палет（#109 阶段 2 全局 retheme）。
+     页面表面在暖腐殖土基底上分层；语义色与哈希标签色保留。 */
+  --bg:          #1c1610;   /* 深暖基底（页面 bg，略深于画布 soil） */
+  --sidebar-bg:  #1a140d;   /* 遗留变量（已无边栏，少量引用兜底） */
+  --card-bg:     #2a2116;   /* 暖卡片，浮于画布之上 */
 
   /* Layered greys — must live in :root so [data-theme="light"] can override them
      and @theme inline can reference them via var().
      Tailwind v4 bakes @theme inline values at build time, so hardcoded hex values
      there cannot be overridden by CSS variables — they must be var() references. */
-  --surface-alt-raw: #111111;
-  --input-raw:       #0A0A0A;
-  --row-head-raw:    #0D0D0D;
-  --row-hover-raw:   #0E0E0E;
-  --overlay-raw:     #151515;
+  --surface-alt-raw: #2f2519;
+  --input-raw:       #221a11;
+  --row-head-raw:    #261d12;
+  --row-hover-raw:   #2c2317;
+  --overlay-raw:     #33291b;
 
-  /* Text — four-tier hierarchy
-     all tiers ≥ 4.5:1 contrast against --bg (#000) to meet WCAG AA. */
-  --text-primary:  #F2F2F2;   /* headings, values   — ~18.5:1 */
-  --text-body:     #A1A1AA;   /* body copy          — ~8.2:1  */
-  --text-subtle:   #9A9AA3;   /* secondary info     — ~6.8:1  */
-  --text-ghost:    #7A7A82;   /* labels, placeholders — ~4.9:1 */
+  /* Text — four-tier hierarchy（菌丝奶油→暗调，对 --bg #1c1610 均过 WCAG AA） */
+  --text-primary:  #f1e9da;   /* headings, values   — cream，~15:1 */
+  --text-body:     #c2b6a0;   /* body copy          — ~8:1  */
+  --text-subtle:   #ab9e89;   /* secondary info     — dim，~5.5:1 */
+  --text-ghost:    #8a7d68;   /* labels, placeholders — ~3.6:1，仅大字/非正文 */
 
-  /* Borders */
-  --border-faint:  #161616;
-  --border-base:   #27272A;
-  --border-strong: #3F3F46;
+  /* Borders — 暖土描边 */
+  --border-faint:  #342a1c;
+  --border-base:   #46392a;
+  --border-strong: #5e4d37;
 
-  /* Semantic */
-  --ok:    #22C55E;
-  --warn:  #EAB308;
-  --bad:   #EF4444;
+  /* Semantic — 暖调微调，保留可辨语义 */
+  --ok:    #5fe3b4;   /* 生物荧光 teal —— 健康/在线 */
+  --warn:  #eaa066;   /* 暖琥珀 —— 警示 */
+  --bad:   #f0664e;   /* 暖红 —— 危险/错误 */
 
-  /* Brand palette（深色默认；light mode 下可微调饱和度）*/
-  --brand-1: #6366f1;
-  --brand-2: #a855f7;
-  --cyan:    #06b6d4;
-  --amber:   #f59e0b;
+  /* Brand palette → 菌丝强调（charts / 链接 / focus / selection）*/
+  --brand-1: #6ff5c8;   /* bio teal —— 主强调 */
+  --brand-2: #c4f85a;   /* 孢子 lime —— 次强调 */
+  --cyan:    #6ff5c8;
+  --amber:   #eaa066;
 
   /* ── 主按钮 ink hover/active（用于 bg-ink 类按钮的反馈态）─────────────
      dark 模式：ink=#F2F2F2，hover 更亮 → #FFFFFF；active 更暗 → #E8E8E8
      light 模式：ink=#111111，hover 更暗 → #000；active 更亮 → #1F1F1F  */
   --ink-hover:   #FFFFFF;
-  --ink-active:  #E8E8E8;
+  --ink-active:  #e6dcc8;
 
   /* ── 细微背景 tint（替换散落的 rgba(255,255,255,0.0X)）────────────────
      subtle：极淡 hover / 非激活态
@@ -143,44 +143,45 @@
 }
 
 /* ── Light mode overrides ─────────────────────────────────────────────── */
+/* 菌丝浅色策略（#109 阶段 3）：羊皮纸暖白（呼应 Herbarium），非冷灰。     */
 /* 仅覆盖 :root 中的语义变量；@theme inline 的 Tailwind token 自动联动。  */
 [data-theme="light"] {
-  --bg:          #F8F8FA;
-  --sidebar-bg:  #EFEFF3;
-  --card-bg:     #FFFFFF;
+  --bg:          #f4ecdb;   /* 羊皮纸基底 */
+  --sidebar-bg:  #ece2cd;
+  --card-bg:     #fbf6ec;   /* 暖白卡片 */
 
-  --text-primary:  #111111;
-  --text-body:     #3F3F46;
-  --text-subtle:   #52525B;
-  --text-ghost:    #71717A;
+  --text-primary:  #2e2519;   /* 暖棕墨 */
+  --text-body:     #5a4d39;
+  --text-subtle:   #6b5d46;
+  --text-ghost:    #8a7c63;
 
-  --border-faint:  #E4E4E7;
-  --border-base:   #D4D4D8;
-  --border-strong: #A1A1AA;
+  --border-faint:  #e3d8c2;
+  --border-base:   #cdbfa3;
+  --border-strong: #ab9a78;
 
-  --ok:    #16A34A;
-  --warn:  #D97706;
-  --bad:   #DC2626;
+  --ok:    #1f9d74;   /* 深 bio teal（浅底可读） */
+  --warn:  #c47a3a;   /* 深琥珀 */
+  --bad:   #cf4530;   /* 深暖红 */
 
-  /* Brand 在浅色下保持不变，饱和度自然 */
-  --brand-1: #6366f1;
-  --brand-2: #7c3aed;
-  --cyan:    #0891b2;
-  --amber:   #d97706;
+  /* 强调：浅底用加深的菌丝色保证对比 */
+  --brand-1: #1f9d74;
+  --brand-2: #7a9e28;
+  --cyan:    #1f9d74;
+  --amber:   #c47a3a;
 
   /* 浅色模式下同时覆盖 raw 变量（供 @theme inline var() 引用）
      和 --color-* 变量（兜底：防止 Tailwind 增量编译产生混态）。 */
-  --surface-alt-raw: #F1F1F5;
-  --input-raw:       #FAFAFA;
-  --row-head-raw:    #F4F4F8;
-  --row-hover-raw:   #F0F0F4;
-  --overlay-raw:     #FFFFFF;
+  --surface-alt-raw: #efe6d3;
+  --input-raw:       #fbf7ee;
+  --row-head-raw:    #f2ead9;
+  --row-hover-raw:   #efe6d3;
+  --overlay-raw:     #fdf9f1;
   /* Direct overrides — guards against incremental-build mixed states */
-  --color-surface-alt: #F1F1F5;
-  --color-input:       #FAFAFA;
-  --color-row-head:    #F4F4F8;
-  --color-row-hover:   #F0F0F4;
-  --color-overlay:     #FFFFFF;
+  --color-surface-alt: #efe6d3;
+  --color-input:       #fbf7ee;
+  --color-row-head:    #f2ead9;
+  --color-row-hover:   #efe6d3;
+  --color-overlay:     #fdf9f1;
 
   /* Ink hover/active 在 light 下反转方向 */
   --ink-hover:   #000000;
@@ -206,7 +207,7 @@ body {
   /* 深色模式：白色中心光晕；浅色模式：无背景图 */
   background-image: radial-gradient(
     ellipse 60% 40% at 65% 0%,
-    var(--glow-color, rgba(255,255,255,0.024)) 0%,
+    var(--glow-color, rgba(111,245,200,0.04)) 0%,
     transparent 100%
   );
   background-attachment: fixed;
@@ -415,6 +416,21 @@ body {
   --myc-spine-w: 4.6rem;            /* nav-spine 让位宽度 */
 }
 
+/* 浅色：菌丝外壳 → 羊皮纸暖白（#109 阶段 3） */
+[data-theme="light"] {
+  --myc-soil:   #efe4ce;
+  --myc-soil2:  #f6efe0;
+  --myc-cream:  #2e2519;            /* 外壳文字转暖墨 */
+  --myc-dim:    #6b5d46;
+  --myc-bio:    #1f9d74;            /* 加深以在浅底可读 */
+  --myc-bio2:   #7a9e28;
+  --myc-amber:  #c47a3a;
+  --myc-thread: rgba(31,157,116,.30);
+  --myc-line:   rgba(46,37,25,.12);
+  --myc-glass:  rgba(255,250,240,.62);
+  --myc-sheet:  rgba(252,247,238,.82);
+}
+
 /* ── 全屏画布：有机体即界面（装饰层，pointer 透传）─────────────────────── */
 .myc-canvas {
   position: fixed; inset: 0; z-index: 0; pointer-events: none; overflow: hidden;
@@ -502,9 +518,23 @@ body {
 .myc-sheet {
   background: var(--myc-sheet); backdrop-filter: blur(16px);
   border: 1px solid var(--myc-thread); border-radius: 18px;
-  margin: 4.6rem 1.6rem 1.6rem; padding: 2rem 2.4rem; min-height: calc(100vh - 6.2rem);
+  /* 居中 + 限宽：宽屏让画布从两侧透气，同时恢复可读行宽（§8 sheet 偏大偏实） */
+  width: calc(100% - 3.2rem); max-width: 1180px;
+  margin: 4.6rem auto 2rem; padding: 2rem 2.4rem; min-height: calc(100vh - 6.6rem);
   box-shadow: 0 12px 48px rgba(0,0,0,.32);
 }
+
+/* 浅色：外壳元素里硬编码的暗色奶油 rgba 需翻转（羊皮纸画布 + 暖墨描边/标签）*/
+[data-theme="light"] .myc-canvas {
+  background:
+    radial-gradient(120% 100% at 18% 92%, #e3ddc4 0%, transparent 52%),
+    radial-gradient(110% 95% at 86% 12%, #ecdcc2 0%, transparent 48%),
+    radial-gradient(140% 130% at 50% 50%, #f3ecdb 0%, #efe4ce 80%), #efe4ce;
+}
+[data-theme="light"] .myc-gnode { border-color: rgba(46,37,25,.2); }
+[data-theme="light"] .myc-gnode.on { color: #f6efe0; }
+[data-theme="light"] .myc-gnode:hover::after { color: var(--myc-cream); }
+[data-theme="light"] .myc-knot label { text-shadow: 0 1px 8px rgba(255,250,240,.7); }
 
 @media (prefers-reduced-motion: reduce) {
   .myc-hypha, .myc-knot, .myc-cap, .myc-brand .spore, .myc-pill .d.checking { animation: none !important; }
