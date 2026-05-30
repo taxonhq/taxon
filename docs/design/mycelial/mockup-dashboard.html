@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Taxon · 仪表盘 — 菌丝样张</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@300;400;500;700;800&family=Noto+Sans+SC:wght@300;400;500;700;900&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+html,body{height:100%;overflow:hidden;margin:0}*{box-sizing:border-box}
+:root{
+  --soil:#13110e;--soil2:#1b1712;--panel:#211c16;--cream:#ece5d8;--dim:#8b8275;
+  --bio:#5ff2c2;--bio2:#b6f24a;--amber:#e0935a;--thread:rgba(95,242,194,.30);
+  --line:rgba(236,229,216,.09);
+}
+body{font-family:"Hanken Grotesk","Noto Sans SC",sans-serif;color:var(--cream);
+  background:radial-gradient(140% 120% at 70% 80%,#1c2a22 0%,var(--soil2) 45%,var(--soil) 82%),var(--soil);
+  display:flex;height:100vh;height:100dvh}
+.dim{color:var(--dim)}.mono{font-family:"Space Mono",monospace}
+
+/* ===== SIDEBAR ===== */
+.side{width:clamp(180px,15vw,212px);flex-shrink:0;border-right:1px solid var(--line);
+  display:flex;flex-direction:column;padding:1.1rem .8rem;background:rgba(10,9,7,.4);backdrop-filter:blur(4px)}
+.logo{display:flex;align-items:center;gap:.5rem;font-weight:800;font-size:1.15rem;letter-spacing:-.02em;padding:.2rem .4rem 1.1rem}
+.logo .spore{width:.6em;height:.6em;border-radius:50%;background:var(--bio);box-shadow:0 0 14px var(--bio);animation:pulse 2.6s ease-in-out infinite}
+@keyframes pulse{50%{transform:scale(1.35);box-shadow:0 0 22px var(--bio)}}
+.navsec{font-family:"Space Mono",monospace;font-size:.56rem;letter-spacing:.24em;text-transform:uppercase;color:var(--dim);padding:.9rem .5rem .35rem}
+.nav{display:flex;align-items:center;gap:.6rem;padding:.5rem .55rem;border-radius:9px;font-size:.83rem;color:var(--cream);opacity:.7;text-decoration:none;margin-bottom:1px}
+.nav:hover{opacity:1;background:rgba(95,242,194,.05)}
+.nav.on{opacity:1;background:linear-gradient(90deg,rgba(95,242,194,.14),transparent);color:#fff;position:relative}
+.nav.on::before{content:"";position:absolute;left:-.8rem;top:18%;height:64%;width:3px;border-radius:3px;background:var(--bio);box-shadow:0 0 10px var(--bio)}
+.nav .ico{width:15px;height:15px;opacity:.85}
+.side .foot{margin-top:auto;font-size:.7rem;color:var(--dim);padding:.5rem;display:flex;align-items:center;gap:.45rem}
+.side .foot .d{width:.5em;height:.5em;border-radius:50%;background:var(--bio2);box-shadow:0 0 8px var(--bio2)}
+
+/* ===== MAIN ===== */
+.main{flex:1;display:flex;flex-direction:column;min-width:0;position:relative}
+.top{display:flex;justify-content:flex-end;align-items:center;gap:.7rem;padding:1rem 1.4rem;position:relative;z-index:6}
+.pill{display:flex;align-items:center;gap:.45rem;font-size:.7rem;padding:.32rem .7rem;border-radius:999px;background:rgba(95,242,194,.08);border:1px solid var(--thread)}
+.pill .d{width:.42em;height:.42em;border-radius:50%;background:var(--bio);box-shadow:0 0 8px var(--bio);animation:pulse 2s infinite}
+.clock{font-family:"Space Mono",monospace;font-size:.74rem;color:var(--dim)}
+.tbtn{display:flex;align-items:center;gap:.4rem;font-size:.72rem;padding:.34rem .7rem;border-radius:8px;border:1px solid var(--line);color:var(--cream);background:rgba(236,229,216,.03)}
+
+/* hero universe fills the content */
+.stage{flex:1;position:relative;overflow:hidden}
+.net{position:absolute;inset:0;z-index:1}
+.net svg{width:100%;height:100%}
+.hypha{stroke:var(--thread);fill:none;stroke-width:1.3;stroke-linecap:round;stroke-dasharray:900;stroke-dashoffset:900;animation:grow 3s cubic-bezier(.4,0,.2,1) forwards}
+@keyframes grow{to{stroke-dashoffset:0}}
+.knot{position:absolute;transform:translate(-50%,-50%);text-align:center;opacity:0;animation:bloom 1s ease forwards}
+@keyframes bloom{from{opacity:0;transform:translate(-50%,-50%) scale(.3)}to{opacity:1;transform:translate(-50%,-50%) scale(1)}}
+.cap{width:var(--s);height:var(--s);border-radius:50%;margin:0 auto;background:radial-gradient(circle at 38% 32%,#fff,var(--c) 60%);box-shadow:0 0 calc(var(--s)) var(--c);animation:glow var(--t) ease-in-out infinite alternate}
+@keyframes glow{from{filter:brightness(.8)}to{filter:brightness(1.3)}}
+.knot label{display:block;font-weight:500;font-size:var(--fs,.8rem);margin-top:.35em;text-shadow:0 1px 10px rgba(0,0,0,.85);white-space:nowrap}
+.knot .n{font-family:"Space Mono",monospace;font-size:.62em;color:var(--bio);opacity:.75}
+
+/* KPI rail (glowing figures, top-left over the stage) */
+.kpis{position:absolute;top:1.2rem;left:1.6rem;z-index:5;display:flex;flex-direction:column;gap:1.3rem}
+.kpi .k{font-family:"Space Mono",monospace;font-size:.56rem;letter-spacing:.2em;text-transform:uppercase;color:var(--dim)}
+.kpi .v{font-size:clamp(1.8rem,3.6vw,3.1rem);font-weight:800;letter-spacing:-.03em;line-height:1;margin-top:.15rem}
+.kpi .v small{font-size:.42em;font-weight:500;color:var(--dim);margin-left:.3em}
+.kpi.hero .v{color:#fff;text-shadow:0 0 26px rgba(95,242,194,.4)}
+.kpi .delta{font-family:"Space Mono",monospace;font-size:.62rem;color:var(--bio2);margin-top:.25rem}
+
+/* bottom stat strip */
+.strip{position:absolute;bottom:0;left:0;right:0;z-index:5;display:flex;gap:0;border-top:1px solid var(--line);background:rgba(10,9,7,.5);backdrop-filter:blur(6px)}
+.cell{flex:1;padding:.75rem 1.3rem;border-right:1px solid var(--line);display:flex;flex-direction:column;gap:.15rem}
+.cell:last-child{border:none}
+.cell .k{font-size:.62rem;color:var(--dim)}
+.cell .v{font-size:1.05rem;font-weight:700}
+.cell .v b{color:var(--bio)}
+.legend{position:absolute;bottom:4.6rem;right:1.6rem;z-index:5;display:flex;gap:1rem;font-size:.66rem;color:var(--dim)}
+.legend span{display:flex;align-items:center;gap:.4rem}
+.legend i{width:.6em;height:.6em;border-radius:50%}
+@media(prefers-reduced-motion:reduce){*{animation-duration:.01ms!important}}
+</style>
+</head>
+<body>
+<!-- ===== SIDEBAR ===== -->
+<aside class="side">
+  <div class="logo"><span class="spore"></span>Taxon</div>
+  <div class="navsec">管理</div>
+  <a class="nav on"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg>仪表盘</a>
+  <a class="nav"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7l9-4 9 4-9 4-9-4z"/><path d="M3 12l9 4 9-4"/></svg>分组</a>
+  <a class="nav"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l9 5v10l-9 5-9-5V7z"/></svg>实体</a>
+  <a class="nav"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg>实体检索</a>
+  <a class="nav"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7H3V5h11"/></svg>审核队列</a>
+  <a class="nav"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>标签治理</a>
+  <div class="navsec">设置</div>
+  <a class="nav"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/></svg>系统设置</a>
+  <div class="foot"><span class="d"></span>localhost:3300</div>
+</aside>
+
+<!-- ===== MAIN ===== -->
+<div class="main">
+  <div class="top">
+    <span class="pill"><span class="d"></span>自动刷新 · 9s</span>
+    <span class="clock">23:26:54</span>
+    <span class="tbtn">↻ 刷新</span>
+    <span class="tbtn">✎ 自定义</span>
+  </div>
+
+  <div class="stage">
+    <!-- tag universe -->
+    <div class="net">
+      <svg viewBox="0 0 1200 700" preserveAspectRatio="xMidYMid slice">
+        <path class="hypha" style="animation-delay:.2s" d="M620,330 C720,290 760,230 860,250"/>
+        <path class="hypha" style="animation-delay:.4s" d="M620,330 C520,300 480,250 430,300"/>
+        <path class="hypha" style="animation-delay:.6s" d="M620,330 C620,430 580,460 600,540"/>
+        <path class="hypha" style="animation-delay:.7s" d="M860,250 C940,300 960,360 1000,400"/>
+        <path class="hypha" style="animation-delay:.85s" d="M430,300 C400,400 430,450 470,520"/>
+        <path class="hypha" style="animation-delay:1s" d="M600,540 C700,540 760,500 820,540"/>
+        <path class="hypha" style="animation-delay:1.1s" d="M860,250 C820,360 760,380 720,420"/>
+      </svg>
+      <div class="knot" style="left:51.5%;top:47%;animation-delay:.3s"><div class="cap" style="--s:clamp(26px,3.2vw,40px);--c:var(--bio);--t:2.6s"></div><label>菜系 <span class="n">·3.4k</span></label></div>
+      <div class="knot" style="left:71.5%;top:36%;animation-delay:.55s"><div class="cap" style="--s:clamp(18px,2.2vw,28px);--c:var(--bio2);--t:3s"></div><label>川菜 <span class="n">·1.6k</span></label></div>
+      <div class="knot" style="left:35.5%;top:43%;animation-delay:.7s"><div class="cap" style="--s:clamp(16px,2vw,24px);--c:var(--amber);--t:3.3s"></div><label>商品类目</label></div>
+      <div class="knot" style="left:50%;top:77%;animation-delay:.95s"><div class="cap" style="--s:clamp(13px,1.6vw,19px);--c:var(--bio);--t:2.8s"></div><label>素食</label></div>
+      <div class="knot" style="left:83%;top:57%;animation-delay:1.05s"><div class="cap" style="--s:clamp(12px,1.5vw,17px);--c:var(--bio2);--t:3.4s"></div><label>麻辣鲜香</label></div>
+      <div class="knot" style="left:39%;top:74%;animation-delay:1.15s"><div class="cap" style="--s:clamp(11px,1.3vw,15px);--c:var(--amber);--t:2.5s"></div><label>海鲜</label></div>
+      <div class="knot" style="left:68%;top:60%;animation-delay:1.25s"><div class="cap" style="--s:clamp(10px,1.2vw,14px);--c:var(--bio);--t:3.1s"></div><label>下饭</label></div>
+    </div>
+
+    <!-- KPI overlay -->
+    <div class="kpis">
+      <div class="kpi hero"><div class="k">标签实例总数</div><div class="v">568</div><div class="delta">今日 +0 · 7 日均 +12</div></div>
+      <div class="kpi"><div class="k">已注册实体</div><div class="v">10.0<small>万</small></div></div>
+      <div class="kpi"><div class="k">待审核</div><div class="v" style="color:var(--amber)">5.3<small>万</small></div></div>
+    </div>
+
+    <div class="legend">
+      <span><i style="background:var(--bio);box-shadow:0 0 8px var(--bio)"></i>维度</span>
+      <span><i style="background:var(--bio2);box-shadow:0 0 8px var(--bio2)"></i>高频标签</span>
+      <span><i style="background:var(--amber);box-shadow:0 0 8px var(--amber)"></i>跨维共现</span>
+    </div>
+
+    <!-- bottom strip -->
+    <div class="strip">
+      <div class="cell"><span class="k">分组总数</span><span class="v">30</span></div>
+      <div class="cell"><span class="k">标签种类</span><span class="v"><b>568</b></span></div>
+      <div class="cell"><span class="k">今日新增标签</span><span class="v">+0</span></div>
+      <div class="cell"><span class="k">服务 · 数据库</span><span class="v"><b>● 在线</b> · 正常</span></div>
+      <div class="cell"><span class="k">p99 延迟</span><span class="v">8ms</span></div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

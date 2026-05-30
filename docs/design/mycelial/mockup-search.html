@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Taxon · 实体检索 — 菌丝样张</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@300;400;500;700;800&family=Noto+Sans+SC:wght@300;400;500;700;900&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+html,body{height:100%;overflow:hidden;margin:0}*{box-sizing:border-box}
+:root{
+  --soil:#13110e;--soil2:#1b1712;--panel:#211c16;--cream:#ece5d8;--dim:#8b8275;
+  --bio:#5ff2c2;--bio2:#b6f24a;--amber:#e0935a;--thread:rgba(95,242,194,.28);
+  --line:rgba(236,229,216,.09);
+}
+body{font-family:"Hanken Grotesk","Noto Sans SC",sans-serif;color:var(--cream);
+  background:radial-gradient(150% 130% at 80% 100%,#1a241e 0%,var(--soil2) 55%,var(--soil) 88%),var(--soil);
+  display:flex;height:100vh;height:100dvh}
+.mono{font-family:"Space Mono",monospace}.dim{color:var(--dim)}
+
+/* sidebar */
+.side{width:clamp(180px,15vw,212px);flex-shrink:0;border-right:1px solid var(--line);display:flex;flex-direction:column;padding:1.1rem .8rem;background:rgba(10,9,7,.4)}
+.logo{display:flex;align-items:center;gap:.5rem;font-weight:800;font-size:1.15rem;letter-spacing:-.02em;padding:.2rem .4rem 1.1rem}
+.logo .spore{width:.6em;height:.6em;border-radius:50%;background:var(--bio);box-shadow:0 0 14px var(--bio);animation:pulse 2.6s infinite}
+@keyframes pulse{50%{transform:scale(1.35);box-shadow:0 0 22px var(--bio)}}
+.navsec{font-family:"Space Mono",monospace;font-size:.56rem;letter-spacing:.24em;text-transform:uppercase;color:var(--dim);padding:.9rem .5rem .35rem}
+.nav{display:flex;align-items:center;gap:.6rem;padding:.5rem .55rem;border-radius:9px;font-size:.83rem;color:var(--cream);opacity:.7;text-decoration:none}
+.nav:hover{opacity:1;background:rgba(95,242,194,.05)}
+.nav.on{opacity:1;background:linear-gradient(90deg,rgba(95,242,194,.14),transparent);color:#fff;position:relative}
+.nav.on::before{content:"";position:absolute;left:-.8rem;top:18%;height:64%;width:3px;border-radius:3px;background:var(--bio);box-shadow:0 0 10px var(--bio)}
+.nav .ico{width:15px;height:15px;opacity:.85}
+.side .foot{margin-top:auto;font-size:.7rem;color:var(--dim);padding:.5rem;display:flex;align-items:center;gap:.45rem}
+.side .foot .d{width:.5em;height:.5em;border-radius:50%;background:var(--bio2);box-shadow:0 0 8px var(--bio2)}
+
+/* main */
+.main{flex:1;display:flex;flex-direction:column;min-width:0}
+.hdr{display:flex;align-items:center;gap:1rem;padding:1rem 1.4rem .4rem}
+.hdr h1{font-size:1.5rem;font-weight:800;letter-spacing:-.02em;margin:0}
+.tabs{display:flex;gap:.3rem;padding:0 1.4rem;border-bottom:1px solid var(--line)}
+.tab{padding:.5rem .9rem;font-size:.8rem;color:var(--dim);border-bottom:2px solid transparent;margin-bottom:-1px}
+.tab.on{color:#fff;border-color:var(--bio)}
+
+/* query builder */
+.qbar{margin:1rem 1.4rem;padding:.9rem 1rem;border:1px solid var(--line);border-radius:14px;background:rgba(33,28,22,.5)}
+.qtop{display:flex;align-items:center;gap:.7rem;margin-bottom:.8rem}
+.qtop .lab{font-family:"Space Mono",monospace;font-size:.6rem;letter-spacing:.18em;text-transform:uppercase;color:var(--dim)}
+.qtop .sel{display:flex;align-items:center;gap:.4rem;font-size:.76rem;padding:.3rem .7rem;border:1px solid var(--line);border-radius:8px}
+.qtop .sel b{color:var(--bio)}
+.qtop .count{margin-left:auto;font-size:.82rem}
+.qtop .count b{color:var(--bio2);font-weight:800;font-size:1.1rem}
+.builder{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap}
+.qchip{display:inline-flex;align-items:center;gap:.4em;font-size:.78rem;font-weight:500;padding:.3em .7em;border-radius:999px;background:rgba(95,242,194,.1);border:1px solid var(--thread);color:var(--cream)}
+.qchip.not{background:rgba(224,147,90,.1);border-color:rgba(224,147,90,.35)}
+.qchip .x{color:var(--dim);font-size:.85em}
+.qchip .g{color:var(--dim);font-size:.85em}
+.addbtn{display:inline-flex;align-items:center;gap:.35em;font-size:.74rem;color:var(--dim);padding:.3em .7em;border:1px dashed var(--line);border-radius:999px}
+.op{font-family:"Space Mono",monospace;font-size:.7rem;color:var(--bio);padding:0 .2rem}
+
+/* result list */
+.results{flex:1;overflow:hidden;margin:0 1.4rem;display:flex;flex-direction:column}
+.rhead{display:flex;align-items:center;gap:.6rem;padding:.5rem .2rem;font-family:"Space Mono",monospace;font-size:.6rem;letter-spacing:.16em;text-transform:uppercase;color:var(--dim);border-bottom:1px solid var(--line)}
+.rhead .views{margin-left:auto;display:flex;gap:.3rem}
+.rhead .views i{width:1.5rem;height:1.5rem;border:1px solid var(--line);border-radius:6px;display:inline-flex;align-items:center;justify-content:center;font-size:.8rem;color:var(--dim)}
+.rhead .views i.on{color:var(--bio);border-color:var(--thread);background:rgba(95,242,194,.08)}
+.row{display:flex;align-items:center;gap:.8rem;padding:.7rem .2rem;border-bottom:1px solid var(--line)}
+.row .etype{font-family:"Space Mono",monospace;font-size:.64rem;color:var(--dim);text-transform:uppercase}
+.row .eid{font-family:"Space Mono",monospace;font-size:.84rem;font-weight:700;color:var(--cream);min-width:150px}
+.row .rtags{display:flex;gap:.4rem;flex-wrap:wrap;flex:1}
+.tg{display:inline-flex;align-items:center;gap:.35em;font-size:.72rem;padding:.18em .6em;border-radius:999px;background:rgba(236,229,216,.05);border:1px solid var(--line);color:var(--cream)}
+.tg::before{content:"";width:.4em;height:.4em;border-radius:50%;background:var(--c,var(--bio));box-shadow:0 0 6px var(--c,var(--bio))}
+.row .ts{font-family:"Space Mono",monospace;font-size:.68rem;color:var(--dim);white-space:nowrap}
+.row:hover{background:rgba(95,242,194,.035);border-radius:8px}
+@media(prefers-reduced-motion:reduce){*{animation-duration:.01ms!important}}
+</style>
+</head>
+<body>
+<aside class="side">
+  <div class="logo"><span class="spore"></span>Taxon</div>
+  <div class="navsec">管理</div>
+  <a class="nav"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg>仪表盘</a>
+  <a class="nav"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7l9-4 9 4-9 4-9-4z"/><path d="M3 12l9 4 9-4"/></svg>分组</a>
+  <a class="nav"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l9 5v10l-9 5-9-5V7z"/></svg>实体</a>
+  <a class="nav on"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg>实体检索</a>
+  <a class="nav"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7H3V5h11"/></svg>审核队列</a>
+  <a class="nav"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>标签治理</a>
+  <div class="navsec">设置</div>
+  <a class="nav"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/></svg>系统设置</a>
+  <div class="foot"><span class="d"></span>localhost:3300</div>
+</aside>
+
+<div class="main">
+  <div class="hdr"><h1>实体检索</h1></div>
+  <div class="tabs">
+    <span class="tab on">查询工作台</span>
+    <span class="tab">Pivot 透视</span>
+    <span class="tab">自然语言</span>
+    <span class="tab">JSON DSL</span>
+  </div>
+
+  <!-- query builder -->
+  <div class="qbar">
+    <div class="qtop">
+      <span class="lab">实体类型</span>
+      <span class="sel">dish · <b>100,220</b> ▾</span>
+      <span class="count">命中 <b>1,284</b> 条结果</span>
+    </div>
+    <div class="builder">
+      <span class="qchip">川菜 <span class="g">@cuisine</span> <span class="x">×</span></span>
+      <span class="op">AND</span>
+      <span class="qchip">含子孙 · 热菜 <span class="x">×</span></span>
+      <span class="op">AND</span>
+      <span class="qchip not">非 · 素食 <span class="x">×</span></span>
+      <span class="op">AND</span>
+      <span class="qchip">置信度 ≥ 0.7 <span class="x">×</span></span>
+      <span class="addbtn">＋ 标签</span>
+      <span class="addbtn">＋ 子孙</span>
+      <span class="addbtn">＋ 别名</span>
+      <span class="addbtn">＋ OR 组</span>
+    </div>
+  </div>
+
+  <!-- results -->
+  <div class="results">
+    <div class="rhead">
+      <span>实体 · 1,284</span>
+      <span class="views">
+        <i class="on" title="列表">☰</i><i title="Facet">▥</i><i title="透视">▦</i><i title="图谱">◍</i><i title="时间线">⎌</i>
+      </span>
+    </div>
+    <div class="row"><span class="etype">dish</span><span class="eid">perf_dish_78490</span><div class="rtags"><span class="tg" style="--c:var(--bio)">川菜</span><span class="tg" style="--c:var(--bio2)">麻辣鲜香</span><span class="tg" style="--c:var(--amber)">下饭</span><span class="tg">热菜</span><span class="tg">猪肉</span></div><span class="ts">23:30:26</span></div>
+    <div class="row"><span class="etype">dish</span><span class="eid">perf_dish_62524</span><div class="rtags"><span class="tg" style="--c:var(--bio)">川菜</span><span class="tg">水煮</span><span class="tg" style="--c:var(--amber)">麻辣</span><span class="tg">牛肉</span></div><span class="ts">23:29:58</span></div>
+    <div class="row"><span class="etype">dish</span><span class="eid">perf_dish_28673</span><div class="rtags"><span class="tg" style="--c:var(--bio)">川菜</span><span class="tg" style="--c:var(--bio2)">麻辣鲜香</span><span class="tg">下酒</span><span class="tg">花生</span></div><span class="ts">23:29:41</span></div>
+    <div class="row"><span class="etype">dish</span><span class="eid">perf_dish_71098</span><div class="rtags"><span class="tg" style="--c:var(--bio)">川菜</span><span class="tg">回锅</span><span class="tg">热菜</span><span class="tg" style="--c:var(--amber)">下饭</span></div><span class="ts">23:29:40</span></div>
+    <div class="row"><span class="etype">dish</span><span class="eid">perf_dish_14383</span><div class="rtags"><span class="tg" style="--c:var(--bio)">川菜</span><span class="tg">干煸</span><span class="tg">蔬菜</span></div><span class="ts">23:28:58</span></div>
+    <div class="row"><span class="etype">dish</span><span class="eid">perf_dish_15911</span><div class="rtags"><span class="tg" style="--c:var(--bio)">川菜</span><span class="tg" style="--c:var(--bio2)">麻辣鲜香</span><span class="tg">水煮</span><span class="tg">鱼</span><span class="tg">下饭</span></div><span class="ts">23:28:46</span></div>
+    <div class="row"><span class="etype">dish</span><span class="eid">perf_dish_33027</span><div class="rtags"><span class="tg" style="--c:var(--bio)">川菜</span><span class="tg">爆炒</span><span class="tg">热菜</span><span class="tg">鸡肉</span></div><span class="ts">23:28:12</span></div>
+  </div>
+</div>
+</body>
+</html>
