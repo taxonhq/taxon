@@ -749,7 +749,7 @@
     "apiKeyHint": "存入数据库时经 AES-256-GCM 加密，前端永不回显明文",
     "replaceKey": "替换",
     "cancelReplaceKey": "取消替换",
-    "enabledHint": "禁用时所有 NL 搜索请求返回 400",
+    "enabledHint": "禁用时所有 NL 检索请求返回 400",
     "enabledOn": "已启用",
     "enabledOff": "已禁用",
     "needSaveFirst": "需要先保存配置",

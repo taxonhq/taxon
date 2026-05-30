@@ -22,6 +22,7 @@ const SERVICE_DISPLAY = BASE.replace(/^https?:\/\//, "");
 export function AppShell({ children }: { children: React.ReactNode }) {
   const t = useTranslations("nav");
   const sysT = useTranslations("system");
+  const tCommon = useTranslations("common");
   const pathname = usePathname();
   const isDashboard = pathname === "/";
 
@@ -135,9 +136,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </button>
       </div>
 
-      {/* ── 命令提示（右下）──────────────────────────────────────── */}
+      {/* ── 命令提示（右下）── ⌘K 命令面板用「搜索」（#102 canon：功能=检索，⌘K=搜索）── */}
       <button className="myc-cmd" onClick={() => setCmdOpen(true)} aria-label="Open command palette">
-        <kbd>⌘K</kbd> {t("search")}
+        <kbd>⌘K</kbd> {tCommon("search")}
       </button>
 
       {/* ── 内容区 ───────────────────────────────────────────────── */}
