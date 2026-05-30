@@ -156,14 +156,17 @@ export function PageHeader({
             )}
 
             {description && (
-              <p
+              // div, not p: detail pages pass block-level ReactNode (chip rows
+              // containing <div>), which is invalid inside <p> and triggers a
+              // hydration error (#106). div accepts both text and block content.
+              <div
                 className={cn(
                   "text-ink-sub leading-relaxed",
                   size === "default" ? "text-base mt-2" : "text-sm mt-1",
                 )}
               >
                 {description}
-              </p>
+              </div>
             )}
           </div>
         </div>
