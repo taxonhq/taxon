@@ -25,6 +25,10 @@ export interface paths {
                     from?: string;
                     /** @description ISO 日期，reviewedAt <= */
                     to?: string;
+                    /** @description 最低置信度 0–1（包含） */
+                    minConfidence?: string;
+                    /** @description 最高置信度 0–1（包含） */
+                    maxConfidence?: string;
                 };
                 header?: never;
                 path?: never;
@@ -105,8 +109,8 @@ export interface paths {
                 query?: {
                     page?: number;
                     pageSize?: number;
-                    /** @description 标签 ID 过滤（可多个） */
-                    tagId?: string;
+                    /** @description 标签 ID 过滤（可多个，AND 语义） */
+                    tagId?: string | string[];
                     /** @description 按标签名称模糊过滤 */
                     q?: string;
                     /** @description 按 entityId 模糊搜索 */
@@ -134,6 +138,17 @@ export interface paths {
                                     entityType: string;
                                     entityId: string;
                                     registeredAt?: string;
+                                    /**
+                                     * @description 实体元数据 KV 映射。推荐字段：name（名称）、description（描述）、imageUrl（图片URL）、category（分类）。AI 标签建议功能依赖这些字段生成高质量建议。
+                                     * @example {
+                                     *       "name": "宫保鸡丁",
+                                     *       "description": "经典川菜，酸甜微辣",
+                                     *       "category": "热菜"
+                                     *     }
+                                     */
+                                    metadata?: {
+                                        [key: string]: string;
+                                    } | null;
                                     tags?: {
                                         id: string;
                                         slug: string;
@@ -161,6 +176,187 @@ export interface paths {
         };
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/entities/audit/undo": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 撤销审核操作（按 reviewId 回滚） */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        /** @description 需要撤销的 EntityTagReview ID 列表（最多 100 条） */
+                        reviewIds: string[];
+                    };
+                };
+            };
+            responses: {
+                /** @description 成功，返回实际回滚数量和因状态已变更而跳过的数量 */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            code: number;
+                            data: {
+                                reverted: number;
+                                skipped: number;
+                            };
+                        };
+                    };
+                };
+                /** @description 参数错误 */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            code: number;
+                            message: string;
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/entities/{entityType}/{entityId}/suggest": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * AI 标签建议生成
+         * @description 根据实体上下文和可用标签集合，调用 LLM 返回置信度排序的打标建议。需要先在 /settings/llm 配置好 LLM provider，否则返回 503。
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    entityType: string;
+                    entityId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": {
+                        /** @description 限定分组 slug 或 ID（缺省=所有对该 entityType 适用的分组） */
+                        groups?: string[];
+                        /** @description 业务上下文键值对（name, description 等），原样传给 LLM */
+                        context?: {
+                            [key: string]: string;
+                        };
+                        /** @description 覆盖 /settings/llm 里配置的模型名称 */
+                        model?: string;
+                        /**
+                         * @description 最多返回几条建议，默认 5，最大 20
+                         * @default 5
+                         */
+                        topK?: number;
+                        /**
+                         * @description 过滤低置信度建议，默认 0（全部返回）
+                         * @default 0
+                         */
+                        minConfidence?: number;
+                        /**
+                         * @description 为 true 时自动将建议写入为 pending 状态的 EntityTag
+                         * @default false
+                         */
+                        apply?: boolean;
+                    };
+                };
+            };
+            responses: {
+                /** @description 建议生成成功 */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            code: number;
+                            data: {
+                                suggestions: {
+                                    /** @description 标签 ID */
+                                    tagId: string;
+                                    /** @description 标签 slug */
+                                    tagSlug: string;
+                                    /** @description 标签名称 */
+                                    tagName: string;
+                                    /** @description 分组 ID */
+                                    groupId: string;
+                                    /** @description 分组 slug */
+                                    groupSlug: string;
+                                    /** @description 分组名称 */
+                                    groupName: string;
+                                    /** @description 置信度 0~1 */
+                                    confidence: number;
+                                    /** @description LLM 给出的推荐理由 */
+                                    reasoning: string;
+                                }[];
+                                /** @description 实际生效的模型（带 provider 前缀） */
+                                model: string;
+                                /** @description 自动写入的 pending EntityTag 数量（apply=true 时有值） */
+                                appliedCount?: number;
+                            };
+                        };
+                    };
+                };
+                /** @description 实体未注册 / 指定分组不存在 */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            code: number;
+                            message: string;
+                        };
+                    };
+                };
+                /** @description LLM 未配置或调用失败 */
+                503: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            code: number;
+                            message: string;
+                        };
+                    };
+                };
+            };
+        };
         delete?: never;
         options?: never;
         head?: never;
@@ -325,7 +521,6 @@ export interface paths {
             requestBody?: {
                 content: {
                     "application/json": {
-                        tagId: string;
                         /**
                          * @default manual
                          * @enum {string}
@@ -351,6 +546,18 @@ export interface paths {
                 };
                 /** @description 参数错误 */
                 400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            code: number;
+                            message: string;
+                        };
+                    };
+                };
+                /** @description 权限不足 */
+                403: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -425,6 +632,18 @@ export interface paths {
                         };
                     };
                 };
+                /** @description 权限不足 */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            code: number;
+                            message: string;
+                        };
+                    };
+                };
                 /** @description 关联不存在 */
                 404: {
                     headers: {
@@ -463,8 +682,22 @@ export interface paths {
                 };
             };
             responses: {
-                /** @description 成功 */
+                /** @description 成功，返回审核记录 ID（可用于撤销） */
                 200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            code: number;
+                            data: {
+                                reviewId: string;
+                            };
+                        };
+                    };
+                };
+                /** @description 参数错误 */
+                400: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -475,8 +708,8 @@ export interface paths {
                         };
                     };
                 };
-                /** @description 参数错误 */
-                400: {
+                /** @description 权限不足（需要 reviewer 或更高） */
+                403: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -569,6 +802,124 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/entities/bulk-tag": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 批量打标 */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        /** @description 实体类型 */
+                        entityType: string;
+                        /**
+                         * @description 目标实体 id 列表，最多 1000
+                         * @example [
+                         *       "dish-001",
+                         *       "dish-002"
+                         *     ]
+                         */
+                        entityIds: string[];
+                        /** @description 要打的标签 id 列表，最多 50 */
+                        tagIds: string[];
+                        /**
+                         * @default manual
+                         * @enum {string}
+                         */
+                        source?: "manual" | "ai" | "system" | "import";
+                        confidence?: number | null;
+                        /**
+                         * @description 缺省：ai→pending，其他→active
+                         * @enum {string}
+                         */
+                        status?: "active" | "pending" | "rejected";
+                        /**
+                         * @description add=追加，跳过冲突；replace=先清同 group 已有再写
+                         * @default add
+                         * @enum {string}
+                         */
+                        mode?: "add" | "replace";
+                    };
+                };
+            };
+            responses: {
+                /** @description 成功（含 succeeded / failed / errors[]，部分失败也是 200） */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            code: number;
+                            data: {
+                                /** @description 成功写入标签的实体数 */
+                                succeeded: number;
+                                /** @description 因冲突跳过的实体数（= errors.length） */
+                                failed: number;
+                                errors: {
+                                    entityId: string;
+                                    error: string;
+                                }[];
+                            };
+                        };
+                    };
+                };
+                /** @description 参数错误（如 ai 缺 confidence） */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            code: number;
+                            message: string;
+                        };
+                    };
+                };
+                /** @description 权限不足（需 writer） */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            code: number;
+                            message: string;
+                        };
+                    };
+                };
+                /** @description 标签不合法（全局校验失败） */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            code: number;
+                            message: string;
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/entities/{entityType}/{entityId}": {
         parameters: {
             query?: never;
@@ -603,6 +954,17 @@ export interface paths {
                                 entityType: string;
                                 entityId: string;
                                 registeredAt?: string;
+                                /**
+                                 * @description 实体元数据 KV 映射。推荐字段：name（名称）、description（描述）、imageUrl（图片URL）、category（分类）。AI 标签建议功能依赖这些字段生成高质量建议。
+                                 * @example {
+                                 *       "name": "宫保鸡丁",
+                                 *       "description": "经典川菜，酸甜微辣",
+                                 *       "category": "热菜"
+                                 *     }
+                                 */
+                                metadata?: {
+                                    [key: string]: string;
+                                } | null;
                                 tags?: {
                                     id: string;
                                     slug: string;
@@ -637,7 +999,10 @@ export interface paths {
             };
         };
         put?: never;
-        /** 注册实体 */
+        /**
+         * 注册实体
+         * @description 幂等注册：已注册的实体重复调用时，若传入 metadata 则更新，否则保留原值。
+         */
         post: {
             parameters: {
                 query?: never;
@@ -650,7 +1015,23 @@ export interface paths {
                 };
                 cookie?: never;
             };
-            requestBody?: never;
+            requestBody?: {
+                content: {
+                    "application/json": {
+                        /**
+                         * @description 实体元数据，首次注册时提供；PATCH 时传入会覆盖全量替换
+                         * @example {
+                         *       "name": "宫保鸡丁",
+                         *       "description": "经典川菜，酸甜微辣",
+                         *       "category": "热菜"
+                         *     }
+                         */
+                        metadata?: {
+                            [key: string]: string;
+                        };
+                    };
+                };
+            };
             responses: {
                 /** @description 注册成功 */
                 200: {
@@ -709,7 +1090,66 @@ export interface paths {
         };
         options?: never;
         head?: never;
-        patch?: never;
+        /**
+         * 更新实体 metadata
+         * @description 全量替换 metadata；传 null 清空；实体不存在则 404。
+         */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description 实体类型，如 dish / dining */
+                    entityType: string;
+                    /** @description 实体唯一标识符 */
+                    entityId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        /**
+                         * @description 实体元数据，首次注册时提供；PATCH 时传入会覆盖全量替换
+                         * @example {
+                         *       "name": "宫保鸡丁",
+                         *       "description": "经典川菜，酸甜微辣",
+                         *       "category": "热菜"
+                         *     }
+                         */
+                        metadata?: {
+                            [key: string]: string;
+                        };
+                    };
+                };
+            };
+            responses: {
+                /** @description 更新成功 */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            code: number;
+                            message: string;
+                        };
+                    };
+                };
+                /** @description 实体未注册 */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            code: number;
+                            message: string;
+                        };
+                    };
+                };
+            };
+        };
         trace?: never;
     };
     "/tag-groups": {
@@ -729,6 +1169,8 @@ export interface paths {
                     scope?: string;
                     withPreviewTags?: "true" | "false";
                     previewSize?: number;
+                    /** @description 仅返回软删除分组（回收站） */
+                    onlyDeleted?: "true" | "false";
                 };
                 header?: never;
                 path?: never;
@@ -929,11 +1371,13 @@ export interface paths {
         };
         put?: never;
         post?: never;
-        /** 删除分组（软删除） */
+        /** 删除分组（软删除；?permanent=true 硬删） */
         delete: {
             parameters: {
                 query?: {
                     force?: "1" | "true";
+                    /** @description 硬删除（不可恢复，含 EntityTag 级联） */
+                    permanent?: "1" | "true";
                 };
                 header?: never;
                 path: {
@@ -1121,6 +1565,91 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/tag-groups/{groupId}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 恢复软删除分组 */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description 标签分组 ID */
+                    groupId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description 成功 */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            code: number;
+                            data: {
+                                id: string;
+                                slug: string;
+                                name: string;
+                                description: string | null;
+                                entityScopes: string[];
+                                allowMultiple: boolean;
+                                sortOrder: number;
+                                createdAt: string;
+                                updatedAt: string;
+                                deletedAt?: string | unknown;
+                                entityRules?: {
+                                    groupId: string;
+                                    entityType: string;
+                                    allowMultiple: boolean;
+                                }[];
+                                _count?: {
+                                    tags: number;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description 不存在 */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            code: number;
+                            message: string;
+                        };
+                    };
+                };
+                /** @description slug 或 name 冲突 */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            code: number;
+                            message: string;
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/tag-groups/{groupId}/tags": {
         parameters: {
             query?: never;
@@ -1134,6 +1663,8 @@ export interface paths {
                 query?: {
                     page?: number;
                     pageSize?: number;
+                    /** @description 仅返回软删除标签（回收站） */
+                    onlyDeleted?: "true" | "false";
                 };
                 header?: never;
                 path: {
@@ -1598,11 +2129,13 @@ export interface paths {
         };
         put?: never;
         post?: never;
-        /** 删除标签（软删除） */
+        /** 删除标签（软删除；?permanent=true 硬删） */
         delete: {
             parameters: {
                 query?: {
                     force?: "1" | "true";
+                    /** @description 硬删除（不可恢复，含 EntityTag 级联） */
+                    permanent?: "1" | "true";
                 };
                 header?: never;
                 path: {
@@ -1880,6 +2413,93 @@ export interface paths {
         };
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tags/{tagId}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 恢复软删除标签 */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description 标签 ID */
+                    tagId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description 成功 */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            code: number;
+                            data: {
+                                id: string;
+                                groupId: string;
+                                slug: string;
+                                name: string;
+                                description: string | null;
+                                parentId: string | null;
+                                path: string;
+                                depth: number;
+                                sortOrder: number;
+                                createdAt: string;
+                                updatedAt: string;
+                                deletedAt?: string | unknown;
+                                group?: {
+                                    id: string;
+                                    slug: string;
+                                    name: string;
+                                };
+                                _count?: {
+                                    entityTags: number;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description 不存在 */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            code: number;
+                            message: string;
+                        };
+                    };
+                };
+                /** @description slug 或 name 冲突 */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            code: number;
+                            message: string;
+                        };
+                    };
+                };
+            };
+        };
         delete?: never;
         options?: never;
         head?: never;
@@ -2447,6 +3067,7 @@ export interface paths {
          *     | `{ "tagSlug": "<slug>", "groupSlug": "<groupSlug>?" }` | 按 slug 匹配 | 不指定 groupSlug 时跨 group 全部命中 |
          *     | `{ "tagAlias": "<alias>", "groupSlug": "<groupSlug>?" }` | 经别名匹配 | 依赖 TagAlias 表 |
          *     | `{ "descendantOf": "<tagId>" }` | 该节点或其任意子孙 | 用 path 前缀匹配 |
+         *     | `{ "text": "<关键词>" }` | metadata 的 name/description 全文命中 | 作用于实体本身，可与标签 leaf 组合 |
          *     | `{ "source": ["manual","ai",...] }` | 至少有一条 EntityTag 来自指定 source | |
          *     | `{ "confidence": { "gte": 0.7, "lte": 1 } }` | 至少一条 EntityTag 置信度落区间 | gte / lte 均可缺省 |
          *     | `{ "status": ["active","pending","rejected"] }` | 状态在列表内 | 其他 leaf 默认 status=active |
@@ -2456,6 +3077,7 @@ export interface paths {
          *     - 每个 leaf 是独立 EXISTS 子查询，不要求"同一条 EntityTag 同时满足多个 leaf"。
          *       例：`and: [{tag:"X"}, {source:["ai"]}]` 表示"既被打过 X 标签，也存在至少一条 AI 来源标签"——可能不是同一条记录。
          *     - `tagSlug` / `tagAlias` / `descendantOf` 解析后若得不到任何 tagId，正向 leaf 永远不命中；包在 `not` 中时永远命中。
+         *     - `text` leaf 不同于标签 leaf：它作用于**实体自身的 metadata**（name + description），不是 EXISTS 子查询。用 **ILIKE 子串匹配**（大小写不敏感），由 pg_trgm 索引加速；"鸡"可命中"宫保鸡丁"。与标签 leaf 组合即「标签过滤 + 关键词检索」。关键词里的 `%` / `_` 会被转义为字面量。
          *     - 缺省 `filter` 即返回该 entityType 下全部已注册实体（仍受分页限制）。
          */
         post: {
@@ -2693,6 +3315,391 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/search/nl-to-dsl": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 自然语言 → BoolExpr 翻译
+         * @description 把中文自然语言查询翻译为 BoolExpr。
+         *
+         *     ### 用法
+         *     - `text`：自然语言输入（例：「川菜餐厅但不要素食的，AI 高置信度」）
+         *     - `entityType`：可选实体类型，提供给 LLM 作为上下文，提升翻译准确率
+         *
+         *     ### 行为
+         *     - 使用系统设置中配置的 LLM provider（Anthropic / OpenAI）
+         *     - LLM 强制结构化输出 BoolExpr JSON
+         *     - 服务端做二次 Zod 校验；不合法时返回 `boolExpr=null` + 错误说明
+         *
+         *     ### 配置缺失
+         *     若管理员未在 `/settings/llm` 配置 provider/apiKey，或 enabled=false，返回 400。
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        /** @description 中文自然语言查询，例如：「川菜餐厅但不要素食的，AI 高置信度」 */
+                        text: string;
+                        /** @description 可选：实体类型上下文，提升翻译准确率 */
+                        entityType?: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description 成功 */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            code: number;
+                            data: {
+                                boolExpr?: components["schemas"]["BoolExpr"] & unknown;
+                                /** @description AI 对翻译过程的中文解释，便于审计 */
+                                explanation: string;
+                                /** @description 实际使用的模型版本（带 provider 前缀） */
+                                model: string;
+                            };
+                        };
+                    };
+                };
+                /** @description 参数错误 / LLM 未配置 */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            code: number;
+                            message: string;
+                        };
+                    };
+                };
+                /** @description LLM 调用失败 */
+                502: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            code: number;
+                            message: string;
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/search/co-occurrence": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 标签共现矩阵
+         * @description 计算标签共现矩阵 — 在给定子集中，哪些标签倾向于同时出现。
+         *
+         *     ### 用法
+         *     - `entityType`：实体类型
+         *     - `filter`：可选 BoolExpr，限定子集（例如"只看 AI 高置信度的"）
+         *     - `topN`：取使用量最大的 N 个标签（控制 N×N 矩阵规模）
+         *
+         *     ### 输出
+         *     - `tags`：参与矩阵的标签数组（含 total 实体数）
+         *     - `cooccurrence`：对称矩阵稀疏存储，key = `<tagAId>:<tagBId>`（字典序），
+         *       value = `{ count, lift }`
+         *     - `totalEntities`：用于 lift 计算的分母
+         *
+         *     ### lift 含义
+         *     - `lift = (共现数 × 总实体数) / (tagA 总数 × tagB 总数)`
+         *     - > 1：两个标签正相关（同现概率高于随机）
+         *     - = 1：独立
+         *     - < 1：负相关
+         *
+         *     ### 设计意图
+         *     让运营发现"哪些标签经常一起用"——可能提示标签冗余、潜在合并机会、或某种内在关联。
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        /** @description 实体类型 */
+                        entityType: string;
+                        filter?: components["schemas"]["BoolExpr"] & unknown;
+                        /**
+                         * @description 取使用量最大的 top-N 标签（控制矩阵规模，最大 30×30）
+                         * @default 15
+                         */
+                        topN?: number;
+                    };
+                };
+            };
+            responses: {
+                /** @description 成功 */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            code: number;
+                            data: {
+                                tags: {
+                                    tagId: string;
+                                    slug: string;
+                                    name: string;
+                                    groupSlug: string;
+                                    groupName: string;
+                                    /** @description 该 tag 在子集中的活跃实体数 */
+                                    total: number;
+                                }[];
+                                cooccurrence: {
+                                    [key: string]: {
+                                        /** @description 同时持有 tagA 与 tagB 的实体数 */
+                                        count: number;
+                                        /** @description 观察共现 / 期望共现；> 1 = 正相关 */
+                                        lift: number;
+                                    };
+                                };
+                                totalEntities: number;
+                            };
+                        };
+                    };
+                };
+                /** @description 参数错误 */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            code: number;
+                            message: string;
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/settings/llm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 获取 LLM 配置
+         * @description API key 仅以 mask 形式返回（如 sk-x…abcd），明文不外泄。
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description 成功 */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            code: number;
+                            data: {
+                                /** @enum {string} */
+                                provider?: "anthropic" | "openai";
+                                model?: string;
+                                baseUrl?: string;
+                                hasApiKey: boolean;
+                                apiKeyMask?: string;
+                                enabled: boolean;
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        /**
+         * 更新 LLM 配置
+         * @description apiKey 字段：缺省=保持原值；空字符串=清空；其他=替换并加密存储。
+         */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        /** @enum {string} */
+                        provider: "anthropic" | "openai";
+                        model: string;
+                        /** @description 明文 API key；缺省=保持原值；空字符串=清空 */
+                        apiKey?: string;
+                        baseUrl?: string;
+                        enabled: boolean;
+                    };
+                };
+            };
+            responses: {
+                /** @description 成功 */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            code: number;
+                            data: {
+                                /** @enum {string} */
+                                provider?: "anthropic" | "openai";
+                                model?: string;
+                                baseUrl?: string;
+                                hasApiKey: boolean;
+                                apiKeyMask?: string;
+                                enabled: boolean;
+                            };
+                        };
+                    };
+                };
+                /** @description 加密失败 / 主密钥未配置 */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            code: number;
+                            message: string;
+                        };
+                    };
+                };
+            };
+        };
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/settings/system": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 获取系统配置 */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description 成功 */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            code: number;
+                            data: components["schemas"]["SystemConfig"];
+                        };
+                    };
+                };
+            };
+        };
+        /** 更新系统配置（仅 admin） */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["SystemConfigUpdateBody"];
+                };
+            };
+            responses: {
+                /** @description 成功 */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            code: number;
+                            message: string;
+                        };
+                    };
+                };
+                /** @description 参数错误 */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            code: number;
+                            message: string;
+                        };
+                    };
+                };
+            };
+        };
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -2709,6 +3716,8 @@ export interface components {
         } | {
             descendantOf: string;
         } | {
+            text: string;
+        } | {
             source: ("manual" | "ai" | "system" | "import")[];
         } | {
             confidence: {
@@ -2723,6 +3732,18 @@ export interface components {
             or: components["schemas"]["BoolExpr"][];
         } | {
             not: components["schemas"]["BoolExpr"];
+        };
+        SystemConfig: {
+            /**
+             * @description 界面语言 zh-CN | en-US
+             * @default zh-CN
+             * @enum {string}
+             */
+            locale: "zh-CN" | "en-US";
+        };
+        SystemConfigUpdateBody: {
+            /** @enum {string} */
+            locale?: "zh-CN" | "en-US";
         };
     };
     responses: never;

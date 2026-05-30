@@ -84,6 +84,19 @@
           {
             "type": "object",
             "properties": {
+              "text": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "required": [
+              "text"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
               "source": {
                 "type": "array",
                 "items": {
@@ -195,6 +208,32 @@
           }
         ],
         "description": "标签布尔表达式（缺省=全集）"
+      },
+      "SystemConfig": {
+        "type": "object",
+        "properties": {
+          "locale": {
+            "type": "string",
+            "enum": [
+              "zh-CN",
+              "en-US"
+            ],
+            "default": "zh-CN",
+            "description": "界面语言 zh-CN | en-US"
+          }
+        }
+      },
+      "SystemConfigUpdateBody": {
+        "type": "object",
+        "properties": {
+          "locale": {
+            "type": "string",
+            "enum": [
+              "zh-CN",
+              "en-US"
+            ]
+          }
+        }
       }
     },
     "parameters": {}
@@ -279,6 +318,26 @@
             "required": false,
             "description": "ISO 日期，reviewedAt <=",
             "name": "to",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "description": "最低置信度 0–1（包含）"
+            },
+            "required": false,
+            "description": "最低置信度 0–1（包含）",
+            "name": "minConfidence",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "description": "最高置信度 0–1（包含）"
+            },
+            "required": false,
+            "description": "最高置信度 0–1（包含）",
+            "name": "maxConfidence",
             "in": "query"
           }
         ],
@@ -500,11 +559,21 @@
           },
           {
             "schema": {
-              "type": "string",
-              "description": "标签 ID 过滤（可多个）"
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              ],
+              "description": "标签 ID 过滤（可多个，AND 语义）"
             },
             "required": false,
-            "description": "标签 ID 过滤（可多个）",
+            "description": "标签 ID 过滤（可多个，AND 语义）",
             "name": "tagId",
             "in": "query"
           },
@@ -576,6 +645,19 @@
                                     "type": "string"
                                   }
                                 ]
+                              },
+                              "metadata": {
+                                "type": "object",
+                                "nullable": true,
+                                "additionalProperties": {
+                                  "type": "string"
+                                },
+                                "description": "实体元数据 KV 映射。推荐字段：name（名称）、description（描述）、imageUrl（图片URL）、category（分类）。AI 标签建议功能依赖这些字段生成高质量建议。",
+                                "example": {
+                                  "name": "宫保鸡丁",
+                                  "description": "经典川菜，酸甜微辣",
+                                  "category": "热菜"
+                                }
                               },
                               "tags": {
                                 "type": "array",
@@ -676,6 +758,321 @@
                   "required": [
                     "code",
                     "data"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/entities/audit/undo": {
+      "post": {
+        "tags": [
+          "实体标签"
+        ],
+        "summary": "撤销审核操作（按 reviewId 回滚）",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "reviewIds": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "minItems": 1,
+                    "maxItems": 100,
+                    "description": "需要撤销的 EntityTagReview ID 列表（最多 100 条）"
+                  }
+                },
+                "required": [
+                  "reviewIds"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "成功，返回实际回滚数量和因状态已变更而跳过的数量",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "reverted": {
+                          "type": "number"
+                        },
+                        "skipped": {
+                          "type": "number"
+                        }
+                      },
+                      "required": [
+                        "reverted",
+                        "skipped"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "参数错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/entities/{entityType}/{entityId}/suggest": {
+      "post": {
+        "tags": [
+          "AI 标签建议"
+        ],
+        "summary": "AI 标签建议生成",
+        "description": "根据实体上下文和可用标签集合，调用 LLM 返回置信度排序的打标建议。需要先在 /settings/llm 配置好 LLM provider，否则返回 503。",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "entityType",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "entityId",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "groups": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "description": "限定分组 slug 或 ID（缺省=所有对该 entityType 适用的分组）"
+                  },
+                  "context": {
+                    "type": "object",
+                    "additionalProperties": {
+                      "type": "string"
+                    },
+                    "description": "业务上下文键值对（name, description 等），原样传给 LLM"
+                  },
+                  "model": {
+                    "type": "string",
+                    "description": "覆盖 /settings/llm 里配置的模型名称"
+                  },
+                  "topK": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "exclusiveMinimum": true,
+                    "maximum": 20,
+                    "default": 5,
+                    "description": "最多返回几条建议，默认 5，最大 20"
+                  },
+                  "minConfidence": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1,
+                    "default": 0,
+                    "description": "过滤低置信度建议，默认 0（全部返回）"
+                  },
+                  "apply": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "为 true 时自动将建议写入为 pending 状态的 EntityTag"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "建议生成成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "suggestions": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "tagId": {
+                                "type": "string",
+                                "description": "标签 ID"
+                              },
+                              "tagSlug": {
+                                "type": "string",
+                                "description": "标签 slug"
+                              },
+                              "tagName": {
+                                "type": "string",
+                                "description": "标签名称"
+                              },
+                              "groupId": {
+                                "type": "string",
+                                "description": "分组 ID"
+                              },
+                              "groupSlug": {
+                                "type": "string",
+                                "description": "分组 slug"
+                              },
+                              "groupName": {
+                                "type": "string",
+                                "description": "分组名称"
+                              },
+                              "confidence": {
+                                "type": "number",
+                                "minimum": 0,
+                                "maximum": 1,
+                                "description": "置信度 0~1"
+                              },
+                              "reasoning": {
+                                "type": "string",
+                                "description": "LLM 给出的推荐理由"
+                              }
+                            },
+                            "required": [
+                              "tagId",
+                              "tagSlug",
+                              "tagName",
+                              "groupId",
+                              "groupSlug",
+                              "groupName",
+                              "confidence",
+                              "reasoning"
+                            ]
+                          }
+                        },
+                        "model": {
+                          "type": "string",
+                          "description": "实际生效的模型（带 provider 前缀）"
+                        },
+                        "appliedCount": {
+                          "type": "integer",
+                          "description": "自动写入的 pending EntityTag 数量（apply=true 时有值）"
+                        }
+                      },
+                      "required": [
+                        "suggestions",
+                        "model"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "实体未注册 / 指定分组不存在",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message"
+                  ]
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "LLM 未配置或调用失败",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message"
                   ]
                 }
               }
@@ -1032,10 +1429,6 @@
               "schema": {
                 "type": "object",
                 "properties": {
-                  "tagId": {
-                    "type": "string",
-                    "minLength": 1
-                  },
                   "source": {
                     "type": "string",
                     "enum": [
@@ -1056,10 +1449,7 @@
                     "type": "string",
                     "maxLength": 500
                   }
-                },
-                "required": [
-                  "tagId"
-                ]
+                }
               }
             }
           }
@@ -1089,6 +1479,28 @@
           },
           "400": {
             "description": "参数错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "权限不足",
             "content": {
               "application/json": {
                 "schema": {
@@ -1246,7 +1658,37 @@
         },
         "responses": {
           "200": {
-            "description": "成功",
+            "description": "成功，返回审核记录 ID（可用于撤销）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "reviewId": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "reviewId"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "参数错误",
             "content": {
               "application/json": {
                 "schema": {
@@ -1267,8 +1709,8 @@
               }
             }
           },
-          "400": {
-            "description": "参数错误",
+          "403": {
+            "description": "权限不足（需要 reviewer 或更高）",
             "content": {
               "application/json": {
                 "schema": {
@@ -1355,6 +1797,28 @@
         "responses": {
           "200": {
             "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "权限不足",
             "content": {
               "application/json": {
                 "schema": {
@@ -1540,12 +2004,229 @@
         }
       }
     },
+    "/entities/bulk-tag": {
+      "post": {
+        "tags": [
+          "实体标签"
+        ],
+        "summary": "批量打标",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "entityType": {
+                    "type": "string",
+                    "minLength": 1,
+                    "description": "实体类型"
+                  },
+                  "entityIds": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "minItems": 1,
+                    "maxItems": 1000,
+                    "description": "目标实体 id 列表，最多 1000",
+                    "example": [
+                      "dish-001",
+                      "dish-002"
+                    ]
+                  },
+                  "tagIds": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "minItems": 1,
+                    "maxItems": 50,
+                    "description": "要打的标签 id 列表，最多 50"
+                  },
+                  "source": {
+                    "type": "string",
+                    "enum": [
+                      "manual",
+                      "ai",
+                      "system",
+                      "import"
+                    ],
+                    "default": "manual"
+                  },
+                  "confidence": {
+                    "type": "number",
+                    "nullable": true,
+                    "minimum": 0,
+                    "maximum": 1
+                  },
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "active",
+                      "pending",
+                      "rejected"
+                    ],
+                    "description": "缺省：ai→pending，其他→active"
+                  },
+                  "mode": {
+                    "type": "string",
+                    "enum": [
+                      "add",
+                      "replace"
+                    ],
+                    "default": "add",
+                    "description": "add=追加，跳过冲突；replace=先清同 group 已有再写"
+                  }
+                },
+                "required": [
+                  "entityType",
+                  "entityIds",
+                  "tagIds"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "成功（含 succeeded / failed / errors[]，部分失败也是 200）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "succeeded": {
+                          "type": "integer",
+                          "description": "成功写入标签的实体数"
+                        },
+                        "failed": {
+                          "type": "integer",
+                          "description": "因冲突跳过的实体数（= errors.length）"
+                        },
+                        "errors": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "entityId": {
+                                "type": "string"
+                              },
+                              "error": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "entityId",
+                              "error"
+                            ]
+                          }
+                        }
+                      },
+                      "required": [
+                        "succeeded",
+                        "failed",
+                        "errors"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "参数错误（如 ai 缺 confidence）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "权限不足（需 writer）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message"
+                  ]
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "标签不合法（全局校验失败）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/entities/{entityType}/{entityId}": {
       "post": {
         "tags": [
           "实体"
         ],
         "summary": "注册实体",
+        "description": "幂等注册：已注册的实体重复调用时，若传入 metadata 则更新，否则保留原值。",
         "security": [
           {
             "BearerAuth": []
@@ -1575,9 +2256,139 @@
             "in": "path"
           }
         ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "metadata": {
+                    "type": "object",
+                    "additionalProperties": {
+                      "type": "string"
+                    },
+                    "description": "实体元数据，首次注册时提供；PATCH 时传入会覆盖全量替换",
+                    "example": {
+                      "name": "宫保鸡丁",
+                      "description": "经典川菜，酸甜微辣",
+                      "category": "热菜"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "注册成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "实体"
+        ],
+        "summary": "更新实体 metadata",
+        "description": "全量替换 metadata；传 null 清空；实体不存在则 404。",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "description": "实体类型，如 dish / dining"
+            },
+            "required": true,
+            "description": "实体类型，如 dish / dining",
+            "name": "entityType",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "description": "实体唯一标识符"
+            },
+            "required": true,
+            "description": "实体唯一标识符",
+            "name": "entityId",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "metadata": {
+                    "type": "object",
+                    "additionalProperties": {
+                      "type": "string"
+                    },
+                    "description": "实体元数据，首次注册时提供；PATCH 时传入会覆盖全量替换",
+                    "example": {
+                      "name": "宫保鸡丁",
+                      "description": "经典川菜，酸甜微辣",
+                      "category": "热菜"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "更新成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "实体未注册",
             "content": {
               "application/json": {
                 "schema": {
@@ -1740,6 +2551,19 @@
                               "type": "string"
                             }
                           ]
+                        },
+                        "metadata": {
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": {
+                            "type": "string"
+                          },
+                          "description": "实体元数据 KV 映射。推荐字段：name（名称）、description（描述）、imageUrl（图片URL）、category（分类）。AI 标签建议功能依赖这些字段生成高质量建议。",
+                          "example": {
+                            "name": "宫保鸡丁",
+                            "description": "经典川菜，酸甜微辣",
+                            "category": "热菜"
+                          }
                         },
                         "tags": {
                           "type": "array",
@@ -1912,6 +2736,20 @@
             },
             "required": false,
             "name": "previewSize",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "true",
+                "false"
+              ],
+              "description": "仅返回软删除分组（回收站）"
+            },
+            "required": false,
+            "description": "仅返回软删除分组（回收站）",
+            "name": "onlyDeleted",
             "in": "query"
           }
         ],
@@ -2720,7 +3558,7 @@
         "tags": [
           "标签分组"
         ],
-        "summary": "删除分组（软删除）",
+        "summary": "删除分组（软删除；?permanent=true 硬删）",
         "security": [
           {
             "BearerAuth": []
@@ -2748,6 +3586,20 @@
             },
             "required": false,
             "name": "force",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "1",
+                "true"
+              ],
+              "description": "硬删除（不可恢复，含 EntityTag 级联）"
+            },
+            "required": false,
+            "description": "硬删除（不可恢复，含 EntityTag 级联）",
+            "name": "permanent",
             "in": "query"
           }
         ],
@@ -2891,6 +3743,207 @@
         }
       }
     },
+    "/tag-groups/{groupId}/restore": {
+      "post": {
+        "tags": [
+          "标签分组"
+        ],
+        "summary": "恢复软删除分组",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "description": "标签分组 ID"
+            },
+            "required": true,
+            "description": "标签分组 ID",
+            "name": "groupId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "slug": {
+                          "type": "string"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "description": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "entityScopes": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "allowMultiple": {
+                          "type": "boolean"
+                        },
+                        "sortOrder": {
+                          "type": "integer"
+                        },
+                        "createdAt": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "format": "date-time"
+                            },
+                            {
+                              "type": "string"
+                            }
+                          ]
+                        },
+                        "updatedAt": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "format": "date-time"
+                            },
+                            {
+                              "type": "string"
+                            }
+                          ]
+                        },
+                        "deletedAt": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "format": "date-time"
+                            },
+                            {
+                              "type": "string"
+                            },
+                            {
+                              "nullable": true
+                            }
+                          ]
+                        },
+                        "entityRules": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "groupId": {
+                                "type": "string"
+                              },
+                              "entityType": {
+                                "type": "string"
+                              },
+                              "allowMultiple": {
+                                "type": "boolean"
+                              }
+                            },
+                            "required": [
+                              "groupId",
+                              "entityType",
+                              "allowMultiple"
+                            ]
+                          }
+                        },
+                        "_count": {
+                          "type": "object",
+                          "properties": {
+                            "tags": {
+                              "type": "integer"
+                            }
+                          },
+                          "required": [
+                            "tags"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "slug",
+                        "name",
+                        "description",
+                        "entityScopes",
+                        "allowMultiple",
+                        "sortOrder",
+                        "createdAt",
+                        "updatedAt"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "不存在",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message"
+                  ]
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "slug 或 name 冲突",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/tag-groups/{groupId}/tags": {
       "get": {
         "tags": [
@@ -2930,6 +3983,20 @@
             },
             "required": false,
             "name": "pageSize",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "true",
+                "false"
+              ],
+              "description": "仅返回软删除标签（回收站）"
+            },
+            "required": false,
+            "description": "仅返回软删除标签（回收站）",
+            "name": "onlyDeleted",
             "in": "query"
           }
         ],
@@ -4376,7 +5443,7 @@
         "tags": [
           "标签"
         ],
-        "summary": "删除标签（软删除）",
+        "summary": "删除标签（软删除；?permanent=true 硬删）",
         "security": [
           {
             "BearerAuth": []
@@ -4404,6 +5471,20 @@
             },
             "required": false,
             "name": "force",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "1",
+                "true"
+              ],
+              "description": "硬删除（不可恢复，含 EntityTag 级联）"
+            },
+            "required": false,
+            "description": "硬删除（不可恢复，含 EntityTag 级联）",
+            "name": "permanent",
             "in": "query"
           }
         ],
@@ -4736,6 +5817,210 @@
           },
           "404": {
             "description": "不存在",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/tags/{tagId}/restore": {
+      "post": {
+        "tags": [
+          "标签"
+        ],
+        "summary": "恢复软删除标签",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "description": "标签 ID"
+            },
+            "required": true,
+            "description": "标签 ID",
+            "name": "tagId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "groupId": {
+                          "type": "string"
+                        },
+                        "slug": {
+                          "type": "string"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "description": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "parentId": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "path": {
+                          "type": "string"
+                        },
+                        "depth": {
+                          "type": "integer"
+                        },
+                        "sortOrder": {
+                          "type": "integer"
+                        },
+                        "createdAt": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "format": "date-time"
+                            },
+                            {
+                              "type": "string"
+                            }
+                          ]
+                        },
+                        "updatedAt": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "format": "date-time"
+                            },
+                            {
+                              "type": "string"
+                            }
+                          ]
+                        },
+                        "deletedAt": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "format": "date-time"
+                            },
+                            {
+                              "type": "string"
+                            },
+                            {
+                              "nullable": true
+                            }
+                          ]
+                        },
+                        "group": {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string"
+                            },
+                            "slug": {
+                              "type": "string"
+                            },
+                            "name": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "slug",
+                            "name"
+                          ]
+                        },
+                        "_count": {
+                          "type": "object",
+                          "properties": {
+                            "entityTags": {
+                              "type": "integer"
+                            }
+                          },
+                          "required": [
+                            "entityTags"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "groupId",
+                        "slug",
+                        "name",
+                        "description",
+                        "parentId",
+                        "path",
+                        "depth",
+                        "sortOrder",
+                        "createdAt",
+                        "updatedAt"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "不存在",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message"
+                  ]
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "slug 或 name 冲突",
             "content": {
               "application/json": {
                 "schema": {
@@ -5852,7 +7137,7 @@
           "检索"
         ],
         "summary": "多维检索（布尔表达式 + 分页 + facet）",
-        "description": "基于 BoolExpr DSL 检索实体。\n\n### BoolExpr leaf 类型\n\n| leaf | 含义 | 备注 |\n|------|------|------|\n| `{ \"tag\": \"<tagId>\" }` | 实体持有该 tagId | 精确匹配 |\n| `{ \"tagSlug\": \"<slug>\", \"groupSlug\": \"<groupSlug>?\" }` | 按 slug 匹配 | 不指定 groupSlug 时跨 group 全部命中 |\n| `{ \"tagAlias\": \"<alias>\", \"groupSlug\": \"<groupSlug>?\" }` | 经别名匹配 | 依赖 TagAlias 表 |\n| `{ \"descendantOf\": \"<tagId>\" }` | 该节点或其任意子孙 | 用 path 前缀匹配 |\n| `{ \"source\": [\"manual\",\"ai\",...] }` | 至少有一条 EntityTag 来自指定 source | |\n| `{ \"confidence\": { \"gte\": 0.7, \"lte\": 1 } }` | 至少一条 EntityTag 置信度落区间 | gte / lte 均可缺省 |\n| `{ \"status\": [\"active\",\"pending\",\"rejected\"] }` | 状态在列表内 | 其他 leaf 默认 status=active |\n| `{ \"and\": [...] }` / `{ \"or\": [...] }` / `{ \"not\": <expr> }` | 布尔组合 | 可嵌套任意深度 |\n\n### 注意\n- 每个 leaf 是独立 EXISTS 子查询，不要求\"同一条 EntityTag 同时满足多个 leaf\"。\n  例：`and: [{tag:\"X\"}, {source:[\"ai\"]}]` 表示\"既被打过 X 标签，也存在至少一条 AI 来源标签\"——可能不是同一条记录。\n- `tagSlug` / `tagAlias` / `descendantOf` 解析后若得不到任何 tagId，正向 leaf 永远不命中；包在 `not` 中时永远命中。\n- 缺省 `filter` 即返回该 entityType 下全部已注册实体（仍受分页限制）。",
+        "description": "基于 BoolExpr DSL 检索实体。\n\n### BoolExpr leaf 类型\n\n| leaf | 含义 | 备注 |\n|------|------|------|\n| `{ \"tag\": \"<tagId>\" }` | 实体持有该 tagId | 精确匹配 |\n| `{ \"tagSlug\": \"<slug>\", \"groupSlug\": \"<groupSlug>?\" }` | 按 slug 匹配 | 不指定 groupSlug 时跨 group 全部命中 |\n| `{ \"tagAlias\": \"<alias>\", \"groupSlug\": \"<groupSlug>?\" }` | 经别名匹配 | 依赖 TagAlias 表 |\n| `{ \"descendantOf\": \"<tagId>\" }` | 该节点或其任意子孙 | 用 path 前缀匹配 |\n| `{ \"text\": \"<关键词>\" }` | metadata 的 name/description 全文命中 | 作用于实体本身，可与标签 leaf 组合 |\n| `{ \"source\": [\"manual\",\"ai\",...] }` | 至少有一条 EntityTag 来自指定 source | |\n| `{ \"confidence\": { \"gte\": 0.7, \"lte\": 1 } }` | 至少一条 EntityTag 置信度落区间 | gte / lte 均可缺省 |\n| `{ \"status\": [\"active\",\"pending\",\"rejected\"] }` | 状态在列表内 | 其他 leaf 默认 status=active |\n| `{ \"and\": [...] }` / `{ \"or\": [...] }` / `{ \"not\": <expr> }` | 布尔组合 | 可嵌套任意深度 |\n\n### 注意\n- 每个 leaf 是独立 EXISTS 子查询，不要求\"同一条 EntityTag 同时满足多个 leaf\"。\n  例：`and: [{tag:\"X\"}, {source:[\"ai\"]}]` 表示\"既被打过 X 标签，也存在至少一条 AI 来源标签\"——可能不是同一条记录。\n- `tagSlug` / `tagAlias` / `descendantOf` 解析后若得不到任何 tagId，正向 leaf 永远不命中；包在 `not` 中时永远命中。\n- `text` leaf 不同于标签 leaf：它作用于**实体自身的 metadata**（name + description），不是 EXISTS 子查询。用 **ILIKE 子串匹配**（大小写不敏感），由 pg_trgm 索引加速；\"鸡\"可命中\"宫保鸡丁\"。与标签 leaf 组合即「标签过滤 + 关键词检索」。关键词里的 `%` / `_` 会被转义为字面量。\n- 缺省 `filter` 即返回该 entityType 下全部已注册实体（仍受分页限制）。",
         "security": [
           {
             "BearerAuth": []
@@ -6044,6 +7329,23 @@
                     "entityType": "dish",
                     "filter": {
                       "tagAlias": "麻辣"
+                    }
+                  }
+                },
+                "textAndTag": {
+                  "summary": "7.1 关键词 + 标签：川菜里名字/描述含\"鸡\"的菜",
+                  "value": {
+                    "entityType": "dish",
+                    "filter": {
+                      "and": [
+                        {
+                          "tagSlug": "sichuan",
+                          "groupSlug": "cuisine"
+                        },
+                        {
+                          "text": "鸡"
+                        }
+                      ]
                     }
                   }
                 },
@@ -7162,6 +8464,110 @@
           },
           "400": {
             "description": "加密失败 / 主密钥未配置",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/settings/system": {
+      "get": {
+        "tags": [
+          "系统设置"
+        ],
+        "summary": "获取系统配置",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/SystemConfig"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "data"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "系统设置"
+        ],
+        "summary": "更新系统配置（仅 admin）",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SystemConfigUpdateBody"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "参数错误",
             "content": {
               "application/json": {
                 "schema": {
