@@ -34,3 +34,7 @@ const spec = (app as any).getOpenAPIDocument({
 
 writeFileSync(outPath, JSON.stringify(spec, null, 2) + '\n', 'utf8')
 console.log(`✓  OpenAPI spec written to ${outPath}`)
+
+// buildApp() 实例化 Prisma client，其连接池会让事件循环常驻、进程不退出。
+// 本脚本只生成静态 spec、不查询 DB，显式退出避免 `pnpm gen:spec` 挂起。
+process.exit(0)

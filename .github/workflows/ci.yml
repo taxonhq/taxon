@@ -53,6 +53,10 @@ jobs:
       - name: Typecheck service
         run: pnpm -F tag-service typecheck
 
+      # openapi.json 必须与路由定义一致 —— 改了 schema/route 却没 gen:spec 会在此红
+      - name: Check OpenAPI drift
+        run: pnpm -F tag-service check:openapi
+
       - name: Run service tests
         run: pnpm -F tag-service test
 
