@@ -136,6 +136,25 @@ function compileLeaf(expr: BoolExpr, resolved: Resolved): Prisma.Sql {
     return existsByTagIds(ids)
   }
 
+  if ('text' in expr) {
+    // 关键词【子串】检索：作用于 RegisteredEntity.metadata（name + description）。
+    // 与标签 leaf 不同，metadata 在主表 re 上，直接产生条件、不包 EXISTS 子查询。
+    //
+    // 用 ILIKE '%kw%' 子串匹配，由 pg_trgm 的 gin_trgm_ops 索引加速。
+    // 为什么【不】用 to_tsvector 全文检索：'simple' 配置不对中文分词，整段 CJK
+    //   会被当作单个 token（'宫保鸡丁' 是一个词），而 FTS 匹配整词、非子串，
+    //   于是 '鸡' 命中不了 '宫保鸡丁'。子串语义才是"名字/描述含关键词"的真实需求。
+    // ⚠ 拼接表达式必须与 migration 20260530000000_metadata_trgm_search 的
+    //   gin_trgm_ops 索引表达式逐字一致，否则无法命中索引。
+    //
+    // 转义 LIKE 元字符（\ % _），避免关键词里的 % / _ 被当通配符（默认转义符为 \）。
+    const escaped = expr.text.replace(/[\\%_]/g, '\\$&')
+    const pattern = `%${escaped}%`
+    return Prisma.sql`(
+        COALESCE(re."metadata"->>'name', '') || ' ' || COALESCE(re."metadata"->>'description', '')
+      ) ILIKE ${pattern}`
+  }
+
   if ('source' in expr) {
     return Prisma.sql`EXISTS (
       SELECT 1 FROM "EntityTag" et

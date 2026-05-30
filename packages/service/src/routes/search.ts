@@ -36,6 +36,7 @@ const SEARCH_DESCRIPTION = `
 | \`{ "tagSlug": "<slug>", "groupSlug": "<groupSlug>?" }\` | 按 slug 匹配 | 不指定 groupSlug 时跨 group 全部命中 |
 | \`{ "tagAlias": "<alias>", "groupSlug": "<groupSlug>?" }\` | 经别名匹配 | 依赖 TagAlias 表 |
 | \`{ "descendantOf": "<tagId>" }\` | 该节点或其任意子孙 | 用 path 前缀匹配 |
+| \`{ "text": "<关键词>" }\` | metadata 的 name/description 全文命中 | 作用于实体本身，可与标签 leaf 组合 |
 | \`{ "source": ["manual","ai",...] }\` | 至少有一条 EntityTag 来自指定 source | |
 | \`{ "confidence": { "gte": 0.7, "lte": 1 } }\` | 至少一条 EntityTag 置信度落区间 | gte / lte 均可缺省 |
 | \`{ "status": ["active","pending","rejected"] }\` | 状态在列表内 | 其他 leaf 默认 status=active |
@@ -45,6 +46,7 @@ const SEARCH_DESCRIPTION = `
 - 每个 leaf 是独立 EXISTS 子查询，不要求"同一条 EntityTag 同时满足多个 leaf"。
   例：\`and: [{tag:"X"}, {source:["ai"]}]\` 表示"既被打过 X 标签，也存在至少一条 AI 来源标签"——可能不是同一条记录。
 - \`tagSlug\` / \`tagAlias\` / \`descendantOf\` 解析后若得不到任何 tagId，正向 leaf 永远不命中；包在 \`not\` 中时永远命中。
+- \`text\` leaf 不同于标签 leaf：它作用于**实体自身的 metadata**（name + description），不是 EXISTS 子查询。用 **ILIKE 子串匹配**（大小写不敏感），由 pg_trgm 索引加速；"鸡"可命中"宫保鸡丁"。与标签 leaf 组合即「标签过滤 + 关键词检索」。关键词里的 \`%\` / \`_\` 会被转义为字面量。
 - 缺省 \`filter\` 即返回该 entityType 下全部已注册实体（仍受分页限制）。
 `.trim()
 
@@ -125,6 +127,19 @@ const exampleAlias = {
   value: {
     entityType: 'dish',
     filter: { tagAlias: '麻辣' },
+  },
+}
+
+const exampleTextAndTag = {
+  summary: '7.1 关键词 + 标签：川菜里名字/描述含"鸡"的菜',
+  value: {
+    entityType: 'dish',
+    filter: {
+      and: [
+        { tagSlug: 'sichuan', groupSlug: 'cuisine' },
+        { text: '鸡' },
+      ],
+    },
   },
 }
 
@@ -220,6 +235,7 @@ const searchEntitiesRoute = createRoute({
             nested:          exampleNested,
             descendant:      exampleDescendant,
             alias:           exampleAlias,
+            textAndTag:      exampleTextAndTag,
             confidenceRange: exampleConfidenceRange,
             auditFlow:       exampleAuditFlow,
             facetsOnly:      exampleFacetsOnly,

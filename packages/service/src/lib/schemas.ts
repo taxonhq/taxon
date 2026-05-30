@@ -300,6 +300,7 @@ export type BoolExpr =
   | { tagSlug: string; groupSlug?: string }
   | { tagAlias: string; groupSlug?: string }
   | { descendantOf: string }
+  | { text: string }
   | { source: ('manual' | 'ai' | 'system' | 'import')[] }
   | { confidence: { gte?: number; lte?: number } }
   | { status: ('active' | 'pending' | 'rejected')[] }
@@ -313,6 +314,7 @@ export const BoolExprSchema: z.ZodType<BoolExpr> = z.lazy(() =>
     z.object({ tagSlug:      z.string().min(1), groupSlug: z.string().min(1).optional() }).strict(),
     z.object({ tagAlias:     z.string().min(1), groupSlug: z.string().min(1).optional() }).strict(),
     z.object({ descendantOf: z.string().min(1) }).strict(),
+    z.object({ text:         z.string().min(1) }).strict(),
     z.object({ source:       z.array(TagSourceEnum).min(1) }).strict(),
     z.object({ confidence:   z.object({ gte: z.number().min(0).max(1).optional(), lte: z.number().min(0).max(1).optional() }).strict() }).strict(),
     z.object({ status:       z.array(TagStatusEnum).min(1) }).strict(),
