@@ -1,9 +1,13 @@
 @import "tailwindcss";
 
 /* ── Fonts ────────────────────────────────────────────────────────────── */
+/* Mycelial 设计语言（#109）：主 sans = Hanken Grotesk + Noto Sans SC（CJK）。
+   --font-mono 保持 Geist Mono（密集数字表格依赖其字宽，暂不换）；
+   Space Mono 作为外壳标号/读数专用，经 --font-myc-mono 暴露。 */
 @theme inline {
-  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-sans: var(--font-hanken), "Noto Sans SC", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-geist-mono), ui-monospace, "SF Mono", monospace;
+  --font-myc-mono: var(--font-space-mono), var(--font-geist-mono), ui-monospace, monospace;
 }
 
 /* ── Design tokens ────────────────────────────────────────────────────── */
@@ -388,4 +392,122 @@ body {
 .bento-edit .react-grid-item:hover .react-resizable-handle-s::after,
 .bento-edit .react-grid-item:hover .react-resizable-handle-e::after {
   border-color: rgba(255, 255, 255, 0.5) !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════ */
+/* 菌丝 / Mycelial 设计语言 —— 画布优先外壳（#109 阶段 1）                   */
+/* 基准：docs/design/mycelial/mockup-canvas-bright.html + design-notes §2    */
+/* 命名空间隔离：token 用 --myc-*，类用 .myc-*，零碰撞现有页面 token。       */
+/* 外壳是主题无关的「提亮暖调」暗壳；页面内部 token 不动，阶段 2 逐页迁。     */
+/* ═══════════════════════════════════════════════════════════════════════ */
+:root {
+  --myc-soil:   #221a12;            /* 暖腐殖土底 */
+  --myc-soil2:  #2c2317;            /* 次级表面 */
+  --myc-cream:  #f1e9da;            /* 外壳主文字 */
+  --myc-dim:    #ab9e89;            /* 外壳次文字 */
+  --myc-bio:    #6ff5c8;            /* 生物荧光 teal —— 主强调 / 维度节点 */
+  --myc-bio2:   #c4f85a;            /* 孢子 lime —— 高频 / 活跃 */
+  --myc-amber:  #eaa066;            /* 暖土 —— 跨维共现 / 警示 */
+  --myc-thread: rgba(111,245,200,.34);  /* 菌丝线 */
+  --myc-line:   rgba(241,233,218,.12);   /* 中性细线 */
+  --myc-glass:  rgba(28,22,15,.5);       /* 悬浮 chrome 玻璃 */
+  --myc-sheet:  rgba(30,24,16,.72);      /* 密集页玻璃 sheet */
+  --myc-spine-w: 4.6rem;            /* nav-spine 让位宽度 */
+}
+
+/* ── 全屏画布：有机体即界面（装饰层，pointer 透传）─────────────────────── */
+.myc-canvas {
+  position: fixed; inset: 0; z-index: 0; pointer-events: none; overflow: hidden;
+  background:
+    radial-gradient(120% 100% at 18% 92%, #2f4034 0%, transparent 52%),
+    radial-gradient(110% 95% at 86% 12%, #3d2e1d 0%, transparent 48%),
+    radial-gradient(140% 130% at 50% 50%, #2c2317 0%, #221a12 80%), #221a12;
+}
+.myc-canvas svg { width: 100%; height: 100%; display: block; }
+.myc-hypha {
+  stroke: var(--myc-thread); fill: none; stroke-width: 1.4; stroke-linecap: round;
+  stroke-dasharray: 1100; stroke-dashoffset: 1100;
+  animation: myc-grow 3.2s cubic-bezier(.4,0,.2,1) forwards;
+}
+@keyframes myc-grow { to { stroke-dashoffset: 0; } }
+.myc-knot { position: absolute; transform: translate(-50%,-50%); text-align: center; opacity: 0; animation: myc-bloom 1s ease forwards; }
+@keyframes myc-bloom { from { opacity: 0; transform: translate(-50%,-50%) scale(.3); } to { opacity: 1; transform: translate(-50%,-50%) scale(1); } }
+.myc-cap {
+  width: var(--s); height: var(--s); border-radius: 50%; margin: 0 auto;
+  background: radial-gradient(circle at 38% 30%, #fff, var(--c) 58%);
+  box-shadow: 0 0 calc(var(--s)*1.3) var(--c);
+  animation: myc-glow var(--t) ease-in-out infinite alternate;
+}
+@keyframes myc-glow { from { filter: brightness(.85); } to { filter: brightness(1.35); } }
+.myc-knot label { display: block; font-weight: 500; font-size: var(--fs,.82rem); margin-top: .4em; color: var(--myc-cream); text-shadow: 0 1px 12px rgba(0,0,0,.7); white-space: nowrap; }
+.myc-knot .n { font-family: var(--font-myc-mono); font-size: .62em; color: var(--myc-bio); opacity: .8; }
+/* 密集页：画布退后让位于 sheet */
+.myc-canvas[data-dim="true"] { opacity: .38; filter: blur(2px); }
+
+/* ── 悬浮品牌（左上）───────────────────────────────────────────────────── */
+.myc-brand {
+  position: fixed; top: 1.5rem; left: var(--myc-spine-w); z-index: 10;
+  display: flex; align-items: center; gap: .5rem;
+  font-weight: 800; font-size: 1.2rem; letter-spacing: -.02em; color: var(--myc-cream);
+  text-decoration: none;
+}
+.myc-brand .spore { width: .6em; height: .6em; border-radius: 50%; background: var(--myc-bio); box-shadow: 0 0 16px var(--myc-bio); animation: myc-pulse 2.6s infinite; }
+@keyframes myc-pulse { 50% { transform: scale(1.35); box-shadow: 0 0 24px var(--myc-bio); } }
+
+/* ── 导航即菌丝：发光节点串（左侧竖列）──────────────────────────────────── */
+.myc-spine { position: fixed; left: 1.4rem; top: 50%; transform: translateY(-50%); z-index: 11; display: flex; flex-direction: column; align-items: center; gap: 1rem; }
+.myc-spine::before { content: ""; position: absolute; top: 14px; bottom: 14px; left: 50%; width: 1.5px; transform: translateX(-50%); background: linear-gradient(var(--myc-thread), rgba(111,245,200,.06)); z-index: -1; }
+.myc-gnode {
+  width: 30px; height: 30px; border-radius: 50%; border: 1.5px solid rgba(241,233,218,.26);
+  background: var(--myc-glass); backdrop-filter: blur(6px); position: relative; cursor: pointer;
+  transition: .2s; display: flex; align-items: center; justify-content: center; color: var(--myc-dim);
+}
+.myc-gnode > svg { width: 15px; height: 15px; transition: .2s; }
+.myc-gnode:hover { border-color: var(--myc-bio); color: var(--myc-bio); }
+.myc-gnode.on { border-color: var(--myc-bio); background: radial-gradient(circle at 38% 30%, #fff, var(--myc-bio) 62%); box-shadow: 0 0 16px var(--myc-bio); color: #0a1a12; }
+/* 标签：静止时 hover 滑出玻璃浮标；激活节点常显 */
+.myc-gnode::after {
+  content: attr(data-l); position: absolute; left: 2.5rem; top: 50%;
+  transform: translateY(-50%) translateX(-6px);
+  font-size: .78rem; font-weight: 600; white-space: nowrap; color: #fff;
+  text-shadow: 0 1px 10px rgba(0,0,0,.7); background: var(--myc-glass);
+  border: 1px solid var(--myc-thread); padding: .22em .6em; border-radius: 8px;
+  backdrop-filter: blur(8px); opacity: 0; pointer-events: none; transition: .18s;
+}
+.myc-gnode:hover::after,
+.myc-gnode:focus-visible::after { opacity: 1; transform: translateY(-50%) translateX(0); }
+.myc-gnode:focus-visible { outline: 2px solid var(--myc-bio); outline-offset: 2px; }
+.myc-gnode.on::after { opacity: 1; transform: translateY(-50%); background: none; border: none; backdrop-filter: none; padding: 0; color: var(--myc-cream); }
+
+/* ── 状态簇（右上漂浮）──────────────────────────────────────────────────── */
+.myc-status { position: fixed; top: 1.5rem; right: 1.6rem; z-index: 10; display: flex; align-items: center; gap: .7rem; }
+.myc-pill { display: flex; align-items: center; gap: .45rem; font-size: .72rem; padding: .34rem .75rem; border-radius: 999px; background: var(--myc-glass); border: 1px solid var(--myc-thread); backdrop-filter: blur(8px); color: var(--myc-cream); white-space: nowrap; }
+.myc-pill .d { width: .42em; height: .42em; border-radius: 50%; background: var(--myc-bio); box-shadow: 0 0 8px var(--myc-bio); }
+.myc-pill .d.ok  { background: var(--myc-bio);  box-shadow: 0 0 8px var(--myc-bio); }
+.myc-pill .d.bad { background: var(--myc-amber); box-shadow: 0 0 8px var(--myc-amber); }
+.myc-pill .d.checking { background: var(--myc-dim); box-shadow: none; animation: myc-pulse 1.4s infinite; }
+.myc-ghost { display: flex; align-items: center; gap: .35rem; font-size: .72rem; padding: .34rem .7rem; border-radius: 999px; border: 1px solid var(--myc-line); background: var(--myc-glass); backdrop-filter: blur(8px); color: var(--myc-dim); cursor: pointer; transition: .18s; }
+.myc-ghost:hover { color: var(--myc-cream); border-color: var(--myc-thread); }
+
+/* ── 命令提示（右下）───────────────────────────────────────────────────── */
+.myc-cmd { position: fixed; bottom: 1.5rem; right: 1.6rem; z-index: 10; font-size: .72rem; color: var(--myc-dim); display: flex; align-items: center; gap: .5rem; padding: .4rem .8rem; border-radius: 999px; background: var(--myc-glass); border: 1px solid var(--myc-line); backdrop-filter: blur(8px); cursor: pointer; transition: .18s; }
+.myc-cmd:hover { color: var(--myc-cream); border-color: var(--myc-thread); }
+.myc-cmd kbd { font-family: var(--font-myc-mono); background: rgba(241,233,218,.1); padding: .1em .45em; border-radius: 5px; font-size: .92em; }
+
+/* ── 内容区：clear spine + 浮于画布 ─────────────────────────────────────── */
+.myc-main { position: relative; z-index: 1; min-height: 100vh; padding-left: var(--myc-spine-w); }
+/* 英雄页（仪表盘 / 图谱）：全幅铺于画布，仅留出顶部 chrome 让位 */
+.myc-hero { padding: 4.6rem 1.6rem 1.6rem; }
+/* 密集页：内容置于半透明玻璃 sheet，浮于退后的画布之上 */
+.myc-sheet {
+  background: var(--myc-sheet); backdrop-filter: blur(16px);
+  border: 1px solid var(--myc-thread); border-radius: 18px;
+  margin: 4.6rem 1.6rem 1.6rem; padding: 2rem 2.4rem; min-height: calc(100vh - 6.2rem);
+  box-shadow: 0 12px 48px rgba(0,0,0,.32);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .myc-hypha, .myc-knot, .myc-cap, .myc-brand .spore, .myc-pill .d.checking { animation: none !important; }
+  .myc-hypha { stroke-dashoffset: 0; }
+  .myc-knot { opacity: 1; transform: translate(-50%,-50%); }
 }
