@@ -94,8 +94,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         Skip to content
       </a>
 
-      {/* ── 有机体画布（密集页退后让位）──────────────────────────── */}
-      <MycCanvas dim={!isDashboard} />
+      {/* ── 有机体画布（密集页背景；仪表盘改用真实数据驱动的有机体 hero，
+             故此处不渲染装饰版，避免真假两张网络并存的混淆）────────────── */}
+      {!isDashboard && <MycCanvas dim />}
 
       {/* ── 悬浮品牌 ─────────────────────────────────────────────── */}
       <Link href="/" className="myc-brand" aria-label="Taxon — 首页">

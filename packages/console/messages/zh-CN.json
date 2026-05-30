@@ -134,7 +134,9 @@
       "statPending": "待审核",
       "activityFeed": "最近活动",
       "healthBar": "服务健康"
-    }
+    },
+    "organismTitle": "标签有机体",
+    "organismHint": "按真实使用量生长 · 悬停看标签 · 分组为菌核"
   },
   "palette": {
     "searchPlaceholder": "搜索标签、分组、页面…",
