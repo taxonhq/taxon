@@ -14,49 +14,49 @@
 /* 单一来源原则：所有颜色先在 :root 中定义为语义化 CSS 变量，
    再在下方 @theme 中暴露给 Tailwind。light mode 只需覆盖此处变量。 */
 :root {
-  /* Surfaces */
-  --bg:          #000000;
-  --sidebar-bg:  #080808;
-  --card-bg:     #0F0F0F;
+  /* Surfaces — 菌丝暖土палет（#109 阶段 2 全局 retheme）。
+     页面表面在暖腐殖土基底上分层；语义色与哈希标签色保留。 */
+  --bg:          #1c1610;   /* 深暖基底（页面 bg，略深于画布 soil） */
+  --sidebar-bg:  #1a140d;   /* 遗留变量（已无边栏，少量引用兜底） */
+  --card-bg:     #2a2116;   /* 暖卡片，浮于画布之上 */
 
   /* Layered greys — must live in :root so [data-theme="light"] can override them
      and @theme inline can reference them via var().
      Tailwind v4 bakes @theme inline values at build time, so hardcoded hex values
      there cannot be overridden by CSS variables — they must be var() references. */
-  --surface-alt-raw: #111111;
-  --input-raw:       #0A0A0A;
-  --row-head-raw:    #0D0D0D;
-  --row-hover-raw:   #0E0E0E;
-  --overlay-raw:     #151515;
+  --surface-alt-raw: #2f2519;
+  --input-raw:       #221a11;
+  --row-head-raw:    #261d12;
+  --row-hover-raw:   #2c2317;
+  --overlay-raw:     #33291b;
 
-  /* Text — four-tier hierarchy
-     all tiers ≥ 4.5:1 contrast against --bg (#000) to meet WCAG AA. */
-  --text-primary:  #F2F2F2;   /* headings, values   — ~18.5:1 */
-  --text-body:     #A1A1AA;   /* body copy          — ~8.2:1  */
-  --text-subtle:   #9A9AA3;   /* secondary info     — ~6.8:1  */
-  --text-ghost:    #7A7A82;   /* labels, placeholders — ~4.9:1 */
+  /* Text — four-tier hierarchy（菌丝奶油→暗调，对 --bg #1c1610 均过 WCAG AA） */
+  --text-primary:  #f1e9da;   /* headings, values   — cream，~15:1 */
+  --text-body:     #c2b6a0;   /* body copy          — ~8:1  */
+  --text-subtle:   #ab9e89;   /* secondary info     — dim，~5.5:1 */
+  --text-ghost:    #8a7d68;   /* labels, placeholders — ~3.6:1，仅大字/非正文 */
 
-  /* Borders */
-  --border-faint:  #161616;
-  --border-base:   #27272A;
-  --border-strong: #3F3F46;
+  /* Borders — 暖土描边 */
+  --border-faint:  #342a1c;
+  --border-base:   #46392a;
+  --border-strong: #5e4d37;
 
-  /* Semantic */
-  --ok:    #22C55E;
-  --warn:  #EAB308;
-  --bad:   #EF4444;
+  /* Semantic — 暖调微调，保留可辨语义 */
+  --ok:    #5fe3b4;   /* 生物荧光 teal —— 健康/在线 */
+  --warn:  #eaa066;   /* 暖琥珀 —— 警示 */
+  --bad:   #f0664e;   /* 暖红 —— 危险/错误 */
 
-  /* Brand palette（深色默认；light mode 下可微调饱和度）*/
-  --brand-1: #6366f1;
-  --brand-2: #a855f7;
-  --cyan:    #06b6d4;
-  --amber:   #f59e0b;
+  /* Brand palette → 菌丝强调（charts / 链接 / focus / selection）*/
+  --brand-1: #6ff5c8;   /* bio teal —— 主强调 */
+  --brand-2: #c4f85a;   /* 孢子 lime —— 次强调 */
+  --cyan:    #6ff5c8;
+  --amber:   #eaa066;
 
   /* ── 主按钮 ink hover/active（用于 bg-ink 类按钮的反馈态）─────────────
      dark 模式：ink=#F2F2F2，hover 更亮 → #FFFFFF；active 更暗 → #E8E8E8
      light 模式：ink=#111111，hover 更暗 → #000；active 更亮 → #1F1F1F  */
   --ink-hover:   #FFFFFF;
-  --ink-active:  #E8E8E8;
+  --ink-active:  #e6dcc8;
 
   /* ── 细微背景 tint（替换散落的 rgba(255,255,255,0.0X)）────────────────
      subtle：极淡 hover / 非激活态
@@ -206,7 +206,7 @@ body {
   /* 深色模式：白色中心光晕；浅色模式：无背景图 */
   background-image: radial-gradient(
     ellipse 60% 40% at 65% 0%,
-    var(--glow-color, rgba(255,255,255,0.024)) 0%,
+    var(--glow-color, rgba(111,245,200,0.04)) 0%,
     transparent 100%
   );
   background-attachment: fixed;
