@@ -5,7 +5,7 @@
  *
  * - ⌘K / Ctrl+K 唤起，Esc 关闭
  * - 三组结果：导航跳转 / 标签搜索（API，200ms debounce）/ 分组搜索（API）
- * - 操作：切换主题、拨动侧边栏（⌘B）
+ * - 操作：切换主题
  */
 
 import {
@@ -17,7 +17,7 @@ import { useTranslations } from "next-intl";
 import { Command } from "cmdk";
 import {
   LayoutDashboard, Layers, Box, ClipboardCheck, Search,
-  KeyRound, Sparkles, Tag, FolderOpen, SunMoon, PanelLeft,
+  KeyRound, Sparkles, Tag, FolderOpen, SunMoon,
   ArrowRight, ShieldCheck,
 } from "lucide-react";
 import { searchTags, getTagGroups, type Tag as TagType, type TagGroup } from "@/lib/api";
@@ -29,8 +29,6 @@ interface CommandPaletteProps {
   /** Whether the palette is visible */
   open: boolean;
   onOpenChange: (v: boolean) => void;
-  /** Called when user requests sidebar toggle (⌘B action) */
-  onToggleSidebar?: () => void;
 }
 
 // ── Static nav items (labels resolved at render time via useTranslations) ─────
@@ -89,7 +87,7 @@ function Hint({ label }: { label: string }) {
 
 // ── Main component ────────────────────────────────────────────────────────────
 
-export function CommandPalette({ open, onOpenChange, onToggleSidebar }: CommandPaletteProps) {
+export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
   const t = useTranslations("palette");
   const tNav = useTranslations("nav");
   const router = useRouter();
@@ -279,7 +277,7 @@ export function CommandPalette({ open, onOpenChange, onToggleSidebar }: CommandP
             )}
 
             {/* ── Actions ── */}
-            {(!query.trim() || t("toggleTheme").toLowerCase().includes(query.toLowerCase()) || t("toggleSidebar").toLowerCase().includes(query.toLowerCase())) && (
+            {(!query.trim() || t("toggleTheme").toLowerCase().includes(query.toLowerCase())) && (
               <Command.Group
                 heading={t("actionsHeading")}
                 className="[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-2xs [&_[cmdk-group-heading]]:font-semibold [&_[cmdk-group-heading]]:text-ink-faint [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:tracking-widest"
@@ -298,18 +296,6 @@ export function CommandPalette({ open, onOpenChange, onToggleSidebar }: CommandP
                     <ItemIcon><SunMoon size={13} /></ItemIcon>
                     <span className="flex-1">{t("toggleTheme")}</span>
                     <Hint label="light / dark" />
-                  </CmdItem>
-                )}
-                {(!query.trim() || t("toggleSidebar").toLowerCase().includes(query.toLowerCase()) || "sidebar".includes(query.toLowerCase())) && (
-                  <CmdItem
-                    onSelect={() => {
-                      close();
-                      onToggleSidebar?.();
-                    }}
-                  >
-                    <ItemIcon><PanelLeft size={13} /></ItemIcon>
-                    <span className="flex-1">{t("toggleSidebar")}</span>
-                    <Hint label="⌘B" />
                   </CmdItem>
                 )}
               </Command.Group>
