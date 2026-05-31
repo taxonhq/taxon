@@ -117,10 +117,11 @@ export function TagOrganism() {
           n.x = Math.max(pad, Math.min(W - pad, n.x ?? W / 2));
           n.y = Math.max(pad, Math.min(H - pad, n.y ?? H / 2));
         }
-        const byId = new Map(nodes.map(n => [n.id, n as Node & { x: number; y: number }]));
+        // 注意：forceLink 已把 link.source/target 由 id 字符串原地替换为节点对象引用，
+        // 这些引用与 nodes 同对象（上面的夹取已生效），直接读其 x/y 即可。
         const sLinks = links.map((l, i) => {
-          const s = byId.get(l.source as string)!;
-          const tg = byId.get(l.target as string)!;
+          const s = l.source as Node & { x: number; y: number };
+          const tg = l.target as Node & { x: number; y: number };
           return { sx: s.x, sy: s.y, tx: tg.x, ty: tg.y, color: s.color, delay: 0.15 + (i % 12) * 0.05 };
         });
         setSettled({ nodes: nodes as (Node & { x: number; y: number })[], links: sLinks });
