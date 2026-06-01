@@ -23,6 +23,7 @@ import {
   type AuditItem, type ReviewerStats, type LeaderboardItem,
 } from "@/lib/api";
 import { Button } from "@/components/ui/button";
+import { GroupDot } from "@/components/ui/group-dot";
 import { Dialog } from "@/components/ui/dialog";
 import { Select } from "@/components/ui/field";
 import { ErrorBanner } from "@/components/ui/error-banner";
@@ -859,7 +860,10 @@ export default function AuditPage() {
                     </td>
                     <td className="px-3 py-3">
                       <p className="text-base font-semibold text-ink">{item.tag.name}</p>
-                      <p className="text-xs text-ink-sub mt-0.5">{item.tag.group.name}</p>
+                      <p className="text-xs text-ink-sub mt-0.5 flex items-center gap-1.5">
+                        <GroupDot groupKey={item.tag.group.id} size={7} />
+                        {item.tag.group.name}
+                      </p>
                     </td>
                     <td className="px-3 py-3">
                       <p className="text-xs font-mono text-ink-dim">{item.entityType}</p>
