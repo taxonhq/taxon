@@ -18,6 +18,7 @@ import {
   type SimulationNodeDatum,
 } from "d3-force";
 import { getTagUsage, getTagGroups } from "@/lib/api";
+import { groupColor } from "@/lib/group-color";
 
 // 虚拟布局坐标空间（节点按 % 定位 → 自适应容器）
 const W = 1000;
@@ -30,16 +31,6 @@ const LABEL_TOP = 12;      // 标签节点中常显文字的数量（其余 hove
 const isLoadTestTag = (t: { slug: string; name: string }) =>
   /^perf/i.test(t.slug) || /性能/.test(t.name);
 
-// 菌丝调色：分组按哈希取色，bio/lime/amber 暖谱
-const GROUP_COLORS = [
-  "#6ff5c8", "#c4f85a", "#eaa066", "#5fe3b4", "#a8d96b",
-  "#d98a5a", "#8fd9c0", "#e0b87a", "#b0e85a", "#cf9a6a",
-];
-function colorOf(groupId: string): string {
-  let h = 0;
-  for (let i = 0; i < groupId.length; i++) h = (h * 31 + groupId.charCodeAt(i)) >>> 0;
-  return GROUP_COLORS[h % GROUP_COLORS.length];
-}
 
 type Kind = "hub" | "tag";
 interface Node extends SimulationNodeDatum {
@@ -96,14 +87,14 @@ export function TagOrganism() {
         for (const [gid, g] of usedGroups) {
           nodes.push({
             id: `g:${gid}`, kind: "hub", name: groupName.get(gid) ?? "?",
-            groupId: gid, color: colorOf(gid),
+            groupId: gid, color: groupColor(gid),
             r: 12 + Math.min(g.count, 10) * 1.1, usage: 0, glow: 3 + Math.random(),
           });
         }
         tags.forEach((t, idx) => {
           nodes.push({
             id: `t:${t.tagId}`, kind: "tag", name: t.name, groupId: t.groupId,
-            color: colorOf(t.groupId),
+            color: groupColor(t.groupId),
             r: 6 + Math.sqrt(t.usageCount / maxUsage) * 24,
             usage: t.usageCount, glow: 2.4 + Math.random() * 1.4,
             top: idx < LABEL_TOP,

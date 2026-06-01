@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { Plus, Box, ChevronRight, X, List, Share2 } from "lucide-react";
@@ -29,6 +30,8 @@ export default function EntitiesPage() {
   const [form, setForm]           = useState({ entityType: "", entityId: "" });
   const [view, setView]           = useState<"list" | "graph">("list");
   const [graphType, setGraphType] = useState("");
+  const [mounted, setMounted]     = useState(false);
+  useEffect(() => { setMounted(true); }, []);
 
   const load = async () => {
     setError("");
@@ -49,6 +52,13 @@ export default function EntitiesPage() {
       setGraphType([...types].sort((a, b) => b.count - a.count)[0].entityType);
     }
   }, [types, graphType]);
+  // 全视口图谱：Esc 退回列表
+  useEffect(() => {
+    if (view !== "graph") return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setView("list"); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [view]);
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -179,29 +189,41 @@ export default function EntitiesPage() {
             </Link>
           ))}
         </div>
-      ) : (
-        <div className="space-y-3 animate-fade-in">
-          <div className="flex items-center gap-2 flex-wrap">
-            <label className="text-xs text-ink-sub">{t("entityTypeLabel")}</label>
-            <select
-              value={graphType}
-              onChange={e => setGraphType(e.target.value)}
-              className="px-3 py-1.5 rounded-md border border-edge bg-input text-sm text-ink"
-            >
-              {types.map(ty => (
-                <option key={ty.entityType} value={ty.entityType}>{ty.entityType} ({ty.count})</option>
-              ))}
-            </select>
-            <span className="text-xs text-ink-faint">{t("graphHint")}</span>
-          </div>
-          <div
-            className="relative rounded-2xl overflow-hidden"
-            style={{ height: "68vh", minHeight: 440, border: "1px solid var(--myc-thread)", background: "var(--myc-soil)" }}
-          >
+      ) : mounted ? (
+        // 全视口画布：portal 到 body 逃出 sheet（sheet 的 backdrop-filter 会困住 fixed），
+        // 铺满整个视口，控件作悬浮 HUD；z 低于 nav-spine(11)/chrome(10) → 它们仍浮于其上可用
+        createPortal(
+          <div className="fixed inset-0 z-[5] animate-fade-in" style={{ background: "var(--myc-soil)" }}>
             {graphType && <EntityGraph key={graphType} entityType={graphType} />}
-          </div>
-        </div>
-      )}
+
+            <div
+              className="fixed top-4 left-1/2 -translate-x-1/2 z-[6] flex items-center gap-2.5 px-3 py-1.5 rounded-full"
+              style={{ background: "var(--myc-glass)", border: "1px solid var(--myc-thread)", backdropFilter: "blur(10px)" }}
+            >
+              <Share2 size={13} style={{ color: "var(--myc-bio)" }} />
+              <select
+                value={graphType}
+                onChange={e => setGraphType(e.target.value)}
+                className="bg-transparent text-sm outline-none cursor-pointer"
+                style={{ color: "var(--myc-cream)" }}
+              >
+                {types.map(ty => (
+                  <option key={ty.entityType} value={ty.entityType} style={{ color: "#1c1610" }}>{ty.entityType} ({ty.count})</option>
+                ))}
+              </select>
+              <span className="w-px h-4" style={{ background: "var(--myc-thread)" }} />
+              <button
+                onClick={() => setView("list")}
+                className="flex items-center gap-1 text-xs hover:opacity-80"
+                style={{ color: "var(--myc-dim)" }}
+              >
+                <List size={12} /> {t("viewList")}
+              </button>
+            </div>
+          </div>,
+          document.body,
+        )
+      ) : null}
     </div>
   );
 }

@@ -520,7 +520,8 @@ body {
   border: 1px solid var(--myc-thread); border-radius: 18px;
   /* 居中 + 限宽：宽屏让画布从两侧透气，同时恢复可读行宽（§8 sheet 偏大偏实） */
   width: calc(100% - 3.2rem); max-width: 1180px;
-  margin: 4.6rem auto 2rem; padding: 2rem 2.4rem; min-height: calc(100vh - 6.6rem);
+  /* 抱紧内容：低密度页不再强制满高，让画布从下方透气（#109 step4 灭留白） */
+  margin: 4.6rem auto 2rem; padding: 2rem 2.4rem; min-height: 40vh;
   box-shadow: 0 12px 48px rgba(0,0,0,.32);
 }
 

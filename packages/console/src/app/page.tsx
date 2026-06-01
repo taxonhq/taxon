@@ -11,11 +11,12 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import ReactGridLayout, { type LayoutItem } from "react-grid-layout/legacy";
 import "react-grid-layout/css/styles.css";
 import { useTranslations } from "next-intl";
 import {
-  RefreshCw, Pencil, Check, GripHorizontal, RotateCcw,
+  RefreshCw, Pencil, Check, GripHorizontal, RotateCcw, Maximize2, X,
 } from "lucide-react";
 import {
   getDashboardLayout, saveDashboardLayout,
@@ -25,7 +26,7 @@ import { cn } from "@/lib/utils";
 import { PageHeader } from "@/components/ui/page-header";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useDashboardData } from "@/components/dashboard/use-dashboard-data";
-import { renderWidget } from "@/components/dashboard/widgets";
+import { renderWidget, fmt } from "@/components/dashboard/widgets";
 import { TagOrganism } from "@/components/dashboard/tag-organism";
 import {
   ROW_H, MARGIN, PAD,
@@ -46,6 +47,15 @@ export default function DashboardPage() {
   const [layoutReady,   setLayoutReady]   = useState(false);
   const [confirmReset,  setConfirmReset]  = useState(false);
   const [breakpoint,  setBreakpoint]  = useState<BreakpointKey>("xl");
+  const [orgFull,     setOrgFull]     = useState(false);
+  const [mounted,     setMounted]     = useState(false);
+  useEffect(() => { setMounted(true); }, []);
+  useEffect(() => {
+    if (!orgFull) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setOrgFull(false); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [orgFull]);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   // ── 响应式断点检测 ────────────────────────────────────────────────
@@ -207,7 +217,43 @@ export default function DashboardPage() {
             </p>
             <p className="text-2xs mt-1" style={{ color: "var(--myc-dim)" }}>{t("organismHint")}</p>
           </div>
+          <button
+            onClick={() => setOrgFull(true)}
+            title="全屏画布"
+            className="absolute top-4 right-4 z-10 p-1.5 rounded-md"
+            style={{ background: "var(--myc-glass)", border: "1px solid var(--myc-thread)", color: "var(--myc-cream)", backdropFilter: "blur(8px)" }}
+          >
+            <Maximize2 size={14} />
+          </button>
         </section>
+      )}
+
+      {/* ───── 全屏有机体（portal 逃出 sheet · 画布优先 · KPI 悬浮 HUD）───── */}
+      {orgFull && mounted && createPortal(
+        <div className="fixed inset-0 z-[5] animate-fade-in" style={{ background: "var(--myc-soil)" }}>
+          <TagOrganism />
+          <div className="fixed z-[6]" style={{ top: "5.5rem", left: "5rem" }}>
+            <HudStat label={t("statsGroupsTitle")} value={fmt(data?.stats?.groups ?? 0)} />
+          </div>
+          <div className="fixed z-[6]" style={{ top: "5.5rem", right: "1.8rem", textAlign: "right" }}>
+            <HudStat label={t("statsTagsTitle")} value={fmt(data?.stats?.tags ?? 0)} glow />
+          </div>
+          <div className="fixed z-[6]" style={{ bottom: "5.5rem", left: "5rem" }}>
+            <HudStat label={t("statsEntitiesTitle")} value={fmt(data?.stats?.entities ?? 0)} />
+          </div>
+          <div className="fixed z-[6]" style={{ bottom: "5.5rem", right: "1.8rem", textAlign: "right" }}>
+            <HudStat label={t("statsAuditsTitle")} value={fmt(data?.stats?.pending ?? 0)} amber />
+          </div>
+          <button
+            onClick={() => setOrgFull(false)}
+            title="退出全屏 (Esc)"
+            className="fixed top-4 left-1/2 -translate-x-1/2 z-[7] flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs"
+            style={{ background: "var(--myc-glass)", border: "1px solid var(--myc-thread)", color: "var(--myc-dim)", backdropFilter: "blur(10px)" }}
+          >
+            <X size={12} /> 退出全屏
+          </button>
+        </div>,
+        document.body,
       )}
 
       {/* ───── 画布 ───────────────────────────────────────────────── */}
@@ -329,6 +375,24 @@ function EditHeader({ id, item, onSwitchSize }: {
           })}
         </div>
       )}
+    </div>
+  );
+}
+
+// 全屏有机体的四角 KPI 悬浮读数（HUD）
+function HudStat({ label, value, glow, amber }: { label: string; value: string; glow?: boolean; amber?: boolean }) {
+  return (
+    <div className="pointer-events-none">
+      <div style={{ fontFamily: "var(--font-myc-mono)", fontSize: ".58rem", letterSpacing: ".18em", textTransform: "uppercase", color: "var(--myc-dim)" }}>
+        {label}
+      </div>
+      <div style={{
+        fontSize: "clamp(1.6rem,3vw,2.8rem)", fontWeight: 800, lineHeight: 1, marginTop: ".25rem", letterSpacing: "-.02em",
+        color: amber ? "var(--myc-amber)" : "var(--myc-cream)",
+        textShadow: glow ? "0 0 30px rgba(111,245,200,.5)" : "none",
+      }}>
+        {value}
+      </div>
     </div>
   );
 }

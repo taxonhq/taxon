@@ -6,7 +6,7 @@ import { useTranslations } from "next-intl";
 import { Plus, Trash2, CheckCircle, XCircle, ChevronDown, X } from "lucide-react";
 import {
   getEntityTags, addEntityTag, removeEntityTag, updateEntityTagStatus,
-  unregisterEntity, getTagGroups, getGroupTags,
+  unregisterEntity, getTagGroups, getGroupTags, getEntity,
   type EntityTagItem, type TagGroup, type Tag,
 } from "@/lib/api";
 import { Button } from "@/components/ui/button";
@@ -37,6 +37,7 @@ export default function EntityDetailPage() {
   const [tagsPageSize, setTagsPageSize] = useState(TAGS_PAGE_SIZE_DEFAULT);
   const [loading, setLoading]           = useState(true);
   const [error, setError]               = useState("");
+  const [meta, setMeta]                 = useState<Record<string, unknown> | null>(null);
   const [processing, setProcessing]     = useState<Set<string>>(new Set());
 
   // Add tag form state
@@ -58,8 +59,12 @@ export default function EntityDetailPage() {
     setError("");
     setTagPage(1);
     try {
-      const data = await getEntityTags(entityType, entityId);
+      const [data, detail] = await Promise.all([
+        getEntityTags(entityType, entityId),
+        getEntity(entityType, entityId).catch(() => null),
+      ]);
       setTags(data);
+      setMeta(detail?.metadata ?? null);
     } catch (err) {
       if (err instanceof Error && (err.message.includes("未注册") || err.message.includes("not registered"))) {
         setError(t("entityNotFound"));
@@ -199,6 +204,34 @@ export default function EntityDetailPage() {
       />
 
       <ErrorBanner message={error} />
+
+      {/* 实体 metadata（name / description / 其余字段）—— #109 详情补全 */}
+      {meta && Object.keys(meta).length > 0 && (
+        <div className="card-border overflow-hidden p-5 animate-fade-in">
+          <p className="text-2xs font-semibold uppercase tracking-[0.12em] text-ink-faint mb-3">{t("metadataTitle")}</p>
+          {typeof meta.name === "string" && meta.name && (
+            <p className="text-lg font-semibold text-ink" style={{ letterSpacing: "-0.01em" }}>{meta.name}</p>
+          )}
+          {typeof meta.description === "string" && meta.description && (
+            <p className="text-sm text-ink-sub mt-1 leading-relaxed">{meta.description}</p>
+          )}
+          {(() => {
+            const rest = Object.entries(meta).filter(([k]) => k !== "name" && k !== "description");
+            return rest.length > 0 ? (
+              <dl className="grid grid-cols-2 gap-x-6 gap-y-2.5 mt-4 pt-4 border-t border-edge">
+                {rest.map(([k, v]) => (
+                  <div key={k} className="flex flex-col min-w-0">
+                    <dt className="text-2xs text-ink-faint font-mono">{k}</dt>
+                    <dd className="text-sm text-ink-dim break-words">
+                      {typeof v === "object" ? JSON.stringify(v) : String(v)}
+                    </dd>
+                  </div>
+                ))}
+              </dl>
+            ) : null;
+          })()}
+        </div>
+      )}
 
       {/* Add tag form */}
       {showAddForm && (

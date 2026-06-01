@@ -8,6 +8,7 @@ import {
   TrendingUp, TrendingDown, AlertTriangle, CheckCircle2,
 } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
+import { GroupDot } from "@/components/ui/group-dot";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { toast } from "@/components/ui/toast";
 import {
@@ -164,8 +165,9 @@ function UsagePanel() {
                 <td className="px-4 py-3">
                   <Link
                     href={`/groups/${item.groupId}`}
-                    className="flex items-center gap-1 text-ink-dim hover:text-ink transition-colors"
+                    className="flex items-center gap-1.5 text-ink-dim hover:text-ink transition-colors"
                   >
+                    <GroupDot groupKey={item.groupId} />
                     {item.groupName}
                     <ExternalLink size={10} className="opacity-50" />
                   </Link>
@@ -297,8 +299,9 @@ function DeadTagsPanel() {
                 <td className="px-4 py-3">
                   <Link
                     href={`/groups/${item.groupId}`}
-                    className="flex items-center gap-1 text-ink-dim hover:text-ink transition-colors"
+                    className="flex items-center gap-1.5 text-ink-dim hover:text-ink transition-colors"
                   >
+                    <GroupDot groupKey={item.groupId} />
                     {item.groupName}
                     <ExternalLink size={10} className="opacity-50" />
                   </Link>
@@ -452,8 +455,9 @@ function DuplicatesPanel() {
                   <div className="flex items-center gap-3 mt-1 text-xs text-ink-faint">
                     <Link
                       href={`/groups/${pair.groupId}`}
-                      className="hover:text-ink transition-colors flex items-center gap-1"
+                      className="hover:text-ink transition-colors flex items-center gap-1.5"
                     >
+                      <GroupDot groupKey={pair.groupId} />
                       {pair.groupName}
                       <ExternalLink size={9} className="opacity-50" />
                     </Link>
