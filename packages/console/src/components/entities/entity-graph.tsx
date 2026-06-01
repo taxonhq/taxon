@@ -123,13 +123,13 @@ export function EntityGraph({ entityType }: { entityType: string }) {
       .force("link", forceLink<GNode, { source: string; target: string }>(ls)
         .id(d => d.id)
         .distance(d => (d.source as unknown as GNode).r + (d.target as unknown as GNode).r + 40).strength(0.4))
-      .force("charge", forceManyBody().strength(-340))
+      .force("charge", forceManyBody().strength(-520).distanceMax(680))
       .force("center", forceCenter(W / 2, H / 2))
-      .force("x", forceX(W / 2).strength(0.04))
-      .force("y", forceY(H / 2).strength(0.05))
-      .force("collide", forceCollide<GNode>().radius(d => d.r + 10).strength(0.92))
+      .force("x", forceX(W / 2).strength(0.035))
+      .force("y", forceY(H / 2).strength(0.045))
+      .force("collide", forceCollide<GNode>().radius(d => d.r + 14).strength(1))
       .stop();
-    for (let i = 0; i < 280; i++) sim.tick();
+    for (let i = 0; i < 360; i++) sim.tick();
     setSnap(buildSnapshot());
   }, [buildSnapshot]);
 
@@ -155,9 +155,10 @@ export function EntityGraph({ entityType }: { entityType: string }) {
       const data = await getGraphNeighbors(id, 50);
       expanded.current.add(id);
       merge(data, id); relayout();
+      requestAnimationFrame(() => requestAnimationFrame(fitContent));
     } catch (e) { setError(String((e as Error).message ?? e)); }
     finally { setExpanding(null); }
-  }, [expanding, merge, relayout]);
+  }, [expanding, merge, relayout, fitContent]);
 
   // 节点拖拽（区分点击/拖动）
   const drag = useRef<{ id: string; sx: number; sy: number; x0: number; y0: number; moved: boolean } | null>(null);
