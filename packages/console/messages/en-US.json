@@ -412,7 +412,8 @@
     "clearSearch": "Clear search",
     "viewList": "List",
     "viewGraph": "Graph",
-    "graphHint": "Click a tag to expand its entities, an entity to expand its tags — explore the relationship network"
+    "graphHint": "Click a tag to expand its entities, an entity to expand its tags — explore the relationship network",
+    "metadataTitle": "Metadata"
   },
   "search": {
     "title": "Entity Search",

@@ -373,6 +373,17 @@ export async function getEntityTypes(): Promise<{ entityType: string; count: num
 
 // ── Entity Registration ───────────────────────────────────────────
 
+export interface EntityDetail {
+  entityType:   string;
+  entityId:     string;
+  registeredAt: string;
+  metadata:     Record<string, unknown> | null;
+}
+/** 取单个实体（含 metadata）；404 时 throw */
+export async function getEntity(entityType: string, entityId: string): Promise<EntityDetail> {
+  return req<EntityDetail>(`/entities/${encodeURIComponent(entityType)}/${encodeURIComponent(entityId)}`);
+}
+
 export async function getEntitiesByType(
   entityType: string,
   params?: { page?: number; pageSize?: number; search?: string; withTags?: boolean }
