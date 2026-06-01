@@ -409,7 +409,10 @@
     "unregisterDialogTitle": "Unregister Entity",
     "unregisterDialogDesc": "All {count} tag associations will be deleted. This cannot be undone.",
     "entityNotFound": "This entity is not registered or has been unregistered",
-    "clearSearch": "Clear search"
+    "clearSearch": "Clear search",
+    "viewList": "List",
+    "viewGraph": "Graph",
+    "graphHint": "Click a tag to expand its entities, an entity to expand its tags — explore the relationship network"
   },
   "search": {
     "title": "Entity Search",

@@ -409,7 +409,10 @@
     "unregisterDialogTitle": "注销实体",
     "unregisterDialogDesc": "该实体的所有标签关联（共 {count} 个）将一并删除，操作不可逆。",
     "entityNotFound": "该实体未注册或已被注销",
-    "clearSearch": "清除搜索"
+    "clearSearch": "清除搜索",
+    "viewList": "列表",
+    "viewGraph": "关系图谱",
+    "graphHint": "点标签展开实体、点实体展开标签，逐步探索关系网络"
   },
   "search": {
     "title": "实体检索",

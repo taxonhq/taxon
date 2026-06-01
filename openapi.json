@@ -209,6 +209,95 @@
         ],
         "description": "标签布尔表达式（缺省=全集）"
       },
+      "GraphData": {
+        "type": "object",
+        "properties": {
+          "focus": {
+            "type": "string",
+            "nullable": true,
+            "description": "焦点节点 id（neighbors 即被展开的节点）"
+          },
+          "nodes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GraphNode"
+            }
+          },
+          "links": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GraphLink"
+            }
+          },
+          "truncated": {
+            "type": "boolean",
+            "description": "邻居数超过 limit 被截断"
+          }
+        },
+        "required": [
+          "focus",
+          "nodes",
+          "links",
+          "truncated"
+        ]
+      },
+      "GraphNode": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "tag:clxxx"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "entity",
+              "tag"
+            ]
+          },
+          "label": {
+            "type": "string"
+          },
+          "groupId": {
+            "type": "string"
+          },
+          "groupSlug": {
+            "type": "string"
+          },
+          "entityCount": {
+            "type": "integer"
+          },
+          "entityType": {
+            "type": "string"
+          },
+          "entityId": {
+            "type": "string"
+          },
+          "tagCount": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "label"
+        ]
+      },
+      "GraphLink": {
+        "type": "object",
+        "properties": {
+          "source": {
+            "type": "string"
+          },
+          "target": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "source",
+          "target"
+        ]
+      },
       "SystemConfig": {
         "type": "object",
         "properties": {
@@ -8274,6 +8363,231 @@
           },
           "400": {
             "description": "参数错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/entity-graph/focus": {
+      "get": {
+        "tags": [
+          "实体图谱"
+        ],
+        "summary": "推荐起始焦点（某 entityType 下最热标签）+ 其邻居",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "example": "dish"
+            },
+            "required": true,
+            "name": "entityType",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "limit",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/GraphData"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "该类型下无标签数据",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message"
+                  ]
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "服务器错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/entity-graph/neighbors": {
+      "get": {
+        "tags": [
+          "实体图谱"
+        ],
+        "summary": "展开某节点的直接邻居（懒加载，永不全量）",
+        "description": "`node` 为 `tag:<tagId>` 或 `entity:<entityType>:<entityId>`。返回该节点 + 其 active 邻居（受 limit 兜底，超出标 truncated）。",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "example": "tag:clxxx"
+            },
+            "required": true,
+            "name": "node",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "limit",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/GraphData"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "node 格式非法",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "节点不存在",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message"
+                  ]
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "服务器错误",
             "content": {
               "application/json": {
                 "schema": {
