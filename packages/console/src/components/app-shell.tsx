@@ -22,6 +22,7 @@ const SERVICE_DISPLAY = BASE.replace(/^https?:\/\//, "");
 export function AppShell({ children }: { children: React.ReactNode }) {
   const t = useTranslations("nav");
   const sysT = useTranslations("system");
+  const tCommon = useTranslations("common");
   const pathname = usePathname();
   const isDashboard = pathname === "/";
 
@@ -94,8 +95,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         Skip to content
       </a>
 
-      {/* ── 有机体画布（密集页退后让位）──────────────────────────── */}
-      <MycCanvas dim={!isDashboard} />
+      {/* ── 有机体画布（密集页背景；仪表盘改用真实数据驱动的有机体 hero，
+             故此处不渲染装饰版，避免真假两张网络并存的混淆）────────────── */}
+      {!isDashboard && <MycCanvas dim />}
 
       {/* ── 悬浮品牌 ─────────────────────────────────────────────── */}
       <Link href="/" className="myc-brand" aria-label="Taxon — 首页">
@@ -134,9 +136,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </button>
       </div>
 
-      {/* ── 命令提示（右下）──────────────────────────────────────── */}
+      {/* ── 命令提示（右下）── ⌘K 命令面板用「搜索」（#102 canon：功能=检索，⌘K=搜索）── */}
       <button className="myc-cmd" onClick={() => setCmdOpen(true)} aria-label="Open command palette">
-        <kbd>⌘K</kbd> {t("search")}
+        <kbd>⌘K</kbd> {tCommon("search")}
       </button>
 
       {/* ── 内容区 ───────────────────────────────────────────────── */}

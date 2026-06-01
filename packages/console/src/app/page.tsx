@@ -26,6 +26,7 @@ import { PageHeader } from "@/components/ui/page-header";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useDashboardData } from "@/components/dashboard/use-dashboard-data";
 import { renderWidget } from "@/components/dashboard/widgets";
+import { TagOrganism } from "@/components/dashboard/tag-organism";
 import {
   ROW_H, MARGIN, PAD,
   LAYOUT_VERSION,
@@ -192,6 +193,22 @@ export default function DashboardPage() {
         onConfirm={doResetLayout}
         onCancel={() => setConfirmReset(false)}
       />
+
+      {/* ───── 标签有机体 hero（#109 设计签名母题，design-notes §4）───── */}
+      {!editMode && (
+        <section
+          className="relative mx-4 mt-1 mb-3 rounded-2xl overflow-hidden"
+          style={{ height: "66vh", minHeight: 420, border: "1px solid var(--myc-thread)", background: "var(--myc-soil)" }}
+        >
+          <TagOrganism />
+          <div className="absolute top-4 left-5 z-10 pointer-events-none">
+            <p className="text-xs tracking-widest uppercase" style={{ color: "var(--myc-dim)", fontFamily: "var(--font-myc-mono)" }}>
+              {t("organismTitle")}
+            </p>
+            <p className="text-2xs mt-1" style={{ color: "var(--myc-dim)" }}>{t("organismHint")}</p>
+          </div>
+        </section>
+      )}
 
       {/* ───── 画布 ───────────────────────────────────────────────── */}
       <div

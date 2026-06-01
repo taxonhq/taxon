@@ -134,7 +134,9 @@
       "statPending": "Pending Review",
       "activityFeed": "Recent Activity",
       "healthBar": "Service Health"
-    }
+    },
+    "organismTitle": "Tag Organism",
+    "organismHint": "Grown by real usage · hover for labels · groups are cores"
   },
   "palette": {
     "searchPlaceholder": "Search tags, groups, pages…",
