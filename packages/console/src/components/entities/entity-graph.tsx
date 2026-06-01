@@ -57,6 +57,9 @@ export function EntityGraph({ entityType }: { entityType: string }) {
   const [error, setError] = useState<string | null>(null);
   const [hovered, setHovered] = useState<string | null>(null);
   const [truncated, setTruncated] = useState(false);
+  const [hidePerf, setHidePerf] = useState(true);
+  const hidePerfRef = useRef(hidePerf);
+  useEffect(() => { hidePerfRef.current = hidePerf; }, [hidePerf]);
 
   const { containerRef, cam, transform, onWheel, onBackgroundPointerDown, onPointerMove, onPointerUp, fitBounds } = usePanZoom(W, H);
   const kRef = useRef(cam.k);
@@ -77,7 +80,14 @@ export function EntityGraph({ entityType }: { entityType: string }) {
 
   // 由累积结构（ref）派生渲染快照（不跑布局）；仅在 effect/handler 调用
   const buildSnapshot = useCallback((): Snapshot => {
-    const rnodes: RNode[] = [...nodes.current.values()].map(n => ({
+    // 隐藏压测数据：滤掉 perf-grp/性能 的标签节点（噪声），及触及它们的边
+    const hidden = new Set<string>();
+    if (hidePerfRef.current) {
+      for (const n of nodes.current.values()) {
+        if (n.kind === "tag" && /perf|性能/i.test(n.label)) hidden.add(n.id);
+      }
+    }
+    const rnodes: RNode[] = [...nodes.current.values()].filter(n => !hidden.has(n.id)).map(n => ({
       id: n.id, kind: n.kind, label: n.label, color: n.color, r: n.r, degree: n.degree,
       x: n.x ?? W / 2, y: n.y ?? H / 2, expanded: expanded.current.has(n.id),
       entityType: n.entityType, entityId: n.entityId,
@@ -85,6 +95,7 @@ export function EntityGraph({ entityType }: { entityType: string }) {
     const edges: REdge[] = [];
     for (const k of links.current) {
       const [s, t] = k.split(" ");
+      if (hidden.has(s) || hidden.has(t)) continue;
       const a = nodes.current.get(s), b = nodes.current.get(t);
       if (!a || !b) continue;
       const tagNode = a.kind === "tag" ? a : b;
@@ -263,6 +274,15 @@ export function EntityGraph({ entityType }: { entityType: string }) {
         <span>· 点节点展开 · 拖节点/空白 · 滚轮缩放</span>
         {truncated && <span style={{ color: "var(--myc-amber)" }}>· 邻居超 limit 已截断</span>}
       </div>
+      <button
+        onClick={() => { setHidePerf(v => !v); requestAnimationFrame(() => setSnap(buildSnapshot())); }}
+        className="absolute bottom-3 right-4 px-2.5 py-1 rounded-full text-2xs z-[7]"
+        style={{ background: "var(--myc-glass)", border: `1px solid ${hidePerf ? "var(--myc-thread)" : "var(--myc-amber)"}`,
+          color: hidePerf ? "var(--myc-dim)" : "var(--myc-amber)", backdropFilter: "blur(8px)" }}
+        title="压测标签噪声"
+      >
+        {hidePerf ? "已隐藏压测数据" : "显示压测数据"}
+      </button>
       <button onClick={fitContent} title="自适应居中"
         className="absolute bottom-14 right-4 p-1.5 rounded-md z-[7]"
         style={{ background: "var(--myc-glass)", border: "1px solid var(--myc-thread)", color: "var(--myc-cream)", backdropFilter: "blur(8px)" }}>
