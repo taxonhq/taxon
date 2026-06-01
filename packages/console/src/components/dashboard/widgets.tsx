@@ -342,11 +342,12 @@ export function TrendChart({ data }: { data: DashboardData }) {
 // ═══════════════════════════════════════════════════════════════
 // 4) Stat Mini — 含 sparkline 的统计小卡
 // ═══════════════════════════════════════════════════════════════
+// 菌丝调色（#109 step3）：bio teal / lime / 深 teal / 暖琥珀，取代旧 indigo/purple/cyan
 const STAT_CONFIG = {
-  "stat-groups":   { color: "#6366f1", icon: Layers,         href: "/groups",   metric: "groups",   trendKey: null            as "tags" | "entities" | "reviews" | null },
-  "stat-tags":     { color: "#a855f7", icon: Tag,            href: "/groups",   metric: "tags",     trendKey: "tags"          as const },
-  "stat-entities": { color: "#06b6d4", icon: Box,            href: "/entities", metric: "entities", trendKey: "entities"      as const },
-  "stat-pending":  { color: "#f59e0b", icon: ClipboardCheck, href: "/audit",    metric: "pending",  trendKey: null            as "tags" | "entities" | "reviews" | null },
+  "stat-groups":   { color: "#6ff5c8", icon: Layers,         href: "/groups",   metric: "groups",   trendKey: null            as "tags" | "entities" | "reviews" | null },
+  "stat-tags":     { color: "#c4f85a", icon: Tag,            href: "/groups",   metric: "tags",     trendKey: "tags"          as const },
+  "stat-entities": { color: "#5fe3b4", icon: Box,            href: "/entities", metric: "entities", trendKey: "entities"      as const },
+  "stat-pending":  { color: "#eaa066", icon: ClipboardCheck, href: "/audit",    metric: "pending",  trendKey: null            as "tags" | "entities" | "reviews" | null },
 } as const;
 
 export function StatMini({ id, data }: { id: keyof typeof STAT_CONFIG; data: DashboardData }) {
@@ -453,10 +454,10 @@ export function ActivityFeed({ activity }: { activity: ActivityEvent[] }) {
   };
 
   const SOURCE_COLOR: Record<string, string> = {
-    manual: "#06b6d4",
-    ai:     "#a855f7",
-    system: "#22c55e",
-    import: "#f59e0b",
+    manual: "#6ff5c8",  // bio teal
+    ai:     "#c4f85a",  // 孢子 lime
+    system: "#5fe3b4",  // 深 teal
+    import: "#eaa066",  // 暖琥珀
   };
 
   return (
