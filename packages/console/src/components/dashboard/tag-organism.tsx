@@ -14,7 +14,7 @@
 
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import {
-  forceSimulation, forceLink, forceManyBody, forceCenter, forceCollide,
+  forceSimulation, forceLink, forceManyBody, forceCenter, forceCollide, forceX, forceY,
   type SimulationNodeDatum,
 } from "d3-force";
 import { getTagUsage, getTagGroups } from "@/lib/api";
@@ -22,7 +22,13 @@ import { getTagUsage, getTagGroups } from "@/lib/api";
 // 虚拟布局坐标空间（节点按 % 定位 → 自适应容器）
 const W = 1000;
 const H = 700;
-const TAG_LIMIT = 56;
+const FETCH_LIMIT = 200;   // 多拉一些，过滤压测垃圾后仍够数
+const TAG_LIMIT = 34;      // 最终展示的真实标签数（节点过多会糊成一团）
+const LABEL_TOP = 12;      // 标签节点中常显文字的数量（其余 hover 才显）
+
+// 压测垃圾标签（perf-grp-* / 性能组N）是基建噪声，不应出现在展示型有机体里
+const isLoadTestTag = (t: { slug: string; name: string }) =>
+  /^perf/i.test(t.slug) || /性能/.test(t.name);
 
 // 菌丝调色：分组按哈希取色，bio/lime/amber 暖谱
 const GROUP_COLORS = [
@@ -45,6 +51,7 @@ interface Node extends SimulationNodeDatum {
   r: number;          // 半径（px @ viewBox 比例）
   usage: number;
   glow: number;       // 辉光周期 s
+  top?: boolean;      // 是否常显标签（分组 hub + 高频标签）
 }
 interface Link { source: string | Node; target: string | Node; }
 
@@ -65,10 +72,13 @@ export function TagOrganism() {
     (async () => {
       try {
         const [usage, groups] = await Promise.all([
-          getTagUsage({ period: "all", order: "desc", limit: TAG_LIMIT }),
+          getTagUsage({ period: "all", order: "desc", limit: FETCH_LIMIT }),
           getTagGroups({ pageSize: 100 }),
         ]);
-        const tags = usage.items.filter(t => t.usageCount > 0);
+        // 过滤压测垃圾 + 零使用，再取 top-N 真实标签
+        const tags = usage.items
+          .filter(t => t.usageCount > 0 && !isLoadTestTag(t))
+          .slice(0, TAG_LIMIT);
         if (tags.length === 0) { setSettled({ nodes: [], links: [] }); return; }
 
         const groupName = new Map(groups.items.map(g => [g.id, g.name] as const));
@@ -90,14 +100,15 @@ export function TagOrganism() {
             r: 12 + Math.min(g.count, 10) * 1.1, usage: 0, glow: 3 + Math.random(),
           });
         }
-        for (const t of tags) {
+        tags.forEach((t, idx) => {
           nodes.push({
             id: `t:${t.tagId}`, kind: "tag", name: t.name, groupId: t.groupId,
             color: colorOf(t.groupId),
-            r: 5 + Math.sqrt(t.usageCount / maxUsage) * 22,
+            r: 6 + Math.sqrt(t.usageCount / maxUsage) * 24,
             usage: t.usageCount, glow: 2.4 + Math.random() * 1.4,
+            top: idx < LABEL_TOP,
           });
-        }
+        });
         const links: Link[] = tags.map(t => ({ source: `t:${t.tagId}`, target: `g:${t.groupId}` }));
 
         const sim = forceSimulation(nodes)
@@ -105,9 +116,11 @@ export function TagOrganism() {
             const s = d.source as Node, tg = d.target as Node;
             return s.r + tg.r + 26;
           }).strength(0.5))
-          .force("charge", forceManyBody().strength(-170))
+          .force("charge", forceManyBody().strength(-150))
           .force("center", forceCenter(W / 2, H / 2))
-          .force("collide", forceCollide<Node>().radius(d => d.r + 6).strength(0.9))
+          .force("x", forceX(W / 2).strength(0.05))
+          .force("y", forceY(H / 2).strength(0.07))
+          .force("collide", forceCollide<Node>().radius(d => d.r + 7).strength(0.95))
           .stop();
         for (let i = 0; i < 320; i++) sim.tick();
 
@@ -151,18 +164,21 @@ export function TagOrganism() {
 
   return (
     <div className="relative w-full h-full overflow-hidden">
-      <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="xMidYMid slice" className="absolute inset-0 w-full h-full">
+      {/* preserveAspectRatio=none：viewBox 直接拉伸填满容器，与 HTML 节点的
+          百分比定位用同一坐标系（slice 会等比裁剪导致边与节点错位） */}
+      <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" className="absolute inset-0 w-full h-full">
         {settled.links.map((l, i) => (
           <path
             key={i}
             className="myc-hypha"
+            vectorEffect="non-scaling-stroke"
             style={{ animationDelay: `${l.delay}s`, stroke: `color-mix(in srgb, ${l.color} 40%, transparent)` }}
             d={curve(l)}
           />
         ))}
       </svg>
       {settled.nodes.map((n, i) => {
-        const showLabel = n.kind === "hub" || n.r > 14 || hovered === n.id;
+        const showLabel = n.kind === "hub" || n.top === true || hovered === n.id;
         return (
           <div
             key={n.id}
