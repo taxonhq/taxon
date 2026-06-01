@@ -264,7 +264,7 @@ export function EntityGraph({ entityType }: { entityType: string }) {
         {truncated && <span style={{ color: "var(--myc-amber)" }}>· 邻居超 limit 已截断</span>}
       </div>
       <button onClick={fitContent} title="自适应居中"
-        className="absolute top-3 right-3 p-1.5 rounded-md"
+        className="absolute bottom-14 right-4 p-1.5 rounded-md z-[7]"
         style={{ background: "var(--myc-glass)", border: "1px solid var(--myc-thread)", color: "var(--myc-cream)", backdropFilter: "blur(8px)" }}>
         <Maximize2 size={13} />
       </button>
