@@ -735,6 +735,37 @@ export async function searchCooccurrence(body: CooccurrenceRequest): Promise<Coo
   });
 }
 
+// ── 实体关系图谱（#100）────────────────────────────────────────────
+export interface GraphNode {
+  id:    string;
+  kind:  "entity" | "tag";
+  label: string;
+  // tag 节点
+  groupId?:     string;
+  groupSlug?:   string;
+  entityCount?: number;
+  // entity 节点
+  entityType?: string;
+  entityId?:   string;
+  tagCount?:   number;
+}
+export interface GraphLink { source: string; target: string }
+export interface GraphData {
+  focus:     string | null;
+  nodes:     GraphNode[];
+  links:     GraphLink[];
+  truncated: boolean;
+}
+
+/** 某 entityType 的推荐起始焦点（最热标签）+ 其邻居 */
+export async function getGraphFocus(entityType: string, limit = 50): Promise<GraphData> {
+  return req<GraphData>(`/entity-graph/focus?entityType=${encodeURIComponent(entityType)}&limit=${limit}`);
+}
+/** 展开某节点（tag:<id> 或 entity:<type>:<id>）的邻居 */
+export async function getGraphNeighbors(node: string, limit = 50): Promise<GraphData> {
+  return req<GraphData>(`/entity-graph/neighbors?node=${encodeURIComponent(node)}&limit=${limit}`);
+}
+
 // ── LLM 配置 + 自然语言查询 ───────────────────────────────────────
 
 export type LlmProvider = "anthropic" | "openai";

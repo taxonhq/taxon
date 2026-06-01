@@ -3,13 +3,14 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
-import { Plus, Box, ChevronRight, X } from "lucide-react";
+import { Plus, Box, ChevronRight, X, List, Share2 } from "lucide-react";
 import { getEntityTypes, registerEntity } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Field, Input } from "@/components/ui/field";
 import { Combobox } from "@/components/ui/combobox";
 import { ErrorBanner } from "@/components/ui/error-banner";
 import { PageHeader } from "@/components/ui/page-header";
+import { EntityGraph } from "@/components/entities/entity-graph";
 
 interface EntityTypeStat {
   entityType: string;
@@ -26,6 +27,8 @@ export default function EntitiesPage() {
   const [showForm, setShowForm]   = useState(false);
   const [saving, setSaving]       = useState(false);
   const [form, setForm]           = useState({ entityType: "", entityId: "" });
+  const [view, setView]           = useState<"list" | "graph">("list");
+  const [graphType, setGraphType] = useState("");
 
   const load = async () => {
     setError("");
@@ -40,6 +43,12 @@ export default function EntitiesPage() {
   };
 
   useEffect(() => { load(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  // 图谱默认聚焦实体最多的类型
+  useEffect(() => {
+    if (types.length > 0 && !graphType) {
+      setGraphType([...types].sort((a, b) => b.count - a.count)[0].entityType);
+    }
+  }, [types, graphType]);
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -117,25 +126,32 @@ export default function EntitiesPage() {
         </div>
       )}
 
-      {/* Summary strip */}
+      {/* Summary strip + 视图切换 */}
       {!loading && types.length > 0 && (
-        <div className="flex items-center gap-4 px-4 py-3 rounded-xl border border-edge bg-surface-alt/40 text-xs text-ink-sub animate-fade-in">
-          <span className="font-semibold text-ink">{types.length}</span>
-          {t("entityTypeCount", { count: types.length })}
-          <span className="text-edge-strong">·</span>
-          <span className="font-semibold text-ink">
-            {types.reduce((s, t) => s + t.count, 0).toLocaleString()}
-          </span>
-          {t("totalEntitiesCount")}
+        <div className="flex items-center justify-between gap-4 animate-fade-in">
+          <div className="flex items-center gap-4 px-4 py-3 rounded-xl border border-edge bg-surface-alt/40 text-xs text-ink-sub">
+            <span className="font-semibold text-ink">{types.length}</span>
+            {t("entityTypeCount", { count: types.length })}
+            <span className="text-edge-strong">·</span>
+            <span className="font-semibold text-ink">
+              {types.reduce((s, t) => s + t.count, 0).toLocaleString()}
+            </span>
+            {t("totalEntitiesCount")}
+          </div>
+          {/* 列表 / 图谱 切换 */}
+          <div className="flex items-center gap-0.5 p-1 rounded-lg bg-surface-alt border border-edge shrink-0">
+            <ViewTab active={view === "list"} onClick={() => setView("list")} icon={List} label={t("viewList")} />
+            <ViewTab active={view === "graph"} onClick={() => setView("graph")} icon={Share2} label={t("viewGraph")} />
+          </div>
         </div>
       )}
 
-      {/* Entity type cards */}
+      {/* 内容：列表卡片 / 关系图谱 */}
       {loading ? (
         <SkeletonGrid />
       ) : types.length === 0 ? (
         <EmptyEntities onRegister={() => setShowForm(true)} />
-      ) : (
+      ) : view === "list" ? (
         <div className="grid grid-cols-2 gap-3">
           {types.map((type, i) => (
             <Link
@@ -163,8 +179,42 @@ export default function EntitiesPage() {
             </Link>
           ))}
         </div>
+      ) : (
+        <div className="space-y-3 animate-fade-in">
+          <div className="flex items-center gap-2 flex-wrap">
+            <label className="text-xs text-ink-sub">{t("entityTypeLabel")}</label>
+            <select
+              value={graphType}
+              onChange={e => setGraphType(e.target.value)}
+              className="px-3 py-1.5 rounded-md border border-edge bg-input text-sm text-ink"
+            >
+              {types.map(ty => (
+                <option key={ty.entityType} value={ty.entityType}>{ty.entityType} ({ty.count})</option>
+              ))}
+            </select>
+            <span className="text-xs text-ink-faint">{t("graphHint")}</span>
+          </div>
+          <div
+            className="relative rounded-2xl overflow-hidden"
+            style={{ height: "68vh", minHeight: 440, border: "1px solid var(--myc-thread)", background: "var(--myc-soil)" }}
+          >
+            {graphType && <EntityGraph key={graphType} entityType={graphType} />}
+          </div>
+        </div>
       )}
     </div>
+  );
+}
+
+function ViewTab({ active, onClick, icon: Icon, label }: { active: boolean; onClick: () => void; icon: React.ComponentType<{ size?: number }>; label: string }) {
+  return (
+    <button
+      onClick={onClick}
+      className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs transition-colors ${active ? "bg-ink text-surface" : "text-ink-sub hover:text-ink"}`}
+    >
+      <Icon size={13} />
+      {label}
+    </button>
   );
 }
 
