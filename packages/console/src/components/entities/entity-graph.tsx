@@ -227,7 +227,9 @@ export function EntityGraph({ entityType }: { entityType: string }) {
         </svg>
 
         {snap.nodes.map(n => {
-          const showLabel = n.r > 16 || hovered === n.id || (n.kind === "tag" && n.expanded);
+          // 减少标签重叠：默认只大标签/已展开/hover 显；hover 某节点时隐藏其余标签
+          const showLabel = hovered === n.id
+            || (hovered == null && n.kind === "tag" && (n.expanded || n.r > 22));
           const dim = hovered != null && hovered !== n.id;
           return (
             <div key={n.id} className="absolute"
