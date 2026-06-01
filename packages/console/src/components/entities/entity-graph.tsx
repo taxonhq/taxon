@@ -1,28 +1,33 @@
 "use client";
 
 /**
- * EntityGraph — 实体关系图谱（#100 + #109 无限画布）。二部图：实体 + 标签，边 = EntityTag。
+ * EntityGraph — 实体关系图谱（#100 + #101 宏观/微观双尺度）。
  *
- * 复用菌丝渲染语言（发光菌核 + 菌丝边 + 分组配色 + d3-force）+ 无限画布相机
- * （usePanZoom：滚轮缩放、空白平移、节点拖拽），交互式累积懒加载、永不全量。
+ * 宏观（标签星系）：sigma.js WebGL，节点=标签，边=共现强度。海量实体下的鸟瞰视角。
+ * 微观（实体局部图）：d3-force + DOM，二部图（实体+标签），点击展开邻居懒加载。
  *
- * 交互：点节点→展开邻居；拖节点→挪位；拖空白→平移；滚轮→缩放；实体 hover→「查看详情↗」。
- * 标签 = 发光圆形菌核（按 TagGroup 着色）；实体 = 奶白菱形（形状可辨）。
+ * 交互流：
+ *  - 默认宏观视图；点标签星系节点 → 下钻到微观并聚焦该标签的邻居实体。
+ *  - 底部 HUD 可随时切换尺度。
+ *  - 微观：点节点展开；拖节点/空白；滚轮缩放；实体 hover→「查看详情↗」。
  */
 
 import { useEffect, useRef, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { Maximize2 } from "lucide-react";
+import { Maximize2, Globe, Microscope } from "lucide-react";
 import {
   forceSimulation, forceLink, forceManyBody, forceCenter, forceCollide, forceX, forceY,
   type SimulationNodeDatum,
 } from "d3-force";
-import { getGraphFocus, getGraphNeighbors, type GraphData } from "@/lib/api";
+import { getGraphFocus, getGraphNeighbors, getGraphAggregate, type GraphData, type GraphAggregateData } from "@/lib/api";
 import { usePanZoom } from "@/components/graph/use-pan-zoom";
 import { groupColor } from "@/lib/group-color";
+import { TagGalaxy } from "./tag-galaxy";
 
 const W = 1600;
 const H = 1100;
+
+// ── 微观图类型 ─────────────────────────────────────────────────────────────────
 
 interface GNode extends SimulationNodeDatum {
   id: string;
@@ -45,19 +50,61 @@ interface RNode {
 interface REdge { key: string; ax: number; ay: number; bx: number; by: number; color: string; aId: string; bId: string }
 interface Snapshot { nodes: RNode[]; edges: REdge[] }
 
+// ── 尺度切换 pill ─────────────────────────────────────────────────────────────
+
+function ScaleToggle({ scale, onSet }: { scale: "galaxy" | "entity"; onSet: (s: "galaxy" | "entity") => void }) {
+  return (
+    <div className="flex items-center gap-0.5 p-0.5 rounded-lg z-[7]"
+      style={{ background: "var(--myc-glass)", border: "1px solid var(--myc-thread)", backdropFilter: "blur(8px)" }}>
+      <button
+        onClick={() => onSet("galaxy")}
+        className="flex items-center gap-1.5 px-2.5 py-1 rounded-md text-2xs transition-colors"
+        style={{
+          background: scale === "galaxy" ? "var(--myc-bio)" : "transparent",
+          color: scale === "galaxy" ? "#0d120e" : "var(--myc-dim)",
+        }}
+      >
+        <Globe size={11} />宏观·星系
+      </button>
+      <button
+        onClick={() => onSet("entity")}
+        className="flex items-center gap-1.5 px-2.5 py-1 rounded-md text-2xs transition-colors"
+        style={{
+          background: scale === "entity" ? "rgba(191,163,125,0.2)" : "transparent",
+          color: scale === "entity" ? "var(--myc-cream)" : "var(--myc-dim)",
+        }}
+      >
+        <Microscope size={11} />微观·实体
+      </button>
+    </div>
+  );
+}
+
+// ── 组件 ───────────────────────────────────────────────────────────────────────
+
 export function EntityGraph({ entityType }: { entityType: string }) {
   const router = useRouter();
-  const nodes = useRef<Map<string, GNode>>(new Map());
-  const links = useRef<Set<string>>(new Set());
+
+  // 尺度：galaxy = 宏观标签星系，entity = 微观实体局部图
+  const [scale, setScale]         = useState<"galaxy" | "entity">("galaxy");
+  const [drillFocus, setDrillFocus] = useState<string | null>(null);
+
+  // 宏观数据
+  const [aggData,    setAggData]    = useState<GraphAggregateData | null>(null);
+  const [aggLoading, setAggLoading] = useState(true);
+
+  // 微观数据（d3-force，不触发重渲，手动派生 snap）
+  const nodes    = useRef<Map<string, GNode>>(new Map());
+  const links    = useRef<Set<string>>(new Set());
   const expanded = useRef<Set<string>>(new Set());
 
-  const [snap, setSnap] = useState<Snapshot>({ nodes: [], edges: [] });
-  const [loading, setLoading] = useState(true);
+  const [snap,      setSnap]      = useState<Snapshot>({ nodes: [], edges: [] });
+  const [loading,   setLoading]   = useState(false);
   const [expanding, setExpanding] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [hovered, setHovered] = useState<string | null>(null);
+  const [error,     setError]     = useState<string | null>(null);
+  const [hovered,   setHovered]   = useState<string | null>(null);
   const [truncated, setTruncated] = useState(false);
-  const [hidePerf, setHidePerf] = useState(true);
+  const [hidePerf,  setHidePerf]  = useState(true);
   const hidePerfRef = useRef(hidePerf);
   useEffect(() => { hidePerfRef.current = hidePerf; }, [hidePerf]);
 
@@ -65,7 +112,6 @@ export function EntityGraph({ entityType }: { entityType: string }) {
   const kRef = useRef(cam.k);
   useEffect(() => { kRef.current = cam.k; }, [cam.k]);
 
-  // 自适应到节点包围盒（而非整个世界）
   const fitContent = useCallback(() => {
     const ns = [...nodes.current.values()];
     if (ns.length === 0) return;
@@ -78,9 +124,7 @@ export function EntityGraph({ entityType }: { entityType: string }) {
     fitBounds(x0, y0, x1, y1);
   }, [fitBounds]);
 
-  // 由累积结构（ref）派生渲染快照（不跑布局）；仅在 effect/handler 调用
   const buildSnapshot = useCallback((): Snapshot => {
-    // 隐藏压测数据：滤掉 perf-grp/性能 的标签节点（噪声），及触及它们的边
     const hidden = new Set<string>();
     if (hidePerfRef.current) {
       for (const n of nodes.current.values()) {
@@ -144,11 +188,35 @@ export function EntityGraph({ entityType }: { entityType: string }) {
     setSnap(buildSnapshot());
   }, [buildSnapshot]);
 
+  // ── 加载宏观数据（挂载时，仅一次）─────────────────────────────────────────
   useEffect(() => {
+    let cancelled = false;
+    setAggLoading(true);
+    getGraphAggregate(entityType)
+      .then(data => {
+        if (cancelled) return;
+        setAggData(data);
+        setAggLoading(false);
+        if (data.nodes.length === 0) setScale("entity");
+      })
+      .catch(() => {
+        if (!cancelled) { setAggLoading(false); setScale("entity"); }
+      });
+    return () => { cancelled = true; };
+  }, [entityType]);
+
+  // ── 加载微观数据（切换到 entity 尺度时）───────────────────────────────────
+  useEffect(() => {
+    if (scale !== "entity") return;
     let cancelled = false;
     setLoading(true); setError(null);
     nodes.current.clear(); links.current.clear(); expanded.current.clear(); setTruncated(false);
-    getGraphFocus(entityType, 50)
+
+    const fetchData = drillFocus
+      ? () => getGraphNeighbors(drillFocus, 50)
+      : () => getGraphFocus(entityType, 50);
+
+    fetchData()
       .then(data => {
         if (cancelled) return;
         if (data.focus) expanded.current.add(data.focus);
@@ -157,8 +225,15 @@ export function EntityGraph({ entityType }: { entityType: string }) {
       })
       .catch(e => { if (!cancelled) { setError(String(e.message ?? e)); setLoading(false); } });
     return () => { cancelled = true; };
-  }, [entityType, merge, relayout, fitContent]);
+  }, [entityType, scale, drillFocus, merge, relayout, fitContent]);
 
+  // ── 下钻：点星系标签 → 微观聚焦该标签 ────────────────────────────────────
+  const handleDrillDown = useCallback((nodeId: string) => {
+    setDrillFocus(nodeId);
+    setScale("entity");
+  }, []);
+
+  // ── 微观：节点展开 ─────────────────────────────────────────────────────────
   const expand = useCallback(async (id: string) => {
     if (expanded.current.has(id) || expanding) return;
     setExpanding(id);
@@ -171,7 +246,7 @@ export function EntityGraph({ entityType }: { entityType: string }) {
     finally { setExpanding(null); }
   }, [expanding, merge, relayout, fitContent]);
 
-  // 节点拖拽（区分点击/拖动）
+  // ── 微观：节点拖拽 ─────────────────────────────────────────────────────────
   const drag = useRef<{ id: string; sx: number; sy: number; x0: number; y0: number; moved: boolean } | null>(null);
   const onNodeDown = (id: string) => (e: React.PointerEvent) => {
     e.stopPropagation();
@@ -196,15 +271,63 @@ export function EntityGraph({ entityType }: { entityType: string }) {
     if (!wasDrag) expand(id);
   };
 
-  if (error) return <div className="grid place-items-center h-full text-sm" style={{ color: "var(--myc-dim)" }}>{error}</div>;
-  if (loading) return <div className="grid place-items-center h-full text-sm" style={{ color: "var(--myc-dim)" }}>正在生长关系网络…</div>;
-  if (snap.nodes.length === 0) return <div className="grid place-items-center h-full text-sm" style={{ color: "var(--myc-dim)" }}>「{entityType}」暂无标签关系数据</div>;
+  // ── 宏观渲染 ──────────────────────────────────────────────────────────────
+  if (scale === "galaxy") {
+    return (
+      <div className="relative w-full h-full" style={{ background: "var(--myc-soil)" }}>
+        {aggLoading ? (
+          <div className="grid place-items-center h-full text-sm" style={{ color: "var(--myc-dim)" }}>
+            正在生长标签星系…
+          </div>
+        ) : !aggData || aggData.nodes.length === 0 ? (
+          <div className="grid place-items-center h-full text-sm" style={{ color: "var(--myc-dim)" }}>
+            「{entityType}」暂无共现数据
+          </div>
+        ) : (
+          <TagGalaxy data={aggData} onDrillDown={handleDrillDown} />
+        )}
+
+        {/* HUD */}
+        <div className="absolute bottom-3 left-4 flex items-center gap-4 text-2xs pointer-events-none" style={{ color: "var(--myc-dim)" }}>
+          <span className="flex items-center gap-1.5">
+            <span className="inline-block w-2.5 h-2.5 rounded-full" style={{ background: "var(--myc-bio)" }} />
+            标签节点（大小 ∝ 覆盖实体数）
+          </span>
+          <span>· 边粗细 = 共现强度</span>
+          {!aggLoading && aggData && aggData.nodes.length > 0 && (
+            <span style={{ color: "var(--myc-dim)" }}>· 点节点下钻到实体局部图</span>
+          )}
+        </div>
+        <div className="absolute bottom-3 right-4 z-[7]"><ScaleToggle scale={scale} onSet={setScale} /></div>
+      </div>
+    );
+  }
+
+  // ── 微观渲染 ──────────────────────────────────────────────────────────────
+  if (error) return (
+    <div className="relative w-full h-full" style={{ background: "var(--myc-soil)" }}>
+      <div className="grid place-items-center h-full text-sm" style={{ color: "var(--myc-dim)" }}>{error}</div>
+      <div className="absolute bottom-3 right-4 z-[7]"><ScaleToggle scale={scale} onSet={setScale} /></div>
+    </div>
+  );
+  if (loading) return (
+    <div className="relative w-full h-full" style={{ background: "var(--myc-soil)" }}>
+      <div className="grid place-items-center h-full text-sm" style={{ color: "var(--myc-dim)" }}>正在生长关系网络…</div>
+      <div className="absolute bottom-3 right-4 z-[7]"><ScaleToggle scale={scale} onSet={setScale} /></div>
+    </div>
+  );
+  if (snap.nodes.length === 0) return (
+    <div className="relative w-full h-full" style={{ background: "var(--myc-soil)" }}>
+      <div className="grid place-items-center h-full text-sm" style={{ color: "var(--myc-dim)" }}>「{entityType}」暂无标签关系数据</div>
+      <div className="absolute bottom-3 right-4 z-[7]"><ScaleToggle scale={scale} onSet={setScale} /></div>
+    </div>
+  );
 
   return (
     <div
       ref={containerRef}
       className="relative w-full h-full overflow-hidden touch-none select-none"
-      style={{ cursor: "grab" }}
+      style={{ cursor: "grab", background: "var(--myc-soil)" }}
       onWheel={onWheel}
       onPointerDown={onBackgroundPointerDown}
       onPointerMove={(e) => { onPointerMove(e); onNodeMove(e); }}
@@ -227,7 +350,6 @@ export function EntityGraph({ entityType }: { entityType: string }) {
         </svg>
 
         {snap.nodes.map(n => {
-          // 减少标签重叠：默认只大标签/已展开/hover 显；hover 某节点时隐藏其余标签
           const showLabel = hovered === n.id
             || (hovered == null && n.kind === "tag" && (n.expanded || n.r > 22));
           const dim = hovered != null && hovered !== n.id;
@@ -269,27 +391,32 @@ export function EntityGraph({ entityType }: { entityType: string }) {
         })}
       </div>
 
-      {/* HUD：图例 + 操作提示 + 重置 */}
+      {/* HUD：图例 + 操作提示 */}
       <div className="absolute bottom-3 left-4 flex items-center gap-4 text-2xs pointer-events-none" style={{ color: "var(--myc-dim)" }}>
         <span className="flex items-center gap-1.5"><span className="inline-block w-2.5 h-2.5 rounded-full" style={{ background: "var(--myc-bio)" }} />标签</span>
         <span className="flex items-center gap-1.5"><span className="inline-block w-2 h-2" style={{ transform: "rotate(45deg)", border: "1.5px solid var(--myc-cream)" }} />实体</span>
         <span>· 点节点展开 · 拖节点/空白 · 滚轮缩放</span>
         {truncated && <span style={{ color: "var(--myc-amber)" }}>· 邻居超 limit 已截断</span>}
       </div>
-      <button
-        onClick={() => { setHidePerf(v => !v); requestAnimationFrame(() => setSnap(buildSnapshot())); }}
-        className="absolute bottom-3 right-4 px-2.5 py-1 rounded-full text-2xs z-[7]"
-        style={{ background: "var(--myc-glass)", border: `1px solid ${hidePerf ? "var(--myc-thread)" : "var(--myc-amber)"}`,
-          color: hidePerf ? "var(--myc-dim)" : "var(--myc-amber)", backdropFilter: "blur(8px)" }}
-        title="压测标签噪声"
-      >
-        {hidePerf ? "已隐藏压测数据" : "显示压测数据"}
-      </button>
-      <button onClick={fitContent} title="自适应居中"
-        className="absolute bottom-14 right-4 p-1.5 rounded-md z-[7]"
-        style={{ background: "var(--myc-glass)", border: "1px solid var(--myc-thread)", color: "var(--myc-cream)", backdropFilter: "blur(8px)" }}>
-        <Maximize2 size={13} />
-      </button>
+
+      <div className="absolute bottom-3 right-4 flex items-center gap-2 z-[7]">
+        <button
+          onClick={() => { setHidePerf(v => !v); requestAnimationFrame(() => setSnap(buildSnapshot())); }}
+          className="px-2.5 py-1 rounded-full text-2xs"
+          style={{ background: "var(--myc-glass)", border: `1px solid ${hidePerf ? "var(--myc-thread)" : "var(--myc-amber)"}`,
+            color: hidePerf ? "var(--myc-dim)" : "var(--myc-amber)", backdropFilter: "blur(8px)" }}
+          title="压测标签噪声"
+        >
+          {hidePerf ? "已隐藏压测数据" : "显示压测数据"}
+        </button>
+        <button onClick={fitContent} title="自适应居中"
+          className="p-1.5 rounded-md"
+          style={{ background: "var(--myc-glass)", border: "1px solid var(--myc-thread)", color: "var(--myc-cream)", backdropFilter: "blur(8px)" }}>
+          <Maximize2 size={13} />
+        </button>
+        <ScaleToggle scale={scale} onSet={setScale} />
+      </div>
+
       {expanding && <div className="absolute top-3 left-4 text-2xs pointer-events-none" style={{ color: "var(--myc-dim)" }}>展开中…</div>}
     </div>
   );

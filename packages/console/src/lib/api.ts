@@ -777,6 +777,31 @@ export async function getGraphNeighbors(node: string, limit = 50): Promise<Graph
   return req<GraphData>(`/entity-graph/neighbors?node=${encodeURIComponent(node)}&limit=${limit}`);
 }
 
+// ── 标签星系聚合视图（#101）────────────────────────────────────────
+export interface GraphAggNode {
+  id:          string; // "tag:<tagId>"
+  label:       string;
+  groupId:     string;
+  groupSlug:   string;
+  entityCount: number;
+}
+export interface GraphAggLink {
+  source: string; // "tag:<tagId>"
+  target: string; // "tag:<tagId>"
+  weight: number; // 共现实体数
+}
+export interface GraphAggregateData {
+  nodes: GraphAggNode[];
+  links: GraphAggLink[];
+}
+
+/** 标签宇宙聚合：节点=标签，边=共现强度（节点上限 200，边上限 1000） */
+export async function getGraphAggregate(entityType: string, minCooccurrence = 2): Promise<GraphAggregateData> {
+  return req<GraphAggregateData>(
+    `/entity-graph/aggregate?entityType=${encodeURIComponent(entityType)}&minCooccurrence=${minCooccurrence}`
+  );
+}
+
 // ── LLM 配置 + 自然语言查询 ───────────────────────────────────────
 
 export type LlmProvider = "anthropic" | "openai";

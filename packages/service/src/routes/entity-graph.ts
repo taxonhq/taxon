@@ -212,3 +212,100 @@ entityGraphRouter.openapi(neighborsRoute, async (c) => {
     return c.json({ code: 500, message: '邻居查询失败' }, 500)
   }
 })
+
+// ── GET /aggregate ────────────────────────────────────────────────────────────
+
+const AGG_MAX_NODES = 200
+const AGG_MAX_EDGES = 1000
+
+type AggNodeRow = { tagId: string; label: string; groupId: string; groupSlug: string; entityCount: number }
+type AggEdgeRow = { src: string; tgt: string; weight: number }
+
+const AggNode = z.object({
+  id:          z.string().openapi({ example: 'tag:clxxx' }),
+  label:       z.string(),
+  groupId:     z.string(),
+  groupSlug:   z.string(),
+  entityCount: z.number().int(),
+}).openapi('AggNode')
+
+const AggLink = z.object({
+  source: z.string(),
+  target: z.string(),
+  weight: z.number().int().openapi({ description: '共享实体数（共现强度）' }),
+}).openapi('AggLink')
+
+const AggregateData = z.object({
+  nodes: z.array(AggNode),
+  links: z.array(AggLink),
+}).openapi('AggregateData')
+
+const aggregateRoute = createRoute({
+  method: 'get', path: '/aggregate',
+  tags: ['实体图谱'],
+  summary: '标签星系聚合视图 — 节点 = 标签，边 = 共现强度',
+  description: '把大量实体塌缩为标签维度：节点为标签，边粗细代表共享实体数。适合海量实体时快速理解标签宇宙的宏观结构。',
+  security: [{ BearerAuth: [] }],
+  request: {
+    query: z.object({
+      entityType:      z.string().min(1).openapi({ example: 'dish' }),
+      minCooccurrence: z.string().optional().openapi({ description: '最小共现实体数，默认 2', example: '2' }),
+    }),
+  },
+  responses: {
+    200: { content: { 'application/json': { schema: okData(AggregateData) } }, description: '成功' },
+    500: { content: { 'application/json': { schema: ApiError } }, description: '服务器错误' },
+  },
+})
+
+entityGraphRouter.use('/aggregate', requireRole('reader'))
+entityGraphRouter.openapi(aggregateRoute, async (c) => {
+  const { entityType, minCooccurrence } = c.req.valid('query')
+  const minCooc = Math.max(1, parseInt(minCooccurrence ?? '2', 10) || 2)
+
+  try {
+    const nodeRows = await prisma.$queryRaw<AggNodeRow[]>`
+      SELECT t.id AS "tagId", t.name AS label, t."groupId", g.slug AS "groupSlug",
+             COUNT(DISTINCT et."entityId")::int AS "entityCount"
+      FROM "EntityTag" et
+      JOIN "Tag" t ON t.id = et."tagId" AND t."deletedAt" IS NULL
+      JOIN "TagGroup" g ON g.id = t."groupId"
+      WHERE et."entityType" = ${entityType} AND et.status = 'active'
+      GROUP BY t.id, t.name, t."groupId", g.slug
+      ORDER BY "entityCount" DESC
+      LIMIT ${AGG_MAX_NODES}`
+
+    if (nodeRows.length === 0) return c.json({ code: 0, data: { nodes: [], links: [] } }, 200)
+
+    const tagIds = nodeRows.map(n => n.tagId)
+    const edgeRows = await prisma.$queryRaw<AggEdgeRow[]>`
+      SELECT et1."tagId" AS src, et2."tagId" AS tgt,
+             COUNT(DISTINCT et1."entityId")::int AS weight
+      FROM "EntityTag" et1
+      JOIN "EntityTag" et2
+        ON et2."entityType" = et1."entityType"
+        AND et2."entityId" = et1."entityId"
+        AND et2."tagId" > et1."tagId"
+      WHERE et1."entityType" = ${entityType}
+        AND et1.status = 'active'
+        AND et2.status = 'active'
+        AND et1."tagId" = ANY(${tagIds})
+        AND et2."tagId" = ANY(${tagIds})
+      GROUP BY et1."tagId", et2."tagId"
+      HAVING COUNT(DISTINCT et1."entityId") >= ${minCooc}
+      ORDER BY weight DESC
+      LIMIT ${AGG_MAX_EDGES}`
+
+    const nodes = nodeRows.map(n => ({
+      id: tagNodeId(n.tagId), label: n.label, groupId: n.groupId, groupSlug: n.groupSlug, entityCount: n.entityCount,
+    }))
+    const links = edgeRows.map(e => ({
+      source: tagNodeId(e.src), target: tagNodeId(e.tgt), weight: Number(e.weight),
+    }))
+
+    return c.json({ code: 0, data: { nodes, links } }, 200)
+  } catch (e) {
+    logger.error({ err: e, entityType }, 'entity-graph aggregate error')
+    return c.json({ code: 500, message: '标签星系聚合查询失败' }, 500)
+  }
+})
