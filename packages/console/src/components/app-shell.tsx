@@ -6,7 +6,7 @@ import { useTranslations } from "next-intl";
 import Link from "next/link";
 import {
   Layers, ClipboardCheck, Box, LayoutDashboard, Search,
-  HelpCircle, KeyRound, Sparkles, ShieldCheck, Settings,
+  HelpCircle, KeyRound, Sparkles, ShieldCheck, Settings, Maximize2, Minimize2,
 } from "lucide-react";
 import { AboutDialog } from "@/components/ui/about-dialog";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
@@ -29,6 +29,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [health, setHealth] = useState<HealthStatus>("checking");
   const [showAbout, setShowAbout] = useState(false);
   const [cmdOpen, setCmdOpen] = useState(false);
+  const [wide, setWide] = useState(false);
+  useEffect(() => { setWide(localStorage.getItem("myc-wide") === "1"); }, []);
+  const toggleWide = useCallback(() => {
+    setWide(v => { localStorage.setItem("myc-wide", v ? "0" : "1"); return !v; });
+  }, []);
 
   // Onboarding
   const { showOnboarding, completeOnboarding, mounted: onboardingMounted } = useOnboarding();
@@ -130,6 +135,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <span className={`d ${dotClass}`} />
           <span style={{ fontFamily: "var(--font-myc-mono)" }}>{SERVICE_DISPLAY}</span>
         </span>
+        {!isDashboard && (
+          <button className="myc-ghost" onClick={toggleWide} title={wide ? "恢复居中" : "宽屏模式"} aria-label="Toggle wide mode" aria-pressed={wide}>
+            {wide ? <Minimize2 size={13} /> : <Maximize2 size={13} />}
+          </button>
+        )}
         <ThemeToggle />
         <button className="myc-ghost" onClick={() => setShowAbout(true)} title="About" aria-label="About">
           <HelpCircle size={14} />
@@ -146,7 +156,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         {isDashboard ? (
           <div className="myc-hero">{children}</div>
         ) : (
-          <div className="myc-sheet">{children}</div>
+          <div className={`myc-sheet${wide ? " wide" : ""}`}>{children}</div>
         )}
       </main>
 

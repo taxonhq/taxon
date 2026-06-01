@@ -524,6 +524,8 @@ body {
   margin: 4.6rem auto 2rem; padding: 2rem 2.4rem; min-height: 40vh;
   box-shadow: 0 12px 48px rgba(0,0,0,.32);
 }
+/* 宽屏模式：突破 1180 居中框，铺满可用宽度（密集表格页受益） */
+.myc-sheet.wide { max-width: none; }
 
 /* 浅色：外壳元素里硬编码的暗色奶油 rgba 需翻转（羊皮纸画布 + 暖墨描边/标签）*/
 [data-theme="light"] .myc-canvas {
