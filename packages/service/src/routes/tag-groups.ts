@@ -4,6 +4,7 @@ import { parsePagination } from '../lib/pagination.js'
 import { isPrismaError } from '../lib/errors.js'
 import logger from '../lib/logger.js'
 import { requireRole } from '../middleware/auth.js'
+import { emitEvent } from '../lib/events.js'
 import {
   TagGroupSchema, TagSchema, EntityRuleSchema,
   CreateTagGroupBody, UpdateTagGroupBody, EntityRulesBody,
@@ -162,8 +163,12 @@ tagGroups.openapi(createGroupRoute, async (c) => {
   if (conflictName) return c.json({ code: 409, message: 'name 已存在' }, 409)
 
   try {
-    const group = await prisma.tagGroup.create({
-      data: { slug, name, description, entityScopes, allowMultiple, sortOrder },
+    const group = await prisma.$transaction(async (tx) => {
+      const created = await tx.tagGroup.create({
+        data: { slug, name, description, entityScopes, allowMultiple, sortOrder },
+      })
+      await emitEvent(tx, 'tag_group.created', { groupId: created.id, slug: created.slug, name: created.name })
+      return created
     })
     return c.json({ code: 0, data: { ...group, createdAt: group.createdAt.toISOString(), updatedAt: group.updatedAt.toISOString(), deletedAt: group.deletedAt?.toISOString() ?? null } }, 200)
   } catch (error: unknown) {
@@ -222,16 +227,20 @@ tagGroups.openapi(updateGroupRoute, async (c) => {
   }
 
   try {
-    const updated = await prisma.tagGroup.update({
-      where: { id: groupId },
-      data: {
-        ...(body.slug          !== undefined ? { slug:          body.slug }          : {}),
-        ...(body.name          !== undefined ? { name:          body.name }          : {}),
-        ...(body.description   !== undefined ? { description:   body.description }   : {}),
-        ...(body.entityScopes  !== undefined ? { entityScopes:  body.entityScopes }  : {}),
-        ...(body.allowMultiple !== undefined ? { allowMultiple: body.allowMultiple } : {}),
-        ...(body.sortOrder     !== undefined ? { sortOrder:     body.sortOrder }     : {}),
-      },
+    const updated = await prisma.$transaction(async (tx) => {
+      const u = await tx.tagGroup.update({
+        where: { id: groupId },
+        data: {
+          ...(body.slug          !== undefined ? { slug:          body.slug }          : {}),
+          ...(body.name          !== undefined ? { name:          body.name }          : {}),
+          ...(body.description   !== undefined ? { description:   body.description }   : {}),
+          ...(body.entityScopes  !== undefined ? { entityScopes:  body.entityScopes }  : {}),
+          ...(body.allowMultiple !== undefined ? { allowMultiple: body.allowMultiple } : {}),
+          ...(body.sortOrder     !== undefined ? { sortOrder:     body.sortOrder }     : {}),
+        },
+      })
+      await emitEvent(tx, 'tag_group.updated', { groupId, slug: u.slug, name: u.name })
+      return u
     })
     return c.json({ code: 0, data: { ...updated, createdAt: updated.createdAt.toISOString(), updatedAt: updated.updatedAt.toISOString(), deletedAt: updated.deletedAt?.toISOString() ?? null } }, 200)
   } catch (error: unknown) {
@@ -268,13 +277,16 @@ tagGroups.openapi(deleteGroupRoute, async (c) => {
 
   if (permanent) {
     // Hard delete — works whether group is already soft-deleted or still active
-    const group = await prisma.tagGroup.findUnique({ where: { id: groupId }, select: { id: true } })
+    const group = await prisma.tagGroup.findUnique({ where: { id: groupId }, select: { id: true, slug: true, name: true } })
     if (!group) return c.json({ code: 404, message: '标签分组不存在' }, 404)
-    await prisma.tagGroup.delete({ where: { id: groupId } })
+    await prisma.$transaction(async (tx) => {
+      await tx.tagGroup.delete({ where: { id: groupId } })
+      await emitEvent(tx, 'tag_group.deleted', { groupId, slug: group.slug, name: group.name, permanent: true })
+    })
     return c.json({ code: 0, message: '已永久删除' }, 200)
   }
 
-  const group = await prisma.tagGroup.findUnique({ where: { id: groupId, deletedAt: null }, select: { id: true } })
+  const group = await prisma.tagGroup.findUnique({ where: { id: groupId, deletedAt: null }, select: { id: true, slug: true, name: true } })
   if (!group) return c.json({ code: 404, message: '标签分组不存在' }, 404)
 
   if (!force) {
@@ -283,9 +295,9 @@ tagGroups.openapi(deleteGroupRoute, async (c) => {
       return c.json({ code: 409, message: `该分组下共有 ${usageCount} 条实体关联，如需强制删除请添加 ?force=true` }, 409)
   }
 
-  await prisma.tagGroup.update({
-    where: { id: groupId },
-    data:  { deletedAt: new Date() },
+  await prisma.$transaction(async (tx) => {
+    await tx.tagGroup.update({ where: { id: groupId }, data: { deletedAt: new Date() } })
+    await emitEvent(tx, 'tag_group.deleted', { groupId, slug: group.slug, name: group.name, permanent: false })
   })
   return c.json({ code: 0, message: '删除成功' }, 200)
 })
