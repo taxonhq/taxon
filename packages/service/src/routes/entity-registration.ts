@@ -4,6 +4,7 @@ import prisma from '../lib/db.js'
 import { isPrismaError } from '../lib/errors.js'
 import logger from '../lib/logger.js'
 import { requireRole } from '../middleware/auth.js'
+import { emitEvent } from '../lib/events.js'
 import { RegisteredEntitySchema, RegisterEntityBody, ApiError, OkMessage, okData } from '../lib/schemas.js'
 
 export const registrationRouter = new OpenAPIHono()
@@ -37,11 +38,18 @@ registrationRouter.openapi(registerRoute, async (c) => {
 
   const metadata = body.metadata ?? null
 
-  await prisma.registeredEntity.upsert({
-    where:  { entityType_entityId: { entityType, entityId } },
-    create: { entityType, entityId, ...(metadata ? { metadata } : {}) },
-    // 有 metadata 传入则更新；未传则保留原值（不覆盖）
-    update: metadata ? { metadata } : {},
+  await prisma.$transaction(async (tx) => {
+    const existed = await tx.registeredEntity.findUnique({
+      where: { entityType_entityId: { entityType, entityId } }, select: { entityType: true },
+    })
+    await tx.registeredEntity.upsert({
+      where:  { entityType_entityId: { entityType, entityId } },
+      create: { entityType, entityId, ...(metadata ? { metadata } : {}) },
+      // 有 metadata 传入则更新；未传则保留原值（不覆盖）
+      update: metadata ? { metadata } : {},
+    })
+    // 仅首次注册时发事件（幂等重复调用不重发）
+    if (!existed) await emitEvent(tx, 'entity.registered', { entityType, entityId })
   })
   return c.json({ code: 0, message: '注册成功' }, 200)
 })
@@ -95,7 +103,10 @@ const unregisterRoute = createRoute({
 registrationRouter.openapi(unregisterRoute, async (c) => {
   const { entityType, entityId } = c.req.valid('param')
   try {
-    await prisma.registeredEntity.delete({ where: { entityType_entityId: { entityType, entityId } } })
+    await prisma.$transaction(async (tx) => {
+      await tx.registeredEntity.delete({ where: { entityType_entityId: { entityType, entityId } } })
+      await emitEvent(tx, 'entity.unregistered', { entityType, entityId })
+    })
     return c.json({ code: 0, message: '注销成功' }, 200)
   } catch (error: unknown) {
     if (isPrismaError(error, 'P2025')) return c.json({ code: 404, message: '实体未注册' }, 404)

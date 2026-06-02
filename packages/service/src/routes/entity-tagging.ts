@@ -7,6 +7,7 @@ import { validateTags } from '../lib/validate-tags.js'
 import logger from '../lib/logger.js'
 import { requireRole, getTokenId } from '../middleware/auth.js'
 import { incAuditGauge, decAuditGauge } from '../lib/metrics.js'
+import { emitEvent } from '../lib/events.js'
 import {
   EntityTagItemSchema, TagReviewSchema,
   ReplaceEntityTagsBody, AddEntityTagBody, UpdateEntityTagBody,
@@ -194,6 +195,7 @@ taggingRouter.openapi(addEntityTagRoute, async (c) => {
       }
       await tx.entityTag.create({ data: { tagId: resolvedTagId, entityType, entityId, source, confidence, status } })
       if (status === 'pending') incAuditGauge()
+      await emitEvent(tx, 'entity_tag.created', { entityType, entityId, tagId: resolvedTagId, source, confidence: confidence ?? null, status })
     })
     return c.json({ code: 0, message: '打标成功' }, 200)
   } catch (error: unknown) {
@@ -245,6 +247,7 @@ taggingRouter.openapi(updateEntityTagRoute, async (c) => {
       else if (current.status !== 'pending' && newStatus === 'pending') incAuditGauge()
 
       const review = await tx.entityTagReview.create({ data: { tagId, entityType, entityId, reviewerId, fromStatus: current.status as TagStatus, toStatus: newStatus as TagStatus, note: reviewNote } })
+      await emitEvent(tx, 'entity_tag.status_changed', { entityType, entityId, tagId, status: newStatus, previousStatus: current.status, reviewerId, reviewId: review.id })
       return review.id
     })
     return c.json({ code: 0, data: { reviewId } }, 200)
@@ -302,7 +305,11 @@ const removeEntityTagRoute = createRoute({
 taggingRouter.openapi(removeEntityTagRoute, async (c) => {
   const { entityType, entityId, tagId } = c.req.valid('param')
   try {
-    const deleted = await prisma.entityTag.delete({ where: { tagId_entityType_entityId: { tagId, entityType, entityId } }, select: { status: true } })
+    const deleted = await prisma.$transaction(async (tx) => {
+      const d = await tx.entityTag.delete({ where: { tagId_entityType_entityId: { tagId, entityType, entityId } }, select: { status: true } })
+      await emitEvent(tx, 'entity_tag.deleted', { entityType, entityId, tagId, status: d.status })
+      return d
+    })
     if (deleted.status === 'pending') decAuditGauge()
     return c.json({ code: 0, message: '摘标成功' }, 200)
   } catch (error: unknown) {

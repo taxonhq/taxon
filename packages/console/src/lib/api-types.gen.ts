@@ -3514,6 +3514,211 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/entity-graph/focus": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 推荐起始焦点（某 entityType 下最热标签）+ 其邻居 */
+        get: {
+            parameters: {
+                query: {
+                    entityType: string;
+                    limit?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description 成功 */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            code: number;
+                            data: components["schemas"]["GraphData"];
+                        };
+                    };
+                };
+                /** @description 该类型下无标签数据 */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            code: number;
+                            message: string;
+                        };
+                    };
+                };
+                /** @description 服务器错误 */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            code: number;
+                            message: string;
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/entity-graph/neighbors": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 展开某节点的直接邻居（懒加载，永不全量）
+         * @description `node` 为 `tag:<tagId>` 或 `entity:<entityType>:<entityId>`。返回该节点 + 其 active 邻居（受 limit 兜底，超出标 truncated）。
+         */
+        get: {
+            parameters: {
+                query: {
+                    node: string;
+                    limit?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description 成功 */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            code: number;
+                            data: components["schemas"]["GraphData"];
+                        };
+                    };
+                };
+                /** @description node 格式非法 */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            code: number;
+                            message: string;
+                        };
+                    };
+                };
+                /** @description 节点不存在 */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            code: number;
+                            message: string;
+                        };
+                    };
+                };
+                /** @description 服务器错误 */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            code: number;
+                            message: string;
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/entity-graph/aggregate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 标签星系聚合视图 — 节点 = 标签，边 = 共现强度
+         * @description 把大量实体塌缩为标签维度：节点为标签，边粗细代表共享实体数。适合海量实体时快速理解标签宇宙的宏观结构。
+         */
+        get: {
+            parameters: {
+                query: {
+                    entityType: string;
+                    /** @description 最小共现实体数，默认 2 */
+                    minCooccurrence?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description 成功 */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            code: number;
+                            data: components["schemas"]["AggregateData"];
+                        };
+                    };
+                };
+                /** @description 服务器错误 */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            code: number;
+                            message: string;
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/settings/llm": {
         parameters: {
             query?: never;
@@ -3700,6 +3905,324 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/webhooks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 列出 webhooks */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description 成功 */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            code: number;
+                            data: components["schemas"]["Webhook"][];
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        /** 创建 webhook（一次性返回 secret） */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["CreateWebhookBody"];
+                };
+            };
+            responses: {
+                /** @description 成功，secret 仅此一次可见 */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            code: number;
+                            data: components["schemas"]["CreatedWebhook"];
+                        };
+                    };
+                };
+                /** @description 参数错误 */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            code: number;
+                            message: string;
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/webhooks/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** webhook 详情 */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description 成功 */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            code: number;
+                            data: components["schemas"]["Webhook"];
+                        };
+                    };
+                };
+                /** @description 不存在 */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            code: number;
+                            message: string;
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        /** 删除 webhook */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description 成功 */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            code: number;
+                            message: string;
+                        };
+                    };
+                };
+                /** @description 不存在 */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            code: number;
+                            message: string;
+                        };
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        /** 更新 webhook */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["UpdateWebhookBody"];
+                };
+            };
+            responses: {
+                /** @description 成功 */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            code: number;
+                            data: components["schemas"]["Webhook"];
+                        };
+                    };
+                };
+                /** @description 不存在 */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            code: number;
+                            message: string;
+                        };
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
+    "/webhooks/{id}/deliveries": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 最近投递记录 */
+        get: {
+            parameters: {
+                query?: {
+                    limit?: string;
+                };
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description 成功 */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            code: number;
+                            data: components["schemas"]["WebhookDelivery"][];
+                        };
+                    };
+                };
+                /** @description webhook 不存在 */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            code: number;
+                            message: string;
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/webhooks/{id}/deliveries/{did}/replay": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 重放投递（重排为 pending 立即重试） */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                    did: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description 已重排，下一轮 worker 重试 */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            code: number;
+                            message: string;
+                        };
+                    };
+                };
+                /** @description 投递不存在 */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            code: number;
+                            message: string;
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -3733,6 +4256,49 @@ export interface components {
         } | {
             not: components["schemas"]["BoolExpr"];
         };
+        GraphData: {
+            /** @description 焦点节点 id（neighbors 即被展开的节点） */
+            focus: string | null;
+            nodes: components["schemas"]["GraphNode"][];
+            links: components["schemas"]["GraphLink"][];
+            /** @description 邻居数超过 limit 被截断 */
+            truncated: boolean;
+        };
+        GraphNode: {
+            /** @example tag:clxxx */
+            id: string;
+            /** @enum {string} */
+            kind: "entity" | "tag";
+            label: string;
+            groupId?: string;
+            groupSlug?: string;
+            entityCount?: number;
+            entityType?: string;
+            entityId?: string;
+            tagCount?: number;
+        };
+        GraphLink: {
+            source: string;
+            target: string;
+        };
+        AggregateData: {
+            nodes: components["schemas"]["AggNode"][];
+            links: components["schemas"]["AggLink"][];
+        };
+        AggNode: {
+            /** @example tag:clxxx */
+            id: string;
+            label: string;
+            groupId: string;
+            groupSlug: string;
+            entityCount: number;
+        };
+        AggLink: {
+            source: string;
+            target: string;
+            /** @description 共享实体数（共现强度） */
+            weight: number;
+        };
         SystemConfig: {
             /**
              * @description 界面语言 zh-CN | en-US
@@ -3744,6 +4310,53 @@ export interface components {
         SystemConfigUpdateBody: {
             /** @enum {string} */
             locale?: "zh-CN" | "en-US";
+        };
+        Webhook: {
+            id: string;
+            name: string;
+            url: string;
+            /** @description secret 脱敏显示，仅创建时返回完整值 */
+            secretMask: string;
+            events: string[];
+            scopes: string[];
+            active: boolean;
+            createdAt: string;
+            updatedAt: string;
+            lastFiredAt: string | null;
+        };
+        CreatedWebhook: components["schemas"]["Webhook"] & {
+            /** @description HMAC 签名密钥，仅此一次可见 */
+            secret: string;
+        };
+        CreateWebhookBody: {
+            name: string;
+            /** Format: uri */
+            url: string;
+            /** @description 订阅事件，可选：entity_tag.created, entity_tag.status_changed, entity_tag.deleted, tag.created, tag.updated, tag.deleted, tag.merged, tag.moved, tag_group.created, tag_group.updated, tag_group.deleted, entity.registered, entity.unregistered */
+            events: ("entity_tag.created" | "entity_tag.status_changed" | "entity_tag.deleted" | "tag.created" | "tag.updated" | "tag.deleted" | "tag.merged" | "tag.moved" | "tag_group.created" | "tag_group.updated" | "tag_group.deleted" | "entity.registered" | "entity.unregistered")[];
+            /** @description entityType 白名单，空=全部 */
+            scopes?: string[];
+            /** @description 不传则自动生成 */
+            secret?: string;
+        };
+        UpdateWebhookBody: {
+            name?: string;
+            /** Format: uri */
+            url?: string;
+            events?: ("entity_tag.created" | "entity_tag.status_changed" | "entity_tag.deleted" | "tag.created" | "tag.updated" | "tag.deleted" | "tag.merged" | "tag.moved" | "tag_group.created" | "tag_group.updated" | "tag_group.deleted" | "entity.registered" | "entity.unregistered")[];
+            scopes?: string[];
+            active?: boolean;
+        };
+        WebhookDelivery: {
+            id: string;
+            event: string;
+            status: string;
+            attempts: number;
+            responseCode: number | null;
+            responseBody: string | null;
+            nextRetryAt: string | null;
+            createdAt: string;
+            deliveredAt: string | null;
         };
     };
     responses: never;

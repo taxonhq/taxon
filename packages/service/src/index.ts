@@ -5,6 +5,7 @@ import { serve } from '@hono/node-server'
 import logger from './lib/logger.js'
 import { buildApp } from './app.js'
 import { registry, auditPendingCount } from './lib/metrics.js'
+import { startWebhookWorker } from './lib/webhook-worker.js'
 import prisma from './lib/db.js'
 
 const require = createRequire(import.meta.url)
@@ -29,6 +30,11 @@ async function syncAuditGauge() {
 
 syncAuditGauge()
 setInterval(syncAuditGauge, 5 * 60_000)  // 5 分钟全量兜底，路由层增量维护
+
+// ── Webhook 投递 worker ───────────────────────────────────────────────
+// outbox fan-out + HTTP 投递 + 指数退避重试，每 5 秒一轮。
+const WEBHOOK_WORKER_INTERVAL = Number(process.env.WEBHOOK_WORKER_INTERVAL_MS) || 5_000
+startWebhookWorker(WEBHOOK_WORKER_INTERVAL)
 
 // ── 启动前安全检查 ────────────────────────────────────────────────
 const IS_PROD = process.env.NODE_ENV === 'production'

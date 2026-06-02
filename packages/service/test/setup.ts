@@ -8,6 +8,9 @@ import { prisma } from './helpers.js'
 
 // 真实物理顺序：先清子表后清父表，避免 FK 阻塞
 const TABLES_IN_ORDER = [
+  'WebhookDelivery',
+  'Webhook',
+  'EventOutbox',
   'EntityTag',
   'TagGroupEntityRule',
   'RegisteredEntity',

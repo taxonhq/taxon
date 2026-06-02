@@ -27,6 +27,7 @@ import { entityGraphRouter } from './routes/entity-graph.js'
 import { llmConfigRouter } from './routes/llm-config.js'
 import { systemConfigRouter } from './routes/system-config.js'
 import { governanceRouter } from './routes/governance.js'
+import { webhooksRouter } from './routes/webhooks.js'
 
 export interface AppOptions {
   /** Service version for /health output (defaults to "unknown" if not provided). */
@@ -201,7 +202,7 @@ export function buildApp(opts: AppOptions = {}) {
   //   writeLimiter  — 每 IP 60 req/min（仅写操作），防批量写滥用
   // 生产建议在反向代理（Nginx / Caddy）层再加一道基于连接数的硬限制。
   // 通过 RATE_LIMIT_MAX / RATE_LIMIT_WRITE_MAX 环境变量可覆盖默认值。
-  const PROTECTED = ['/entities/*', '/tag-groups/*', '/tags/*', '/entity-types', '/tokens', '/tokens/*', '/entity-graph/*']
+  const PROTECTED = ['/entities/*', '/tag-groups/*', '/tags/*', '/entity-types', '/tokens', '/tokens/*', '/entity-graph/*', '/webhooks/*']
   const WRITE_METHODS = ['POST', 'PUT', 'PATCH', 'DELETE']
 
   const globalLimiter = rateLimit({
@@ -234,6 +235,8 @@ export function buildApp(opts: AppOptions = {}) {
   app.use('/settings/*',    bearerAuth)
   app.use('/governance/*',  bearerAuth)
   app.use('/entity-graph/*', bearerAuth)
+  app.use('/webhooks/*',    bearerAuth)
+  app.use('/webhooks',      bearerAuth)
 
   // ── 实体路径参数格式校验 ────────────────────────────────────────
   app.use('/entities/:entityType', validateEntityParams)
@@ -268,6 +271,7 @@ export function buildApp(opts: AppOptions = {}) {
   app.route('/settings',    llmConfigRouter)
   app.route('/settings',    systemConfigRouter)
   app.route('/governance',  governanceRouter)
+  app.route('/webhooks',    webhooksRouter)
 
   // ── Dashboard 布局配置 ──────────────────────────────────────────
   app.get('/dashboard/layout', async (c) => {
