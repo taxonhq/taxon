@@ -94,7 +94,7 @@ export default function LlmSettingsPage() {
   }
 
   return (
-    <div className="space-y-6 animate-fade-in max-w-3xl">
+    <div className="space-y-6 animate-fade-in">
       <PageHeader
         title={t("title")}
         hint={t("description")}
@@ -106,6 +106,8 @@ export default function LlmSettingsPage() {
         </div>
       )}
 
+      {/* 双栏：配置表单（左）+ 配置说明（右），铺满 sheet 宽度（#109 收尾灭留白） */}
+      <div className="grid lg:grid-cols-2 gap-6 items-start">
       <div className="rounded-xl border border-edge bg-card p-6 space-y-5">
         {/* Provider */}
         <LlmField label={t("provider")} hint={t("providerHint")}>
@@ -276,6 +278,7 @@ export default function LlmSettingsPage() {
           <li>{t("configNote3")}</li>
           <li>{t("configNote4")}</li>
         </ul>
+      </div>
       </div>
     </div>
   );
