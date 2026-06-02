@@ -64,6 +64,7 @@
     "apiTokens": "API Tokens",
     "webhooks": "Webhooks",
     "systemSettings": "System Settings",
+    "apiDocs": "API Docs",
     "sectionManage": "Manage",
     "sectionSettings": "Settings"
   },

@@ -64,6 +64,7 @@
     "apiTokens": "API Tokens",
     "webhooks": "事件订阅",
     "systemSettings": "系统设置",
+    "apiDocs": "API 文档",
     "sectionManage": "管理",
     "sectionSettings": "设置"
   },
