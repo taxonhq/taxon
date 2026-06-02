@@ -886,6 +886,88 @@ export async function revokeToken(id: string): Promise<void> {
   await req<unknown>(`/tokens/${id}`, { method: "DELETE" });
 }
 
+// ── Webhook 事件订阅（#34）────────────────────────────────────────
+
+/** 后端 src/lib/events.ts WEBHOOK_EVENTS 的镜像（创建表单选项）。 */
+export const WEBHOOK_EVENTS = [
+  "entity_tag.created",
+  "entity_tag.status_changed",
+  "entity_tag.deleted",
+  "tag.created",
+  "tag.updated",
+  "tag.deleted",
+  "tag.merged",
+  "tag.moved",
+  "tag_group.created",
+  "tag_group.updated",
+  "tag_group.deleted",
+  "entity.registered",
+  "entity.unregistered",
+] as const;
+export type WebhookEvent = (typeof WEBHOOK_EVENTS)[number];
+
+export interface Webhook {
+  id:          string;
+  name:        string;
+  url:         string;
+  secretMask:  string;
+  events:      string[];
+  scopes:      string[];
+  active:      boolean;
+  createdAt:   string;
+  updatedAt:   string;
+  lastFiredAt: string | null;
+}
+export interface CreatedWebhook extends Webhook {
+  secret: string; // 仅创建时返回一次
+}
+export interface WebhookDelivery {
+  id:           string;
+  event:        string;
+  status:       "pending" | "success" | "failed";
+  attempts:     number;
+  responseCode: number | null;
+  responseBody: string | null;
+  nextRetryAt:  string | null;
+  createdAt:    string;
+  deliveredAt:  string | null;
+}
+
+export async function listWebhooks(): Promise<Webhook[]> {
+  return req<Webhook[]>("/webhooks");
+}
+export async function createWebhook(body: {
+  name:    string;
+  url:     string;
+  events:  string[];
+  scopes?: string[];
+  secret?: string;
+}): Promise<CreatedWebhook> {
+  return req<CreatedWebhook>("/webhooks", {
+    method:  "POST",
+    headers: { "Content-Type": "application/json" },
+    body:    JSON.stringify(body),
+  });
+}
+export async function updateWebhook(id: string, body: Partial<{
+  name: string; url: string; events: string[]; scopes: string[]; active: boolean;
+}>): Promise<Webhook> {
+  return req<Webhook>(`/webhooks/${id}`, {
+    method:  "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body:    JSON.stringify(body),
+  });
+}
+export async function deleteWebhook(id: string): Promise<void> {
+  await req<unknown>(`/webhooks/${id}`, { method: "DELETE" });
+}
+export async function getWebhookDeliveries(id: string, limit = 50): Promise<WebhookDelivery[]> {
+  return req<WebhookDelivery[]>(`/webhooks/${id}/deliveries?limit=${limit}`);
+}
+export async function replayWebhookDelivery(webhookId: string, deliveryId: string): Promise<void> {
+  await req<unknown>(`/webhooks/${webhookId}/deliveries/${deliveryId}/replay`, { method: "POST" });
+}
+
 // ── 标签治理 ──────────────────────────────────────────────────────
 
 export interface TagUsageItem {

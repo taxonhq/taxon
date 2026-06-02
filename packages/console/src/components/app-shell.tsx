@@ -6,7 +6,7 @@ import { useTranslations } from "next-intl";
 import Link from "next/link";
 import {
   Layers, ClipboardCheck, Box, LayoutDashboard, Search,
-  HelpCircle, KeyRound, Sparkles, ShieldCheck, Settings, Maximize2, Minimize2,
+  HelpCircle, KeyRound, Sparkles, ShieldCheck, Settings, Maximize2, Minimize2, Webhook,
 } from "lucide-react";
 import { AboutDialog } from "@/components/ui/about-dialog";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
@@ -73,6 +73,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     { href: "/governance",      icon: ShieldCheck,     label: t("governance") },
     { href: "/settings/llm",    icon: Sparkles,        label: t("llmSettings") },
     { href: "/settings/tokens", icon: KeyRound,        label: t("apiTokens") },
+    { href: "/settings/webhooks", icon: Webhook,       label: t("webhooks") },
     { href: "/settings/system", icon: Settings,        label: t("systemSettings") },
   ] as const;
 
