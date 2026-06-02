@@ -10,6 +10,7 @@ import { generateSlug } from '../../lib/slug.js'
 import { isPrismaError } from '../../lib/errors.js'
 import logger from '../../lib/logger.js'
 import { requireRole } from '../../middleware/auth.js'
+import { emitEvent } from '../../lib/events.js'
 import { CreateTagBody, UpdateTagBody, TagSchema, ApiError, OkMessage, okData } from '../../lib/schemas.js'
 import { MAX_SLUG_LENGTH, buildPath, validateParent } from './helpers.js'
 
@@ -62,8 +63,12 @@ tagsCrud.openapi(createTagRoute, async (c) => {
 
   const path = buildPath(parentPath, slug)
   try {
-    const tag = await prisma.tag.create({
-      data: { groupId, parentId: rawParentId ?? null, slug, name, path, depth, description: description?.trim() || null, sortOrder },
+    const tag = await prisma.$transaction(async (tx) => {
+      const created = await tx.tag.create({
+        data: { groupId, parentId: rawParentId ?? null, slug, name, path, depth, description: description?.trim() || null, sortOrder },
+      })
+      await emitEvent(tx, 'tag.created', { tagId: created.id, groupId, slug: created.slug, name: created.name })
+      return created
     })
     return c.json({ code: 0, data: { ...tag, createdAt: tag.createdAt.toISOString(), updatedAt: tag.updatedAt.toISOString(), deletedAt: tag.deletedAt?.toISOString() ?? null } }, 200)
   } catch (error: unknown) {
@@ -153,6 +158,7 @@ tagsCrud.openapi(updateTagRoute, async (c) => {
           WHERE path LIKE ${oldPath + '%'} AND id != ${tagId}
         `
       }
+      await emitEvent(tx, 'tag.updated', { tagId, groupId: existing.groupId, slug: updated.slug, name: updated.name })
       return updated
     })
     return c.json({ code: 0, data: { ...tag, createdAt: tag.createdAt.toISOString(), updatedAt: tag.updatedAt.toISOString(), deletedAt: tag.deletedAt?.toISOString() ?? null } }, 200)
@@ -189,13 +195,16 @@ tagsCrud.openapi(deleteTagRoute, async (c) => {
   const permanent = c.req.query('permanent') === 'true' || c.req.query('permanent') === '1'
 
   if (permanent) {
-    const tag = await prisma.tag.findUnique({ where: { id: tagId }, select: { id: true } })
+    const tag = await prisma.tag.findUnique({ where: { id: tagId }, select: { id: true, groupId: true, slug: true, name: true } })
     if (!tag) return c.json({ code: 404, message: '标签不存在' }, 404)
-    await prisma.tag.delete({ where: { id: tagId } })
+    await prisma.$transaction(async (tx) => {
+      await tx.tag.delete({ where: { id: tagId } })
+      await emitEvent(tx, 'tag.deleted', { tagId, groupId: tag.groupId, slug: tag.slug, name: tag.name, permanent: true })
+    })
     return c.json({ code: 0, message: '已永久删除' }, 200)
   }
 
-  const tag = await prisma.tag.findUnique({ where: { id: tagId, deletedAt: null }, select: { id: true } })
+  const tag = await prisma.tag.findUnique({ where: { id: tagId, deletedAt: null }, select: { id: true, groupId: true, slug: true, name: true } })
   if (!tag) return c.json({ code: 404, message: '标签不存在' }, 404)
 
   if (!force) {
@@ -207,9 +216,9 @@ tagsCrud.openapi(deleteTagRoute, async (c) => {
     if (childCount > 0) return c.json({ code: 409, message: `该标签有 ${childCount} 个子标签，如需强制删除请添加 ?force=true` }, 409)
   }
 
-  await prisma.tag.update({
-    where: { id: tagId },
-    data:  { deletedAt: new Date() },
+  await prisma.$transaction(async (tx) => {
+    await tx.tag.update({ where: { id: tagId }, data: { deletedAt: new Date() } })
+    await emitEvent(tx, 'tag.deleted', { tagId, groupId: tag.groupId, slug: tag.slug, name: tag.name, permanent: false })
   })
   return c.json({ code: 0, message: '删除成功' }, 200)
 })

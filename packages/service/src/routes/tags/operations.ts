@@ -7,6 +7,7 @@ import { OpenAPIHono, createRoute, z } from '@hono/zod-openapi'
 import prisma from '../../lib/db.js'
 import logger from '../../lib/logger.js'
 import { requireRole } from '../../middleware/auth.js'
+import { emitEvent } from '../../lib/events.js'
 import { TagSchema, ApiError, okData } from '../../lib/schemas.js'
 
 export const tagsOperations = new OpenAPIHono()
@@ -103,6 +104,7 @@ tagsOperations.openapi(mergeTagRoute, async (c) => {
           aliasesMoved,
         },
       })
+      await emitEvent(tx, 'tag.merged', { targetTagId: targetId, sourceTagIds: uniqueSourceIds, groupId: target.groupId, entityTagsMoved, aliasesMoved })
       return { entityTagsMoved, aliasesMoved }
     })
     return c.json({ code: 0, data: result }, 200)
@@ -201,6 +203,7 @@ tagsOperations.openapi(moveTagRoute, async (c) => {
           tagsMoved: allMoving.length,
         },
       })
+      await emitEvent(tx, 'tag.moved', { tagId, fromGroupId: tag.groupId, toGroupId: targetGroupId, tagsMoved: allMoving.length })
       return updatedTag
     })
     return c.json({ code: 0, data: { tag: { ...updated, createdAt: updated.createdAt.toISOString(), updatedAt: updated.updatedAt.toISOString(), deletedAt: updated.deletedAt?.toISOString() ?? null }, tagsMoved: allMoving.length } }, 200)

@@ -152,6 +152,26 @@ describe('事件发射 → outbox', () => {
     expect(payload.status).toBe('rejected')
     expect(payload.previousStatus).toBe('pending')
   })
+
+  it('创建分组写 tag_group.created、创建标签写 tag.created', async () => {
+    const admin = await makeToken('admin')
+    const grpRes = await app.request('/tag-groups', {
+      method: 'POST', headers: { ...bearer(admin), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ slug: 'wh-grp', name: 'wh分组' }),
+    })
+    expect(grpRes.status).toBe(200)
+    const grpId = (await grpRes.json()).data.id
+
+    const tagRes = await app.request('/tags', {
+      method: 'POST', headers: { ...bearer(admin), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ groupId: grpId, name: 'wh标签', slug: 'wh-tag' }),
+    })
+    expect(tagRes.status).toBe(200)
+
+    const names = (await prisma.eventOutbox.findMany()).map(e => e.event)
+    expect(names).toContain('tag_group.created')
+    expect(names).toContain('tag.created')
+  })
 })
 
 // ── 投递 ──────────────────────────────────────────────────────────
