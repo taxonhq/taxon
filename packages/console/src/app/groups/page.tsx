@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
-import { Plus, Trash2, Settings2, ChevronRight, Layers, RotateCcw, Trash } from "lucide-react";
+import { Plus, Trash2, Settings2, ChevronRight, Layers, RotateCcw, Trash, Box, Lock } from "lucide-react";
 import {
   getTagGroups, createTagGroup, deleteTagGroup, restoreTagGroup,
   createTag, deleteTag, getEntityTypes, ApiError,
@@ -360,21 +360,35 @@ function GroupCard({
             {group.name}
           </Link>
 
+          {/* 元数据按语义分三类，各给可辨样式 + tooltip（#126）：
+              ① slug = 机器标识（mono code 片）  ② 适用实体类型（实体图标片）
+              ③ 基数规则（彩色约束徽章） */}
           <div className="flex items-center gap-2 flex-wrap">
-            {/* slug */}
-            <code className="text-xs font-mono text-ink-sub bg-overlay border border-edge-mid px-1.5 py-0.5 rounded">
+            {/* ① slug — 标识符 */}
+            <code
+              title={t("slugLabel")}
+              className="text-xs font-mono text-ink-sub bg-overlay border border-edge-mid px-1.5 py-0.5 rounded"
+            >
               {group.slug}
             </code>
-            {/* entity scope */}
+            {/* ② 适用实体类型 */}
             {group.entityScopes.map(s => (
-              <span key={s} className="inline-flex items-center gap-1 text-xs text-ink-sub border border-edge-mid px-1.5 py-0.5 rounded">
-                <span className="w-1 h-1 rounded-full bg-ink-sub/60 inline-block" />
+              <span
+                key={s}
+                title={t("entityScopeLabel")}
+                className="inline-flex items-center gap-1 text-xs text-ink-sub border border-edge-mid px-1.5 py-0.5 rounded"
+              >
+                <Box size={10} className="text-ink-faint shrink-0" aria-hidden />
                 {s}
               </span>
             ))}
-            {/* cardinality badge */}
+            {/* ③ 基数规则 — 单选约束 */}
             {!group.allowMultiple && (
-              <span className="text-xs text-warn border border-warn/20 bg-warn/5 px-1.5 py-0.5 rounded">
+              <span
+                title={t("allowMultipleLabel")}
+                className="inline-flex items-center gap-1 text-xs text-warn border border-warn/20 bg-warn/5 px-1.5 py-0.5 rounded"
+              >
+                <Lock size={10} className="shrink-0" aria-hidden />
                 {t("singleSelectBadge")}
               </span>
             )}
