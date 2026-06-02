@@ -1,5 +1,8 @@
 # 菌丝 / Mycelial —— Taxon 主视觉语言（已锁定）
 
+> ⚠️ **2026-06 修订：见 [`refinement-2026-06.md`](./refinement-2026-06.md)**（画布纯化 / 去页面框 / 设置收口 / 导航收敛 / dashboard widget 化）。
+> 本文设计语言不变，但部分**落地决策**已被该文修订——冲突处以修订文为准。
+>
 > **已选为 Taxon 的主设计方向**（2026-05）。本目录是落地基准。
 > 配套样张（浏览器打开看动效）：
 > - [`mockup-canvas-bright.html`](./mockup-canvas-bright.html) —— **画布优先 · 仪表盘**（基准范例）
