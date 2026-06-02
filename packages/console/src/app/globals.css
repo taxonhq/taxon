@@ -470,29 +470,61 @@ body {
 .myc-brand .spore { width: .6em; height: .6em; border-radius: 50%; background: var(--myc-bio); box-shadow: 0 0 16px var(--myc-bio); animation: myc-pulse 2.6s infinite; }
 @keyframes myc-pulse { 50% { transform: scale(1.35); box-shadow: 0 0 24px var(--myc-bio); } }
 
-/* ── 导航即菌丝：发光节点串（左侧竖列）──────────────────────────────────── */
-.myc-spine { position: fixed; left: 1.4rem; top: 50%; transform: translateY(-50%); z-index: 11; display: flex; flex-direction: column; align-items: center; gap: 1rem; }
-.myc-spine::before { content: ""; position: absolute; top: 14px; bottom: 14px; left: 50%; width: 1.5px; transform: translateX(-50%); background: linear-gradient(var(--myc-thread), rgba(111,245,200,.06)); z-index: -1; }
+/* ── 导航即菌丝：发光节点串（左侧竖列，漂浮于内容之上，#124）──────────────── */
+/* --myc-spine-mx/my：指针视差偏移，由 app-shell 写入（reduced-motion 下恒为 0）。 */
+.myc-spine {
+  position: fixed; left: 1.4rem; top: 50%; z-index: 11;
+  display: flex; flex-direction: column; align-items: center; gap: 1rem;
+  transform: translateY(-50%) translate3d(var(--myc-spine-mx, 0px), var(--myc-spine-my, 0px), 0);
+  transition: transform .14s ease-out;
+}
+/* 主丝线：节点从这根菌丝上「长出」——中段亮、两端隐入 */
+.myc-spine::before {
+  content: ""; position: absolute; top: 10px; bottom: 10px; left: 50%; width: 1.5px;
+  transform: translateX(-50%); z-index: -1;
+  background: linear-gradient(rgba(111,245,200,.04), var(--myc-thread) 28%, var(--myc-thread) 72%, rgba(111,245,200,.04));
+}
 .myc-gnode {
   width: 30px; height: 30px; border-radius: 50%; border: 1.5px solid rgba(241,233,218,.26);
-  background: var(--myc-glass); backdrop-filter: blur(6px); position: relative; cursor: pointer;
-  transition: .2s; display: flex; align-items: center; justify-content: center; color: var(--myc-dim);
+  background: var(--myc-glass); backdrop-filter: blur(10px); position: relative; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; color: var(--myc-dim);
+  /* 漂浮投影：节点投影落在内容之上，产生「浮起」的 3D 暗示 */
+  box-shadow: 0 4px 14px rgba(0,0,0,.34), inset 0 1px 0 rgba(255,255,255,.08);
+  transition: transform .22s cubic-bezier(.34,1.4,.64,1), box-shadow .22s ease, border-color .2s ease, color .2s ease, background .2s ease;
 }
 .myc-gnode > svg { width: 15px; height: 15px; transition: .2s; }
-.myc-gnode:hover { border-color: var(--myc-bio); color: var(--myc-bio); }
-.myc-gnode.on { border-color: var(--myc-bio); background: radial-gradient(circle at 38% 30%, #fff, var(--myc-bio) 62%); box-shadow: 0 0 16px var(--myc-bio); color: #0a1a12; }
-/* 标签：静止时 hover 滑出玻璃浮标；激活节点常显 */
+/* hover：节点真正「抬起」——朝内容方向位移 + 放大 + 更深投影 + 上缘高光 */
+.myc-gnode:hover {
+  border-color: var(--myc-bio); color: var(--myc-bio);
+  transform: translateX(3px) scale(1.12);
+  box-shadow: 0 9px 24px rgba(0,0,0,.44), 0 0 18px var(--myc-thread), inset 0 1px 0 rgba(255,255,255,.16);
+}
+.myc-gnode.on {
+  border-color: var(--myc-bio); color: #0a1a12;
+  background: radial-gradient(circle at 38% 30%, #fff, var(--myc-bio) 62%);
+  transform: translateX(3px) scale(1.08);
+  box-shadow: 0 9px 24px rgba(0,0,0,.4), 0 0 20px var(--myc-bio), inset 0 1px 0 rgba(255,255,255,.5);
+}
+/* 标签：玻璃浮标。静止时隐藏；hover/focus 整条 rail → 全部一起滑出（Dock 式）。*/
 .myc-gnode::after {
-  content: attr(data-l); position: absolute; left: 2.5rem; top: 50%;
+  content: attr(data-l); position: absolute; left: 2.6rem; top: 50%;
   transform: translateY(-50%) translateX(-6px);
   font-size: .78rem; font-weight: 600; white-space: nowrap; color: #fff;
   text-shadow: 0 1px 10px rgba(0,0,0,.7); background: var(--myc-glass);
-  border: 1px solid var(--myc-thread); padding: .22em .6em; border-radius: 8px;
-  backdrop-filter: blur(8px); opacity: 0; pointer-events: none; transition: .18s;
+  border: 1px solid var(--myc-thread); padding: .24em .62em; border-radius: 8px;
+  backdrop-filter: blur(8px); opacity: 0; pointer-events: none;
+  transition: opacity .18s ease, transform .18s ease, border-color .18s ease;
 }
+/* 整条展开：指针进入 rail 任意处，或键盘 focus 落入 rail → 所有标题一起滑出 */
+.myc-spine:hover .myc-gnode::after,
+.myc-spine:focus-within .myc-gnode::after {
+  opacity: 1; transform: translateY(-50%) translateX(0);
+}
+/* 直接 hover/focus 的那个：标签描边点亮，区分「我正指着哪个」 */
 .myc-gnode:hover::after,
-.myc-gnode:focus-visible::after { opacity: 1; transform: translateY(-50%) translateX(0); }
+.myc-gnode:focus-visible::after { border-color: var(--myc-bio); }
 .myc-gnode:focus-visible { outline: 2px solid var(--myc-bio); outline-offset: 2px; }
+/* 激活节点标签常显（即便未 hover），且转为无底奶油文字 */
 .myc-gnode.on::after { opacity: 1; transform: translateY(-50%); background: none; border: none; backdrop-filter: none; padding: 0; color: var(--myc-cream); }
 
 /* ── 状态簇（右上漂浮）──────────────────────────────────────────────────── */
@@ -545,8 +577,9 @@ body {
     radial-gradient(110% 95% at 86% 12%, #ecdcc2 0%, transparent 48%),
     radial-gradient(140% 130% at 50% 50%, #f3ecdb 0%, #efe4ce 80%), #efe4ce;
 }
-[data-theme="light"] .myc-gnode { border-color: rgba(46,37,25,.2); }
-[data-theme="light"] .myc-gnode.on { color: #f6efe0; }
+[data-theme="light"] .myc-gnode { border-color: rgba(46,37,25,.2); box-shadow: 0 4px 12px rgba(74,58,38,.16), inset 0 1px 0 rgba(255,255,255,.5); }
+[data-theme="light"] .myc-gnode:hover { box-shadow: 0 9px 22px rgba(74,58,38,.22), 0 0 16px var(--myc-thread), inset 0 1px 0 rgba(255,255,255,.6); }
+[data-theme="light"] .myc-gnode.on { color: #f6efe0; box-shadow: 0 9px 22px rgba(74,58,38,.2), 0 0 18px var(--myc-bio), inset 0 1px 0 rgba(255,255,255,.4); }
 [data-theme="light"] .myc-gnode:hover::after { color: var(--myc-cream); }
 [data-theme="light"] .myc-knot label { text-shadow: 0 1px 8px rgba(255,250,240,.7); }
 
@@ -554,4 +587,7 @@ body {
   .myc-hypha, .myc-knot, .myc-cap, .myc-brand .spore, .myc-pill .d.checking { animation: none !important; }
   .myc-hypha { stroke-dashoffset: 0; }
   .myc-knot { opacity: 1; transform: translate(-50%,-50%); }
+  /* spine（#124）：去掉指针视差与节点位移/缩放，仅保留颜色/描边/标签反馈 */
+  .myc-spine { transition: none !important; }
+  .myc-gnode:hover, .myc-gnode.on { transform: none !important; }
 }

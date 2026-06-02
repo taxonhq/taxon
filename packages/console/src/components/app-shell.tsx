@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
 import Link from "next/link";
@@ -44,6 +44,32 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     const jitter = Math.random() * 10000 - 5000;
     const id = setInterval(check, 30_000 + jitter);
     return () => clearInterval(id);
+  }, []);
+
+  // ── nav-spine 指针视差（#124）：spine 随指针做 ±3px 反向漂移，制造
+  //    「操作层浮于内容之上」的 3D 暗示。rAF 节流 + 被动监听；reduced-motion 跳过。
+  const spineRef = useRef<HTMLElement>(null);
+  useEffect(() => {
+    const el = spineRef.current;
+    if (!el) return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    let raf = 0;
+    let mx = 0, my = 0;
+    const onMove = (e: PointerEvent) => {
+      mx = (0.5 - e.clientX / window.innerWidth) * 6;   // ±3px，反向
+      my = (0.5 - e.clientY / window.innerHeight) * 6;
+      if (raf) return;
+      raf = requestAnimationFrame(() => {
+        raf = 0;
+        el.style.setProperty("--myc-spine-mx", `${mx.toFixed(2)}px`);
+        el.style.setProperty("--myc-spine-my", `${my.toFixed(2)}px`);
+      });
+    };
+    window.addEventListener("pointermove", onMove, { passive: true });
+    return () => {
+      window.removeEventListener("pointermove", onMove);
+      if (raf) cancelAnimationFrame(raf);
+    };
   }, []);
 
   // ⌘K / Ctrl+K — open command palette
@@ -104,7 +130,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       </Link>
 
       {/* ── 导航即菌丝（发光节点串）──────────────────────────────── */}
-      <nav className="myc-spine" aria-label="Main navigation">
+      <nav ref={spineRef} className="myc-spine" aria-label="Main navigation">
         {NAV.map(({ href, icon: Icon, label }) => {
           const active = isActive(href);
           return (
