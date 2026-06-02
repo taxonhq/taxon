@@ -208,7 +208,7 @@ export default function DashboardPage() {
       {!editMode && (
         <section
           className="relative mx-4 mt-1 mb-3 rounded-2xl overflow-hidden"
-          style={{ height: "66vh", minHeight: 420, border: "1px solid var(--myc-thread)", background: "var(--myc-soil)" }}
+          style={{ height: "58vh", minHeight: 380, border: "1px solid var(--myc-thread)", background: "var(--myc-soil)" }}
         >
           <TagOrganism />
           <div className="absolute top-4 left-5 z-10 pointer-events-none">
@@ -217,14 +217,22 @@ export default function DashboardPage() {
             </p>
             <p className="text-2xs mt-1" style={{ color: "var(--myc-dim)" }}>{t("organismHint")}</p>
           </div>
-          <button
-            onClick={() => setOrgFull(true)}
-            title="全屏画布"
-            className="absolute top-4 right-4 z-10 p-1.5 rounded-md"
-            style={{ background: "var(--myc-glass)", border: "1px solid var(--myc-thread)", color: "var(--myc-cream)", backdropFilter: "blur(8px)" }}
-          >
-            <Maximize2 size={14} />
-          </button>
+          {/* 核心 KPI 悬浮 HUD（#125）：把分组/标签/实体/待审钉在首屏的签名画布上，
+              不再沉到折叠线以下；待审 > 0 时琥珀高亮「跳出来」。 */}
+          <div className="absolute top-4 right-4 z-10 flex items-stretch gap-2">
+            <HeroKpi label={t("statsGroupsTitle")}   value={fmt(data.stats.groups)} />
+            <HeroKpi label={t("statsTagsTitle")}     value={fmt(data.stats.tags)} accent />
+            <HeroKpi label={t("statsEntitiesTitle")} value={fmt(data.stats.entities)} />
+            <HeroKpi label={t("statsAuditsTitle")}   value={fmt(data.stats.pending)} alert={data.stats.pending > 0} />
+            <button
+              onClick={() => setOrgFull(true)}
+              title="全屏画布"
+              className="self-stretch px-2 rounded-xl flex items-center"
+              style={{ background: "var(--myc-glass)", border: "1px solid var(--myc-thread)", color: "var(--myc-cream)", backdropFilter: "blur(8px)" }}
+            >
+              <Maximize2 size={14} />
+            </button>
+          </div>
         </section>
       )}
 
@@ -375,6 +383,30 @@ function EditHeader({ id, item, onSwitchSize }: {
           })}
         </div>
       )}
+    </div>
+  );
+}
+
+// hero 顶部的核心 KPI 悬浮读数（#125）。accent = 主指标微强调；alert = 待审 > 0 琥珀高亮。
+function HeroKpi({ label, value, accent, alert }: { label: string; value: string; accent?: boolean; alert?: boolean }) {
+  return (
+    <div
+      className="flex flex-col items-end justify-center px-3 py-1.5 rounded-xl min-w-[3.6rem]"
+      style={{
+        background: alert ? "color-mix(in srgb, var(--myc-amber) 16%, var(--myc-glass))" : "var(--myc-glass)",
+        border: `1px solid ${alert ? "color-mix(in srgb, var(--myc-amber) 50%, transparent)" : "var(--myc-thread)"}`,
+        backdropFilter: "blur(8px)",
+      }}
+    >
+      <span className="text-[0.55rem] uppercase tracking-[0.14em] leading-none whitespace-nowrap" style={{ color: "var(--myc-dim)" }}>
+        {label}
+      </span>
+      <span
+        className="text-lg font-bold tabular-nums leading-none mt-1"
+        style={{ color: alert ? "var(--myc-amber)" : accent ? "var(--myc-bio)" : "var(--myc-cream)", letterSpacing: "-0.02em" }}
+      >
+        {value}
+      </span>
     </div>
   );
 }

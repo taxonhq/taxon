@@ -13,6 +13,7 @@
  */
 
 import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { useTranslations } from "next-intl";
 import {
   forceSimulation, forceLink, forceManyBody, forceCenter, forceCollide, forceX, forceY,
   type SimulationNodeDatum,
@@ -46,12 +47,16 @@ interface Node extends SimulationNodeDatum {
 }
 interface Link { source: string | Node; target: string | Node; }
 
+interface LegendItem { id: string; name: string; color: string; count: number }
+
 interface Settled {
   nodes: (Node & { x: number; y: number })[];
   links: { sx: number; sy: number; tx: number; ty: number; color: string; delay: number }[];
+  legend: LegendItem[];
 }
 
 export function TagOrganism() {
+  const t = useTranslations("dashboard");
   const [settled, setSettled] = useState<Settled | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [hovered, setHovered] = useState<string | null>(null);
@@ -70,7 +75,7 @@ export function TagOrganism() {
         const tags = usage.items
           .filter(t => t.usageCount > 0 && !isLoadTestTag(t))
           .slice(0, TAG_LIMIT);
-        if (tags.length === 0) { setSettled({ nodes: [], links: [] }); return; }
+        if (tags.length === 0) { setSettled({ nodes: [], links: [], legend: [] }); return; }
 
         const groupName = new Map(groups.items.map(g => [g.id, g.name] as const));
         const maxUsage = Math.max(...tags.map(t => t.usageCount));
@@ -105,13 +110,14 @@ export function TagOrganism() {
         const sim = forceSimulation(nodes)
           .force("link", forceLink<Node, Link>(links).id(d => d.id).distance(d => {
             const s = d.source as Node, tg = d.target as Node;
-            return s.r + tg.r + 26;
+            return s.r + tg.r + 30;
           }).strength(0.5))
-          .force("charge", forceManyBody().strength(-150))
+          // 更强排斥 + 更大碰撞间距 → 拉开中心密集区，给标签留出可读空隙（#125）
+          .force("charge", forceManyBody().strength(-205))
           .force("center", forceCenter(W / 2, H / 2))
-          .force("x", forceX(W / 2).strength(0.05))
-          .force("y", forceY(H / 2).strength(0.07))
-          .force("collide", forceCollide<Node>().radius(d => d.r + 7).strength(0.95))
+          .force("x", forceX(W / 2).strength(0.045))
+          .force("y", forceY(H / 2).strength(0.065))
+          .force("collide", forceCollide<Node>().radius(d => d.r + 11).strength(0.95))
           .stop();
         for (let i = 0; i < 320; i++) sim.tick();
 
@@ -128,7 +134,12 @@ export function TagOrganism() {
           const tg = l.target as Node & { x: number; y: number };
           return { sx: s.x, sy: s.y, tx: tg.x, ty: tg.y, color: s.color, delay: 0.15 + (i % 12) * 0.05 };
         });
-        setSettled({ nodes: nodes as (Node & { x: number; y: number })[], links: sLinks });
+        // 图例：颜色 = 分组（hub 即分组），按出现的标签数排序
+        const legend: LegendItem[] = [...usedGroups.entries()]
+          .map(([gid, g]) => ({ id: gid, name: groupName.get(gid) ?? "?", color: groupColor(gid), count: g.count }))
+          .sort((a, b) => b.count - a.count);
+
+        setSettled({ nodes: nodes as (Node & { x: number; y: number })[], links: sLinks, legend });
       } catch (e) {
         setError(String((e as Error).message ?? e));
       }
@@ -168,37 +179,73 @@ export function TagOrganism() {
           />
         ))}
       </svg>
-      {settled.nodes.map((n, i) => {
+      {/* 层 1：发光气泡（可交互、承载 hover）。先画，永远在标签之下。 */}
+      {settled.nodes.map((n, i) => (
+        <div
+          key={n.id}
+          className="myc-cap-pos"
+          style={{ left: pct(n.x, W), top: pct(n.y, H), animationDelay: `${0.3 + (i % 14) * 0.04}s`, zIndex: hovered === n.id ? 6 : undefined }}
+          onMouseEnter={() => setHovered(n.id)}
+          onMouseLeave={() => setHovered(cur => (cur === n.id ? null : cur))}
+          title={n.kind === "tag" ? `${n.name} · ${n.usage.toLocaleString()}` : n.name}
+        >
+          <div
+            className="myc-cap"
+            style={{
+              "--s": `${n.r * 1.7}px`,
+              "--c": n.color,
+              "--t": `${n.glow}s`,
+              opacity: n.kind === "hub" ? 0.92 : 1,
+              outline: n.kind === "hub" ? `1.5px solid color-mix(in srgb, ${n.color} 60%, transparent)` : undefined,
+              outlineOffset: "3px",
+            } as CSSProperties}
+          />
+        </div>
+      ))}
+
+      {/* 层 2：标签（pill 背板）。整体置于所有气泡之上，永不被气泡/辉光遮挡（#125）。
+          只渲染常显（hub + 高频）或当前 hover 的节点；pointer-events:none 不挡气泡 hover。 */}
+      {settled.nodes.map(n => {
         const showLabel = n.kind === "hub" || n.top === true || hovered === n.id;
+        if (!showLabel) return null;
+        const capR = n.r * 0.85;          // 气泡半径（cap 直径 = r*1.7）
         return (
           <div
             key={n.id}
-            className="myc-knot"
-            style={{ left: pct(n.x, W), top: pct(n.y, H), animationDelay: `${0.3 + (i % 14) * 0.04}s`, zIndex: hovered === n.id ? 5 : undefined }}
-            onMouseEnter={() => setHovered(n.id)}
-            onMouseLeave={() => setHovered(cur => (cur === n.id ? null : cur))}
-            title={n.kind === "tag" ? `${n.name} · ${n.usage.toLocaleString()}` : n.name}
+            className="myc-label-pos"
+            style={{
+              left: pct(n.x, W), top: pct(n.y, H),
+              transform: `translate(-50%, ${(capR + 6).toFixed(1)}px)`,
+              zIndex: hovered === n.id ? 7 : undefined,
+            }}
           >
-            <div
-              className="myc-cap"
-              style={{
-                "--s": `${n.r * 1.7}px`,
-                "--c": n.color,
-                "--t": `${n.glow}s`,
-                opacity: n.kind === "hub" ? 0.92 : 1,
-                outline: n.kind === "hub" ? `1.5px solid color-mix(in srgb, ${n.color} 60%, transparent)` : undefined,
-                outlineOffset: "3px",
-              } as CSSProperties}
-            />
-            {showLabel && (
-              <label style={{ fontWeight: n.kind === "hub" ? 700 : 500, fontSize: n.kind === "hub" ? ".9rem" : undefined }}>
-                {n.name}
-                {n.kind === "tag" && <span className="n"> ·{n.usage >= 1000 ? `${(n.usage / 1000).toFixed(1)}k` : n.usage}</span>}
-              </label>
-            )}
+            <span className="myc-label" data-hub={n.kind === "hub" || undefined}>
+              {n.name}
+              {n.kind === "tag" && <span className="n">·{n.usage >= 1000 ? `${(n.usage / 1000).toFixed(1)}k` : n.usage}</span>}
+            </span>
           </div>
         );
       })}
+
+      {/* 图例：把颜色显式编码到「分组」维度，并说明节点大小 = 使用量（#125）。
+          没有图例时这张图只是壁纸而非数据可视化。 */}
+      {settled.legend.length > 0 && (
+        <div className="myc-legend">
+          <div className="myc-legend-head">{t("organismLegendColor")}</div>
+          <div className="myc-legend-items">
+            {settled.legend.slice(0, 6).map(g => (
+              <span key={g.id} className="myc-legend-item" title={g.name}>
+                <span className="myc-legend-dot" style={{ background: g.color }} />
+                {g.name}
+              </span>
+            ))}
+            {settled.legend.length > 6 && (
+              <span className="myc-legend-more">+{settled.legend.length - 6}</span>
+            )}
+          </div>
+          <div className="myc-legend-sub">{t("organismLegendSize")}</div>
+        </div>
+      )}
     </div>
   );
 }

@@ -451,12 +451,45 @@ body {
 .myc-cap {
   width: var(--s); height: var(--s); border-radius: 50%; margin: 0 auto;
   background: radial-gradient(circle at 38% 30%, #fff, var(--c) 58%);
-  box-shadow: 0 0 calc(var(--s)*1.3) var(--c);
+  /* 收紧辉光外溢半径（1.3→.95），减少大气泡光晕糊掉邻近标签（#125） */
+  box-shadow: 0 0 calc(var(--s)*.95) var(--c);
   animation: myc-glow var(--t) ease-in-out infinite alternate;
 }
 @keyframes myc-glow { from { filter: brightness(.85); } to { filter: brightness(1.35); } }
 .myc-knot label { display: block; font-weight: 500; font-size: var(--fs,.82rem); margin-top: .4em; color: var(--myc-cream); text-shadow: 0 1px 12px rgba(0,0,0,.7); white-space: nowrap; }
 .myc-knot .n { font-family: var(--font-myc-mono); font-size: .62em; color: var(--myc-bio); opacity: .8; }
+
+/* ── TagOrganism（#125）：气泡层 / 标签层分离 ──────────────────────────────
+   标签作为独立的最上层渲染，背后加 pill 背板 → 永不被任何气泡或辉光遮挡。 */
+.myc-cap-pos { position: absolute; transform: translate(-50%,-50%); opacity: 0; animation: myc-bloom 1s ease forwards; cursor: default; }
+.myc-label-pos { position: absolute; z-index: 4; pointer-events: none; }
+.myc-label {
+  display: inline-flex; align-items: baseline; gap: .22em;
+  font-weight: 500; font-size: .8rem; line-height: 1; white-space: nowrap;
+  color: var(--myc-cream);
+  background: rgba(18,14,9,.62);
+  border: 1px solid rgba(255,255,255,.09);
+  padding: .2em .5em; border-radius: 999px;
+  backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px);
+  box-shadow: 0 2px 10px rgba(0,0,0,.42);
+}
+.myc-label[data-hub] { font-weight: 700; font-size: .86rem; background: rgba(18,14,9,.72); }
+.myc-label .n { font-family: var(--font-myc-mono); font-size: .7em; color: var(--myc-bio); opacity: .85; }
+
+/* 图例：颜色 = 分组 / 大小 = 使用量。漂浮在画布左下角的低存在感物件。 */
+.myc-legend {
+  position: absolute; left: 1.1rem; bottom: 1.1rem; z-index: 5;
+  display: flex; flex-direction: column; gap: .4rem;
+  padding: .6rem .75rem; border-radius: .8rem; max-width: min(46%, 30rem);
+  background: rgba(18,14,9,.5); border: 1px solid rgba(255,255,255,.08);
+  backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+}
+.myc-legend-head { font-size: .6rem; letter-spacing: .14em; text-transform: uppercase; color: var(--myc-dim); font-family: var(--font-myc-mono); }
+.myc-legend-items { display: flex; flex-wrap: wrap; gap: .3rem .6rem; }
+.myc-legend-item { display: inline-flex; align-items: center; gap: .32em; font-size: .72rem; color: var(--myc-cream); max-width: 9rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.myc-legend-dot { width: .56em; height: .56em; border-radius: 50%; flex-shrink: 0; }
+.myc-legend-more { font-size: .68rem; color: var(--myc-dim); align-self: center; }
+.myc-legend-sub { font-size: .62rem; color: var(--myc-dim); }
 /* 密集页：画布退后让位于 sheet */
 .myc-canvas[data-dim="true"] { opacity: .38; filter: blur(2px); }
 
@@ -570,9 +603,9 @@ body {
 [data-theme="light"] .myc-knot label { text-shadow: 0 1px 8px rgba(255,250,240,.7); }
 
 @media (prefers-reduced-motion: reduce) {
-  .myc-hypha, .myc-knot, .myc-cap, .myc-brand .spore, .myc-pill .d.checking { animation: none !important; }
+  .myc-hypha, .myc-knot, .myc-cap, .myc-cap-pos, .myc-brand .spore, .myc-pill .d.checking { animation: none !important; }
   .myc-hypha { stroke-dashoffset: 0; }
-  .myc-knot { opacity: 1; transform: translate(-50%,-50%); }
+  .myc-knot, .myc-cap-pos { opacity: 1; transform: translate(-50%,-50%); }
   /* spine（#124）：去掉指针视差与节点位移/缩放，仅保留颜色/描边/标签反馈 */
   .myc-spine { transition: none !important; }
   .myc-gnode:hover, .myc-gnode.on { transform: none !important; }

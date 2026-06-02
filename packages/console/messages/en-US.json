@@ -139,7 +139,9 @@
       "healthBar": "Service Health"
     },
     "organismTitle": "Tag Organism",
-    "organismHint": "Grown by real usage · hover for labels · groups are cores"
+    "organismHint": "Grown by real usage · hover for labels · groups are cores",
+    "organismLegendColor": "Color = group",
+    "organismLegendSize": "Size = usage"
   },
   "palette": {
     "searchPlaceholder": "Search tags, groups, pages…",
