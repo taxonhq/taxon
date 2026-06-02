@@ -12,6 +12,7 @@ import { Combobox } from "@/components/ui/combobox";
 import { ErrorBanner } from "@/components/ui/error-banner";
 import { PageHeader } from "@/components/ui/page-header";
 import { EntityGraph } from "@/components/entities/entity-graph";
+import { groupColor } from "@/lib/group-color";
 
 interface EntityTypeStat {
   entityType: string;
@@ -81,6 +82,7 @@ export default function EntitiesPage() {
   };
 
   const knownTypes = types.map(t => t.entityType);
+  const totalEntities = types.reduce((s, t) => s + t.count, 0);
 
   return (
     <div className="space-y-7">
@@ -144,7 +146,7 @@ export default function EntitiesPage() {
             {t("entityTypeCount", { count: types.length })}
             <span className="text-edge-strong">·</span>
             <span className="font-semibold text-ink">
-              {types.reduce((s, t) => s + t.count, 0).toLocaleString()}
+              {totalEntities.toLocaleString()}
             </span>
             {t("totalEntitiesCount")}
           </div>
@@ -162,32 +164,53 @@ export default function EntitiesPage() {
       ) : types.length === 0 ? (
         <EmptyEntities onRegister={() => setShowForm(true)} />
       ) : view === "list" ? (
-        <div className="grid grid-cols-2 gap-3">
-          {types.map((type, i) => (
-            <Link
-              key={type.entityType}
-              href={`/entities/${encodeURIComponent(type.entityType)}`}
-              className="card-border overflow-hidden p-5 flex items-center gap-4 group/card animate-slide-up"
-              style={{ animationDelay: `${Math.min(i, 7) * 30}ms` }}
-            >
-              <div className="w-9 h-9 rounded-xl bg-surface-alt border border-edge-mid flex items-center justify-center shrink-0">
-                <Box size={15} className="text-ink-faint" strokeWidth={1.5} />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-base font-semibold text-ink font-mono truncate" style={{ letterSpacing: "-0.01em" }}>
-                  {type.entityType}
-                </p>
-                <p className="text-xs text-ink-sub mt-1">
-                  <span className="text-lg font-bold text-ink tabular-nums" style={{ letterSpacing: "-0.03em" }}>{type.count}</span>
-                  {" "}{t("entityUnit")}
-                </p>
-              </div>
-              <ChevronRight
-                size={14}
-                className="text-ink-faint shrink-0 opacity-0 group-hover/card:opacity-100 group-focus-within/card:opacity-100 transition-opacity -translate-x-1 group-hover/card:translate-x-0 group-focus-within/card:translate-x-0 duration-150"
-              />
-            </Link>
-          ))}
+        <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
+          {types.map((type, i) => {
+            const share   = totalEntities > 0 ? (type.count / totalEntities) * 100 : 0;
+            const barPct  = share > 0 ? Math.max(2, share) : 0;
+            const accent  = groupColor(type.entityType);
+            return (
+              <Link
+                key={type.entityType}
+                href={`/entities/${encodeURIComponent(type.entityType)}`}
+                className="card-border overflow-hidden p-4 flex flex-col gap-3 group/card animate-slide-up"
+                style={{ animationDelay: `${Math.min(i, 7) * 30}ms` }}
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-surface-alt border border-edge-mid flex items-center justify-center shrink-0">
+                    <Box size={15} className="text-ink-faint" strokeWidth={1.5} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-base font-semibold text-ink font-mono truncate" style={{ letterSpacing: "-0.01em" }}>
+                      {type.entityType}
+                    </p>
+                    <p className="text-xs text-ink-sub mt-0.5">
+                      <span className="text-lg font-bold text-ink tabular-nums" style={{ letterSpacing: "-0.03em" }}>{type.count.toLocaleString()}</span>
+                      {" "}{t("entityUnit")}
+                    </p>
+                  </div>
+                  <ChevronRight
+                    size={14}
+                    className="text-ink-faint shrink-0 opacity-0 group-hover/card:opacity-100 group-focus-within/card:opacity-100 transition-opacity -translate-x-1 group-hover/card:translate-x-0 group-focus-within/card:translate-x-0 duration-150"
+                  />
+                </div>
+                {/* 占总量占比条（补次级信息 + 提密度，#107） */}
+                <div className="space-y-1">
+                  <div className="h-1.5 rounded-full bg-edge overflow-hidden">
+                    {barPct > 0 && (
+                      <div
+                        className="h-full rounded-full transition-[width] duration-500"
+                        style={{ width: `${barPct}%`, background: `color-mix(in srgb, ${accent} 78%, transparent)` }}
+                      />
+                    )}
+                  </div>
+                  <p className="text-2xs text-ink-faint tabular-nums">
+                    {t("shareOfTotal", { pct: share >= 0.1 ? share.toFixed(1) : "<0.1" })}
+                  </p>
+                </div>
+              </Link>
+            );
+          })}
         </div>
       ) : mounted ? (
         // 全视口画布：portal 到 body 逃出 sheet（sheet 的 backdrop-filter 会困住 fixed），

@@ -311,7 +311,7 @@ export function TrendChart({ data }: { data: DashboardData }) {
               <XAxis dataKey="date" tickFormatter={d => d.slice(5)} stroke={CHART.ink4}
                 tick={{ fontSize: 10, fill: CHART.ink3 }} axisLine={false} tickLine={false} />
               <YAxis stroke={CHART.ink4} tick={{ fontSize: 10, fill: CHART.ink3 }}
-                axisLine={false} tickLine={false} width={30}
+                axisLine={false} tickLine={false} width={42} tickFormatter={fmt} allowDecimals={false}
                 domain={[0, (dataMax: number) => Math.ceil(dataMax * 1.2) || 10]}
                 allowDataOverflow={false} />
               <Tooltip content={<TrendTooltip />} cursor={{ stroke: CHART.edge2, strokeDasharray: 4 }} />
@@ -408,11 +408,15 @@ export function StatMini({ id, data }: { id: keyof typeof STAT_CONFIG; data: Das
         >
           {fmt(value)}
         </p>
-        {today && (
+        {today ? (
           <p className="text-2xs mt-1.5 tabular-nums text-ink-sub">
             {t("statTodayNew", { n: today.today })}
           </p>
-        )}
+        ) : id === "stat-groups" && data.stats.groups > 0 ? (
+          <p className="text-2xs mt-1.5 tabular-nums text-ink-sub">
+            {t("statGroupsAvg", { n: Math.round(data.stats.tags / data.stats.groups) })}
+          </p>
+        ) : null}
       </div>
 
       {/* Sparkline */}
