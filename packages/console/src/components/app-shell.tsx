@@ -5,14 +5,14 @@ import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
 import Link from "next/link";
 import {
-  Layers, ClipboardCheck, Box, LayoutDashboard, Search,
-  HelpCircle, KeyRound, Sparkles, ShieldCheck, Settings, Maximize2, Minimize2, Webhook,
+  Layers, ClipboardCheck, Box, Search, HelpCircle, ShieldCheck,
 } from "lucide-react";
 import { AboutDialog } from "@/components/ui/about-dialog";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { OnboardingTour, useOnboarding } from "@/components/ui/onboarding";
 import { CommandPalette } from "@/components/ui/command-palette";
 import { MycCanvas } from "@/components/shell/myc-canvas";
+import { SettingsMenu } from "@/components/shell/settings-menu";
 
 type HealthStatus = "ok" | "degraded" | "checking";
 
@@ -29,11 +29,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [health, setHealth] = useState<HealthStatus>("checking");
   const [showAbout, setShowAbout] = useState(false);
   const [cmdOpen, setCmdOpen] = useState(false);
-  const [wide, setWide] = useState(false);
-  useEffect(() => { setWide(localStorage.getItem("myc-wide") === "1"); }, []);
-  const toggleWide = useCallback(() => {
-    setWide(v => { localStorage.setItem("myc-wide", v ? "0" : "1"); return !v; });
-  }, []);
 
   // Onboarding
   const { showOnboarding, completeOnboarding, mounted: onboardingMounted } = useOnboarding();
@@ -63,18 +58,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     return () => window.removeEventListener("keydown", handleKey);
   }, []);
 
-  // ── 导航即菌丝：单列发光节点（含图标 + hover/激活标签）──────────────────
+  // ── 导航即菌丝：单列发光节点（5 个核心动词）──────────────────────────────
+  // 「使用系统」的动词留在 spine；「配置系统」收口到右上角 <SettingsMenu />。
+  // 仪表盘不入列——点左上 Taxon logo 即回首页（标准 web 约定）。
   const NAV = [
-    { href: "/",                icon: LayoutDashboard, label: t("dashboard") },
-    { href: "/groups",          icon: Layers,          label: t("groups") },
-    { href: "/entities",        icon: Box,             label: t("entities") },
-    { href: "/search",          icon: Search,          label: t("search") },
-    { href: "/audit",           icon: ClipboardCheck,  label: t("audit") },
-    { href: "/governance",      icon: ShieldCheck,     label: t("governance") },
-    { href: "/settings/llm",    icon: Sparkles,        label: t("llmSettings") },
-    { href: "/settings/tokens", icon: KeyRound,        label: t("apiTokens") },
-    { href: "/settings/webhooks", icon: Webhook,       label: t("webhooks") },
-    { href: "/settings/system", icon: Settings,        label: t("systemSettings") },
+    { href: "/groups",     icon: Layers,         label: t("groups") },
+    { href: "/entities",   icon: Box,            label: t("entities") },
+    { href: "/search",     icon: Search,         label: t("search") },
+    { href: "/audit",      icon: ClipboardCheck, label: t("audit") },
+    { href: "/governance", icon: ShieldCheck,    label: t("governance") },
   ] as const;
 
   const isActive = useCallback(
@@ -136,12 +128,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <span className={`d ${dotClass}`} />
           <span style={{ fontFamily: "var(--font-myc-mono)" }}>{SERVICE_DISPLAY}</span>
         </span>
-        {!isDashboard && (
-          <button className="myc-ghost" onClick={toggleWide} title={wide ? "恢复居中" : "宽屏模式"} aria-label="Toggle wide mode" aria-pressed={wide}>
-            {wide ? <Minimize2 size={13} /> : <Maximize2 size={13} />}
-          </button>
-        )}
         <ThemeToggle />
+        <SettingsMenu />
         <button className="myc-ghost" onClick={() => setShowAbout(true)} title="About" aria-label="About">
           <HelpCircle size={14} />
         </button>
@@ -157,7 +145,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         {isDashboard ? (
           <div className="myc-hero">{children}</div>
         ) : (
-          <div className={`myc-sheet${wide ? " wide" : ""}`}>{children}</div>
+          <div className="myc-field">{children}</div>
         )}
       </main>
 

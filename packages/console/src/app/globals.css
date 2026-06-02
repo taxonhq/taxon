@@ -34,7 +34,9 @@
   --text-primary:  #f1e9da;   /* headings, values   — cream，~15:1 */
   --text-body:     #c2b6a0;   /* body copy          — ~8:1  */
   --text-subtle:   #ab9e89;   /* secondary info     — dim，~5.5:1 */
-  --text-ghost:    #8a7d68;   /* labels, placeholders — ~3.6:1，仅大字/非正文 */
+  /* ghost 上调（#123 暗色对比度校准）：旧 #8a7d68 在卡面 --card-bg 上仅 ~3.9:1，
+     小字过不了 WCAG AA。提到 #988b75 → 卡面 ~4.7:1，清 AA，且仍低于 subtle 保留层级。 */
+  --text-ghost:    #988b75;   /* labels, placeholders — 卡面 ~4.7:1 */
 
   /* Borders — 暖土描边 */
   --border-faint:  #342a1c;
@@ -412,7 +414,6 @@ body {
   --myc-thread: rgba(111,245,200,.34);  /* 菌丝线 */
   --myc-line:   rgba(241,233,218,.12);   /* 中性细线 */
   --myc-glass:  rgba(28,22,15,.5);       /* 悬浮 chrome 玻璃 */
-  --myc-sheet:  rgba(30,24,16,.72);      /* 密集页玻璃 sheet */
   --myc-spine-w: 4.6rem;            /* nav-spine 让位宽度 */
 }
 
@@ -428,7 +429,6 @@ body {
   --myc-thread: rgba(31,157,116,.30);
   --myc-line:   rgba(46,37,25,.12);
   --myc-glass:  rgba(255,250,240,.62);
-  --myc-sheet:  rgba(252,247,238,.82);
 }
 
 /* ── 全屏画布：有机体即界面（装饰层，pointer 透传）─────────────────────── */
@@ -505,6 +505,21 @@ body {
 .myc-ghost { display: flex; align-items: center; gap: .35rem; font-size: .72rem; padding: .34rem .7rem; border-radius: 999px; border: 1px solid var(--myc-line); background: var(--myc-glass); backdrop-filter: blur(8px); color: var(--myc-dim); cursor: pointer; transition: .18s; }
 .myc-ghost:hover { color: var(--myc-cream); border-color: var(--myc-thread); }
 
+/* ── 设置菜单（右上角统一设置入口的玻璃下拉，#121 / SettingsMenu）────────── */
+.myc-menu {
+  position: absolute; top: calc(100% + .5rem); right: 0; z-index: 30;
+  min-width: 12rem; padding: .35rem; display: flex; flex-direction: column; gap: .1rem;
+  background: var(--myc-glass); border: 1px solid var(--myc-thread); border-radius: 12px;
+  backdrop-filter: blur(12px); box-shadow: 0 12px 32px rgba(0,0,0,.34); transform-origin: top right;
+}
+.myc-menu-item {
+  display: flex; align-items: center; gap: .55rem; padding: .5rem .6rem; border-radius: 8px;
+  font-size: .8rem; color: var(--myc-dim); text-decoration: none; transition: .14s;
+}
+.myc-menu-item:hover { background: var(--tint-soft); color: var(--myc-cream); }
+.myc-menu-item.is-active { color: var(--myc-bio); }
+.myc-menu-item:focus-visible { outline: 2px solid var(--myc-bio); outline-offset: -2px; }
+
 /* ── 命令提示（右下）───────────────────────────────────────────────────── */
 .myc-cmd { position: fixed; bottom: 1.5rem; right: 1.6rem; z-index: 10; font-size: .72rem; color: var(--myc-dim); display: flex; align-items: center; gap: .5rem; padding: .4rem .8rem; border-radius: 999px; background: var(--myc-glass); border: 1px solid var(--myc-line); backdrop-filter: blur(8px); cursor: pointer; transition: .18s; }
 .myc-cmd:hover { color: var(--myc-cream); border-color: var(--myc-thread); }
@@ -514,18 +529,14 @@ body {
 .myc-main { position: relative; z-index: 1; min-height: 100vh; padding-left: var(--myc-spine-w); }
 /* 英雄页（仪表盘 / 图谱）：全幅铺于画布，仅留出顶部 chrome 让位 */
 .myc-hero { padding: 4.6rem 1.6rem 1.6rem; }
-/* 密集页：内容置于半透明玻璃 sheet，浮于退后的画布之上 */
-.myc-sheet {
-  background: var(--myc-sheet); backdrop-filter: blur(16px);
-  border: 1px solid var(--myc-thread); border-radius: 18px;
-  /* 居中 + 限宽：宽屏让画布从两侧透气，同时恢复可读行宽（§8 sheet 偏大偏实） */
+/* 密集页：内容「漂浮在大地之上」——无外框、无玻璃盒子（refinement-2026-06 §2）。
+   旧 .myc-sheet 是一整块带边框的玻璃盒，把已在卡片里的内容又套了一层框（盒中盒），
+   是「回到传统后台」廉价感的主因。这里只保留**量度纪律**：约束列宽 + 居中 + 让位顶部
+   chrome；功能分组的表面交给各自的卡片/物件，画布从内容四周自然透气。 */
+.myc-field {
   width: calc(100% - 3.2rem); max-width: 1180px;
-  /* 抱紧内容：低密度页不再强制满高，让画布从下方透气（#109 step4 灭留白） */
-  margin: 4.6rem auto 2rem; padding: 2rem 2.4rem; min-height: 40vh;
-  box-shadow: 0 12px 48px rgba(0,0,0,.32);
+  margin: 4.6rem auto 3rem; min-height: 40vh;
 }
-/* 宽屏模式：突破 1180 居中框，铺满可用宽度（密集表格页受益） */
-.myc-sheet.wide { max-width: none; }
 
 /* 浅色：外壳元素里硬编码的暗色奶油 rgba 需翻转（羊皮纸画布 + 暖墨描边/标签）*/
 [data-theme="light"] .myc-canvas {
