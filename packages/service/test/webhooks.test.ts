@@ -97,13 +97,13 @@ describe('Webhook CRUD', () => {
     expect(list.data[0].secretMask).toContain('…')
   })
 
-  it('非法事件名 → 422', async () => {
+  it('非法事件名 → 400（子路由 Zod 校验默认码，与其他路由一致）', async () => {
     const admin = await makeToken('admin')
     const res = await app.request('/webhooks', {
       method: 'POST', headers: { ...bearer(admin), 'Content-Type': 'application/json' },
       body: JSON.stringify({ name: 'h', url: 'https://e.test/x', events: ['nonsense.event'] }),
     })
-    expect(res.status).toBe(422)
+    expect(res.status).toBe(400)
   })
 
   it('非 admin → 403', async () => {
