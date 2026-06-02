@@ -259,6 +259,71 @@ model SystemConfig {
   updatedAt DateTime @updatedAt
 }
 
+// ── Webhook（事件订阅）──────────────────────────────────────────
+// 业务方注册 webhook 订阅领域事件（标签状态变更、打标、合并等），
+// 由 outbox worker 异步推送，避免轮询。对标 Stripe / GitHub Webhook。
+//
+// 字段说明：
+//   url      — 接收端 HTTPS 地址
+//   secret   — HMAC-SHA256 签名密钥（请求头 X-Taxon-Signature: sha256=...）
+//   events   — 订阅的事件名白名单（见 src/lib/events.ts WEBHOOK_EVENTS）
+//   scopes   — entityType 白名单（空数组=全部）；仅对带 entityType 的事件生效
+//   active   — 停用后不再 fan-out 新投递
+model Webhook {
+  id          String    @id @default(cuid())
+  name        String
+  url         String
+  secret      String
+  events      String[]
+  scopes      String[]
+  active      Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  lastFiredAt DateTime?
+
+  deliveries  WebhookDelivery[]
+
+  @@index([active])
+}
+
+// ── Webhook 投递记录 ──────────────────────────────────────────────
+// 每个 (事件 × 匹配的 webhook) fan-out 出一条投递；worker 负责发送 + 重试。
+//   status      — pending（待发/重试）| success | failed（超过最大重试）
+//   attempts    — 已尝试次数
+//   nextRetryAt — 下次重试时间（指数退避，封顶 24h）；success/failed 时为 null
+model WebhookDelivery {
+  id           String    @id @default(cuid())
+  webhookId    String
+  webhook      Webhook   @relation(fields: [webhookId], references: [id], onDelete: Cascade)
+  event        String
+  payload      Json
+  status       String    @default("pending")
+  attempts     Int       @default(0)
+  nextRetryAt  DateTime?
+  responseCode Int?
+  responseBody String?
+  createdAt    DateTime  @default(now())
+  deliveredAt  DateTime?
+
+  // 取待发投递：WHERE status='pending' AND nextRetryAt <= now
+  @@index([status, nextRetryAt])
+  @@index([webhookId, createdAt(sort: Desc)])
+}
+
+// ── 事件 Outbox（一致性保证）─────────────────────────────────────
+// 业务变更与事件写入同事务，worker 轮询未 published 的事件 → fan-out 成投递。
+// 保证「业务成功则事件必达」（至少一次语义）。
+model EventOutbox {
+  id          String    @id @default(cuid())
+  event       String
+  payload     Json
+  createdAt   DateTime  @default(now())
+  publishedAt DateTime?
+
+  // 取未发布事件：WHERE publishedAt IS NULL ORDER BY createdAt
+  @@index([publishedAt, createdAt])
+}
+
 // ── 审核历史 ───────────────────────────────────────────────────
 // 每次 PATCH status 操作生成一条记录，完整保留操作轨迹。
 // entityTag 通过复合主键 (tagId, entityType, entityId) 关联。
