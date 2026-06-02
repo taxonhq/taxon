@@ -131,15 +131,20 @@ interface NodeProps {
   draggingId: string | null;
   overId:     string | null;
   allNodes:   Map<string, TagTreeNode>;
+  accent:     string;
+  maxCount:   number;
 }
 
-function TagNode({ node, callbacks, draggingId, overId, allNodes }: NodeProps) {
+function TagNode({ node, callbacks, draggingId, overId, allNodes, accent, maxCount }: NodeProps) {
   const t = useTranslations("groups");
   const tCommon = useTranslations("common");
   const [open, setOpen]           = useState(true);
   const [aliasOpen, setAliasOpen] = useState(false);
   const hasChildren = node.children.length > 0;
   const aliasCount  = node.aliases?.length ?? 0;
+
+  const usage = node._count?.entityTags ?? 0;
+  const usagePct = maxCount > 0 ? Math.max(usage > 0 ? 4 : 0, (usage / maxCount) * 100) : 0;
 
   const { attributes, listeners, setNodeRef: setDragRef, isDragging } = useDraggable({
     id:   node.id,
@@ -198,9 +203,30 @@ function TagNode({ node, callbacks, draggingId, overId, allNodes }: NodeProps) {
         </button>
 
         {/* label */}
-        <span className="flex-1 text-sm text-ink truncate">{node.name}</span>
-        <span className="text-xs text-ink-faint font-mono hidden group-hover/node:inline">{node.slug}</span>
-        <span className="text-xs text-ink-faint ml-1">{node._count?.entityTags ?? 0}</span>
+        <span className="text-sm text-ink truncate shrink-0 max-w-[45%]">{node.name}</span>
+        <span className="text-xs text-ink-faint font-mono shrink-0 hidden group-hover/node:inline">{node.slug}</span>
+
+        {/* usage bar — 占据中段空白，把名称与数值连成一行（修 #107 哑铃行） */}
+        <div
+          className="flex-1 min-w-6 mx-1 h-1.5 rounded-full overflow-hidden"
+          style={{ background: "color-mix(in srgb, var(--color-ink) 8%, transparent)" }}
+          aria-hidden="true"
+        >
+          {usagePct > 0 && (
+            <div
+              className="h-full rounded-full transition-[width] duration-300"
+              style={{ width: `${usagePct}%`, background: `color-mix(in srgb, ${accent} 78%, transparent)` }}
+            />
+          )}
+        </div>
+
+        {/* usage count — tabular，带单位 tooltip（修 #107 无表头/单位） */}
+        <span
+          className="text-xs text-ink-dim font-mono tabular-nums shrink-0 w-12 text-right"
+          title={t("tagUsageCount")}
+        >
+          {usage.toLocaleString()}
+        </span>
 
         {/* actions */}
         <div className="flex items-center gap-0.5 opacity-0 group-hover/node:opacity-100 transition-opacity ml-1">
@@ -258,6 +284,8 @@ function TagNode({ node, callbacks, draggingId, overId, allNodes }: NodeProps) {
               draggingId={draggingId}
               overId={overId}
               allNodes={allNodes}
+              accent={accent}
+              maxCount={maxCount}
             />
           ))}
         </div>
@@ -317,9 +345,11 @@ function isDescendant(map: Map<string, TagTreeNode>, potentialAncestorId: string
 interface TagTreeProps {
   nodes:     TagTreeNode[];
   callbacks: TagTreeCallbacks;
+  /** 分组主色（呼应跨页色彩系统）——用于使用度进度条 */
+  accent?:   string;
 }
 
-export function TagTree({ nodes, callbacks }: TagTreeProps) {
+export function TagTree({ nodes, callbacks, accent = "var(--color-brand-1)" }: TagTreeProps) {
   const t = useTranslations("groups");
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [overId, setOverId]         = useState<string | null>(null);
@@ -331,6 +361,10 @@ export function TagTree({ nodes, callbacks }: TagTreeProps) {
 
   const allNodes    = buildMap(nodes);
   const draggingNode = draggingId ? allNodes.get(draggingId) : null;
+
+  // 全树使用度峰值 —— 进度条按它归一化，跨层级可比
+  let maxCount = 0;
+  for (const n of allNodes.values()) maxCount = Math.max(maxCount, n._count?.entityTags ?? 0);
 
   const handleDragStart = (e: DragStartEvent) => setDraggingId(String(e.active.id));
   const handleDragOver  = (e: DragOverEvent)  => setOverId(e.over ? String(e.over.id) : null);
@@ -381,6 +415,8 @@ export function TagTree({ nodes, callbacks }: TagTreeProps) {
             draggingId={draggingId}
             overId={overId}
             allNodes={allNodes}
+            accent={accent}
+            maxCount={maxCount}
           />
         ))
       )}

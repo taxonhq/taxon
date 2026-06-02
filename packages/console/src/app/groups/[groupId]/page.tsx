@@ -20,6 +20,7 @@ import { ErrorBanner } from "@/components/ui/error-banner";
 import { PageHeader } from "@/components/ui/page-header";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { TagTree, type TagTreeCallbacks } from "@/components/ui/tag-tree";
+import { groupColor } from "@/lib/group-color";
 
 export default function GroupDetailPage() {
   const { groupId } = useParams<{ groupId: string }>();
@@ -753,9 +754,17 @@ export default function GroupDetailPage() {
           )}
           <p className="text-xs text-ink-faint shrink-0">{t("tagTreeHint")}</p>
         </div>
+        {/* 列说明：进度条 = 使用度，右侧数字 = 使用次数（补 #107 缺失的表头/单位） */}
+        {flatTags.length > 0 && (
+          <div className="flex items-center gap-1.5 pb-1.5 mb-1 border-b border-edge/40 text-[10px] uppercase tracking-wide text-ink-faint">
+            <span className="flex-1">{t("tagsLabel")}</span>
+            <span className="w-12 text-right">{t("tagUsageCount")}</span>
+          </div>
+        )}
         <TagTree
           nodes={tagSearch.trim() ? filterTree(tree, tagSearch.trim().toLowerCase()) : tree}
           callbacks={treeCallbacks}
+          accent={group ? groupColor(group.slug) : undefined}
         />
         {tagSearch.trim() && filterTree(tree, tagSearch.trim().toLowerCase()).length === 0 && (
           <p className="text-xs text-ink-faint text-center py-4">{tCommon("noResults")}</p>
