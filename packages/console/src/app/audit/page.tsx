@@ -874,9 +874,10 @@ export default function AuditPage() {
                     </td>
                     <td className="px-3 py-3">
                       {item.confidence != null ? (
-                        <span className={`text-sm font-medium tabular-nums ${
-                          item.confidence >= 0.8 ? "text-ok" :
-                          item.confidence >= 0.5 ? "text-warn" : "text-bad"
+                        // 置信度做成淡色底芯片，让高/中/低一眼可分（#126：原纯文字色偏弱）
+                        <span className={`inline-flex items-center text-sm font-medium tabular-nums px-1.5 py-0.5 rounded ${
+                          item.confidence >= 0.8 ? "text-ok bg-ok/10" :
+                          item.confidence >= 0.5 ? "text-warn bg-warn/10" : "text-bad bg-bad/10"
                         }`}>
                           {Math.round(item.confidence * 100)}%
                         </span>
@@ -917,7 +918,7 @@ export default function AuditPage() {
                           <button
                             disabled={busy}
                             onClick={e => { e.stopPropagation(); setReviewTarget({ item, action: "active" }); }}
-                            className="p-1.5 rounded-md text-ink-faint hover:text-ok hover:bg-ok/10 transition-all disabled:opacity-40"
+                            className="p-1.5 rounded-md text-ink-sub hover:text-ok hover:bg-ok/10 transition-all disabled:opacity-40"
                             aria-label={t("approve")}
                             title={t("approveTitle")}
                           >
@@ -928,7 +929,7 @@ export default function AuditPage() {
                           <button
                             disabled={busy}
                             onClick={e => { e.stopPropagation(); setReviewTarget({ item, action: "rejected" }); }}
-                            className="p-1.5 rounded-md text-ink-faint hover:text-warn hover:bg-warn/10 transition-all disabled:opacity-40"
+                            className="p-1.5 rounded-md text-ink-sub hover:text-warn hover:bg-warn/10 transition-all disabled:opacity-40"
                             aria-label={t("reject")}
                             title={t("rejectTitle")}
                           >
@@ -938,7 +939,7 @@ export default function AuditPage() {
                         <button
                           disabled={busy}
                           onClick={e => { e.stopPropagation(); setConfirmItem(item); }}
-                          className="p-1.5 rounded-md text-ink-faint hover:text-bad hover:bg-bad/10 transition-all disabled:opacity-40"
+                          className="p-1.5 rounded-md text-ink-sub hover:text-bad hover:bg-bad/10 transition-all disabled:opacity-40"
                           aria-label={t("deleteTagLink")}
                           title={t("deleteTagLink")}
                         >

@@ -126,9 +126,11 @@ export function Drawer({
         aria-labelledby={title ? titleId : undefined}
         aria-describedby={description ? descId : undefined}
         className={cn(
-          "relative h-full bg-surface border-l border-edge shadow-2xl shadow-black/40 transition-transform duration-200 ease-out flex flex-col",
+          "relative h-full bg-surface border-l border-edge transition-[transform,box-shadow] duration-200 ease-out flex flex-col",
           SIZE_MAP[size],
-          open ? "translate-x-0" : "translate-x-full",
+          // 关闭态多推 2rem 越过滚动条沟槽（::-webkit-scrollbar 占 4px，致 translate-x-full
+          // 仍露 ~4px 边）；并撤掉阴影，避免离屏面板的投影回渗进视口（#126）。
+          open ? "translate-x-0 shadow-2xl shadow-black/40" : "translate-x-[calc(100%+2rem)] shadow-none",
           className,
         )}
       >

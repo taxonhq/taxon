@@ -18,7 +18,7 @@ import { Command } from "cmdk";
 import {
   LayoutDashboard, Layers, Box, ClipboardCheck, Search,
   KeyRound, Sparkles, Tag, FolderOpen, SunMoon,
-  ArrowRight, ShieldCheck,
+  ArrowRight, ShieldCheck, Webhook, SlidersHorizontal,
 } from "lucide-react";
 import { searchTags, getTagGroups, type Tag as TagType, type TagGroup } from "@/lib/api";
 import { cn } from "@/lib/utils";
@@ -40,8 +40,10 @@ const NAV_ITEM_DEFS = [
   { id: "nav-search",     navKey: "search",       icon: Search,          href: "/search" },
   { id: "nav-audit",      navKey: "audit",        icon: ClipboardCheck,  href: "/audit" },
   { id: "nav-governance", navKey: "governance",   icon: ShieldCheck,     href: "/governance" },
-  { id: "nav-llm",        navKey: "llmSettings",  icon: Sparkles,        href: "/settings/llm" },
-  { id: "nav-tokens",     navKey: null,           icon: KeyRound,        href: "/settings/tokens", label: "API Tokens" },
+  { id: "nav-llm",        navKey: "llmSettings",  icon: Sparkles,          href: "/settings/llm" },
+  { id: "nav-tokens",     navKey: null,           icon: KeyRound,          href: "/settings/tokens", label: "API Tokens" },
+  { id: "nav-webhooks",   navKey: "webhooks",     icon: Webhook,           href: "/settings/webhooks" },
+  { id: "nav-system",     navKey: "systemSettings", icon: SlidersHorizontal, href: "/settings/system" },
 ] as const;
 
 // ── Sub-components ────────────────────────────────────────────────────────────

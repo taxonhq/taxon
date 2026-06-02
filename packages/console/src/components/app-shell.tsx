@@ -1,18 +1,18 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
 import Link from "next/link";
 import {
-  Layers, ClipboardCheck, Box, LayoutDashboard, Search,
-  HelpCircle, KeyRound, Sparkles, ShieldCheck, Settings, Maximize2, Minimize2, Webhook,
+  Layers, ClipboardCheck, Box, Search, HelpCircle, ShieldCheck,
 } from "lucide-react";
 import { AboutDialog } from "@/components/ui/about-dialog";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { OnboardingTour, useOnboarding } from "@/components/ui/onboarding";
 import { CommandPalette } from "@/components/ui/command-palette";
 import { MycCanvas } from "@/components/shell/myc-canvas";
+import { SettingsMenu } from "@/components/shell/settings-menu";
 
 type HealthStatus = "ok" | "degraded" | "checking";
 
@@ -29,11 +29,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [health, setHealth] = useState<HealthStatus>("checking");
   const [showAbout, setShowAbout] = useState(false);
   const [cmdOpen, setCmdOpen] = useState(false);
-  const [wide, setWide] = useState(false);
-  useEffect(() => { setWide(localStorage.getItem("myc-wide") === "1"); }, []);
-  const toggleWide = useCallback(() => {
-    setWide(v => { localStorage.setItem("myc-wide", v ? "0" : "1"); return !v; });
-  }, []);
 
   // Onboarding
   const { showOnboarding, completeOnboarding, mounted: onboardingMounted } = useOnboarding();
@@ -51,6 +46,32 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     return () => clearInterval(id);
   }, []);
 
+  // ── nav-spine 指针视差（#124）：spine 随指针做 ±3px 反向漂移，制造
+  //    「操作层浮于内容之上」的 3D 暗示。rAF 节流 + 被动监听；reduced-motion 跳过。
+  const spineRef = useRef<HTMLElement>(null);
+  useEffect(() => {
+    const el = spineRef.current;
+    if (!el) return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    let raf = 0;
+    let mx = 0, my = 0;
+    const onMove = (e: PointerEvent) => {
+      mx = (0.5 - e.clientX / window.innerWidth) * 6;   // ±3px，反向
+      my = (0.5 - e.clientY / window.innerHeight) * 6;
+      if (raf) return;
+      raf = requestAnimationFrame(() => {
+        raf = 0;
+        el.style.setProperty("--myc-spine-mx", `${mx.toFixed(2)}px`);
+        el.style.setProperty("--myc-spine-my", `${my.toFixed(2)}px`);
+      });
+    };
+    window.addEventListener("pointermove", onMove, { passive: true });
+    return () => {
+      window.removeEventListener("pointermove", onMove);
+      if (raf) cancelAnimationFrame(raf);
+    };
+  }, []);
+
   // ⌘K / Ctrl+K — open command palette
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
@@ -63,18 +84,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     return () => window.removeEventListener("keydown", handleKey);
   }, []);
 
-  // ── 导航即菌丝：单列发光节点（含图标 + hover/激活标签）──────────────────
+  // ── 导航即菌丝：单列发光节点（5 个核心动词）──────────────────────────────
+  // 「使用系统」的动词留在 spine；「配置系统」收口到右上角 <SettingsMenu />。
+  // 仪表盘不入列——点左上 Taxon logo 即回首页（标准 web 约定）。
   const NAV = [
-    { href: "/",                icon: LayoutDashboard, label: t("dashboard") },
-    { href: "/groups",          icon: Layers,          label: t("groups") },
-    { href: "/entities",        icon: Box,             label: t("entities") },
-    { href: "/search",          icon: Search,          label: t("search") },
-    { href: "/audit",           icon: ClipboardCheck,  label: t("audit") },
-    { href: "/governance",      icon: ShieldCheck,     label: t("governance") },
-    { href: "/settings/llm",    icon: Sparkles,        label: t("llmSettings") },
-    { href: "/settings/tokens", icon: KeyRound,        label: t("apiTokens") },
-    { href: "/settings/webhooks", icon: Webhook,       label: t("webhooks") },
-    { href: "/settings/system", icon: Settings,        label: t("systemSettings") },
+    { href: "/groups",     icon: Layers,         label: t("groups") },
+    { href: "/entities",   icon: Box,            label: t("entities") },
+    { href: "/search",     icon: Search,         label: t("search") },
+    { href: "/audit",      icon: ClipboardCheck, label: t("audit") },
+    { href: "/governance", icon: ShieldCheck,    label: t("governance") },
   ] as const;
 
   const isActive = useCallback(
@@ -112,7 +130,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       </Link>
 
       {/* ── 导航即菌丝（发光节点串）──────────────────────────────── */}
-      <nav className="myc-spine" aria-label="Main navigation">
+      <nav ref={spineRef} className="myc-spine" aria-label="Main navigation">
         {NAV.map(({ href, icon: Icon, label }) => {
           const active = isActive(href);
           return (
@@ -136,12 +154,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <span className={`d ${dotClass}`} />
           <span style={{ fontFamily: "var(--font-myc-mono)" }}>{SERVICE_DISPLAY}</span>
         </span>
-        {!isDashboard && (
-          <button className="myc-ghost" onClick={toggleWide} title={wide ? "恢复居中" : "宽屏模式"} aria-label="Toggle wide mode" aria-pressed={wide}>
-            {wide ? <Minimize2 size={13} /> : <Maximize2 size={13} />}
-          </button>
-        )}
         <ThemeToggle />
+        <SettingsMenu />
         <button className="myc-ghost" onClick={() => setShowAbout(true)} title="About" aria-label="About">
           <HelpCircle size={14} />
         </button>
@@ -157,7 +171,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         {isDashboard ? (
           <div className="myc-hero">{children}</div>
         ) : (
-          <div className={`myc-sheet${wide ? " wide" : ""}`}>{children}</div>
+          <div className="myc-field">{children}</div>
         )}
       </main>
 

@@ -49,9 +49,13 @@ export function MycCanvas({ dim = false }: { dim?: boolean }) {
             className="myc-cap"
             style={{ "--s": k.s, "--c": k.c, "--t": k.t } as CSSProperties}
           />
-          <label>
-            {k.label} {k.n && <span className="n">{k.n}</span>}
-          </label>
+          {/* dim（内容页背景）只留发光孢子做环境光斑，不渲染带假计数的标签——
+              否则在稀疏页（设置/实体/空状态）会像「半渲染的数据图」漏出来（#126）。 */}
+          {!dim && (
+            <label>
+              {k.label} {k.n && <span className="n">{k.n}</span>}
+            </label>
+          )}
         </div>
       ))}
     </div>
