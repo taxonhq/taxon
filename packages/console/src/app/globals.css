@@ -505,27 +505,27 @@ body {
   transform: translateX(3px) scale(1.08);
   box-shadow: 0 9px 24px rgba(0,0,0,.4), 0 0 20px var(--myc-bio), inset 0 1px 0 rgba(255,255,255,.5);
 }
-/* 标签：玻璃浮标。静止时隐藏；hover/focus 整条 rail → 全部一起滑出（Dock 式）。*/
+/* 标签：漂浮文字浮标——无边框（不做成 button），靠柔和投影暗示「浮起」。
+   文字色用主题感知的 --myc-cream（深色=奶油亮字 / 浅色=暖墨暗字），两主题均过对比度。
+   静止时隐藏；hover/focus 整条 rail → 全部一起滑出（Dock 式）。*/
 .myc-gnode::after {
   content: attr(data-l); position: absolute; left: 2.6rem; top: 50%;
   transform: translateY(-50%) translateX(-6px);
-  font-size: .78rem; font-weight: 600; white-space: nowrap; color: #fff;
-  text-shadow: 0 1px 10px rgba(0,0,0,.7); background: var(--myc-glass);
-  border: 1px solid var(--myc-thread); padding: .24em .62em; border-radius: 8px;
-  backdrop-filter: blur(8px); opacity: 0; pointer-events: none;
-  transition: opacity .18s ease, transform .18s ease, border-color .18s ease;
+  font-size: .78rem; font-weight: 600; letter-spacing: .01em; white-space: nowrap;
+  color: var(--myc-cream); background: var(--myc-glass);
+  padding: .26em .66em; border-radius: 7px;
+  backdrop-filter: blur(10px); box-shadow: 0 4px 18px rgba(0,0,0,.26);
+  opacity: 0; pointer-events: none;
+  transition: opacity .18s ease, transform .18s ease;
 }
 /* 整条展开：指针进入 rail 任意处，或键盘 focus 落入 rail → 所有标题一起滑出 */
 .myc-spine:hover .myc-gnode::after,
 .myc-spine:focus-within .myc-gnode::after {
   opacity: 1; transform: translateY(-50%) translateX(0);
 }
-/* 直接 hover/focus 的那个：标签描边点亮，区分「我正指着哪个」 */
-.myc-gnode:hover::after,
-.myc-gnode:focus-visible::after { border-color: var(--myc-bio); }
 .myc-gnode:focus-visible { outline: 2px solid var(--myc-bio); outline-offset: 2px; }
-/* 激活节点标签常显（即便未 hover），且转为无底奶油文字 */
-.myc-gnode.on::after { opacity: 1; transform: translateY(-50%); background: none; border: none; backdrop-filter: none; padding: 0; color: var(--myc-cream); }
+/* 激活节点标签常显——「你在这」由节点本身发光填充区分，标签不另加色，保证可读 */
+.myc-gnode.on::after { opacity: 1; transform: translateY(-50%); }
 
 /* ── 状态簇（右上漂浮）──────────────────────────────────────────────────── */
 .myc-status { position: fixed; top: 1.5rem; right: 1.6rem; z-index: 10; display: flex; align-items: center; gap: .7rem; }
@@ -580,7 +580,8 @@ body {
 [data-theme="light"] .myc-gnode { border-color: rgba(46,37,25,.2); box-shadow: 0 4px 12px rgba(74,58,38,.16), inset 0 1px 0 rgba(255,255,255,.5); }
 [data-theme="light"] .myc-gnode:hover { box-shadow: 0 9px 22px rgba(74,58,38,.22), 0 0 16px var(--myc-thread), inset 0 1px 0 rgba(255,255,255,.6); }
 [data-theme="light"] .myc-gnode.on { color: #f6efe0; box-shadow: 0 9px 22px rgba(74,58,38,.2), 0 0 18px var(--myc-bio), inset 0 1px 0 rgba(255,255,255,.4); }
-[data-theme="light"] .myc-gnode:hover::after { color: var(--myc-cream); }
+/* 浅色：标签浮标投影改暖棕轻量阴影；文字色继承 --myc-cream（暖墨）自动适配 */
+[data-theme="light"] .myc-gnode::after { box-shadow: 0 4px 14px rgba(74,58,38,.14); }
 [data-theme="light"] .myc-knot label { text-shadow: 0 1px 8px rgba(255,250,240,.7); }
 
 @media (prefers-reduced-motion: reduce) {
