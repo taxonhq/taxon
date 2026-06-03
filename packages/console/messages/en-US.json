@@ -127,6 +127,11 @@
     "resetConfirm": "Reset layout to default?",
     "doneEditing": "Done",
     "customize": "Customize",
+    "addWidget": "Add widget",
+    "allWidgetsAdded": "All added",
+    "zoomIn": "Zoom in",
+    "zoomOut": "Zoom out",
+    "fitView": "Fit view",
     "widgetLabels": {
       "kpiHero": "Core KPI",
       "entityPie": "Entity Distribution",

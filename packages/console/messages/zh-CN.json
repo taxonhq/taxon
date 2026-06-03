@@ -127,6 +127,11 @@
     "resetConfirm": "确认重置布局为默认？",
     "doneEditing": "完成",
     "customize": "自定义",
+    "addWidget": "添加 widget",
+    "allWidgetsAdded": "已全部添加",
+    "zoomIn": "放大",
+    "zoomOut": "缩小",
+    "fitView": "适配视图",
     "widgetLabels": {
       "kpiHero": "核心指标",
       "entityPie": "实体类型分布",
