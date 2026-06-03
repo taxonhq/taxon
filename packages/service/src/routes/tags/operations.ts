@@ -3,14 +3,15 @@
  *   POST /:targetId/merge  — 合并（same-group）
  *   POST /:tagId/move      — 跨组迁移（含子孙）
  */
-import { OpenAPIHono, createRoute, z } from '@hono/zod-openapi'
+import { createRoute, z } from '@hono/zod-openapi'
+import { createRouter } from '../../lib/router.js'
 import prisma from '../../lib/db.js'
 import logger from '../../lib/logger.js'
 import { requireRole } from '../../middleware/auth.js'
 import { emitEvent } from '../../lib/events.js'
 import { TagSchema, ApiError, okData } from '../../lib/schemas.js'
 
-export const tagsOperations = new OpenAPIHono()
+export const tagsOperations = createRouter()
 
 const MergeBody = z.object({
   sourceIds: z.array(z.string().min(1)).min(1).openapi({ description: '要合并进 target 的源标签 ID 列表' }),
@@ -178,7 +179,8 @@ tagsOperations.openapi(moveTagRoute, async (c) => {
   }
 
   const oldPath  = tag.path
-  const newPath  = `/${tag.slug}/`
+  // 物化路径无前导斜杠（buildPath = `${parentPath}${slug}/`）；移动后成为目标组根节点
+  const newPath  = `${tag.slug}/`
   const depthDelta = -tag.depth
 
   try {
@@ -186,8 +188,10 @@ tagsOperations.openapi(moveTagRoute, async (c) => {
       const updatedTag = await tx.tag.update({ where: { id: tagId }, data: { groupId: targetGroupId, parentId: null, path: newPath, depth: 0 } })
       if (descendants.length > 0) {
         await tx.tag.updateMany({ where: { id: { in: descendants.map(d => d.id) } }, data: { groupId: targetGroupId } })
+        // 锚定前缀替换：只换 path 开头的 oldPath，避免 REPLACE 子串全局替换损坏后代路径（#131）。
+        // substring(path FROM len(oldPath)+1) 取后代相对 oldPath 的尾段，再拼上 newPath。
         await tx.$executeRaw`
-          UPDATE "Tag" SET path = REPLACE(path, ${oldPath}, ${newPath}), depth = depth + ${depthDelta}
+          UPDATE "Tag" SET path = ${newPath} || substr(path, ${oldPath.length + 1}::int), depth = depth + ${depthDelta}
           WHERE path LIKE ${oldPath + '%'} AND id != ${tagId} AND "deletedAt" IS NULL
         `
       }

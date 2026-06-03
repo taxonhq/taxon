@@ -47,8 +47,10 @@ export async function zParse<T>(
 
 /**
  * Format the first Zod issue into a human-friendly Chinese error message.
+ * Exported so the shared router `defaultHook` (lib/router.ts) reuses the same
+ * formatting for `createRoute` request-validation failures.
  */
-function formatZodError(error: ZodError): string {
+export function formatZodError(error: ZodError): string {
   const issue = error.issues[0]
   if (!issue) return '请求体格式不合法'
 

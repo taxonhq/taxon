@@ -6,7 +6,7 @@ import { AnthropicProvider } from './anthropic.js'
 import { OpenAIProvider } from './openai.js'
 
 export type { LlmProvider, LlmCallInput, LlmCallResult } from './provider.js'
-export { LlmError } from './provider.js'
+export { LlmError, llmUserMessage } from './provider.js'
 
 export function buildProvider(args: {
   provider: 'anthropic' | 'openai'

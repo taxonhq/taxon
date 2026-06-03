@@ -40,8 +40,25 @@ export interface LlmProvider {
 }
 
 export class LlmError extends Error {
-  constructor(msg: string, public cause?: unknown) {
+  constructor(msg: string, public cause?: unknown, public status?: number) {
     super(msg)
     this.name = 'LlmError'
+  }
+}
+
+/**
+ * 把 LlmError 归一化为对用户安全、可操作的提示（#144）。
+ * 原始上游报文（含 provider 内部 request id / 计费细节）只进日志，不回前端。
+ */
+export function llmUserMessage(e: LlmError): string {
+  switch (e.status) {
+    case 401:
+    case 403: return 'LLM 服务认证失败：请在「设置 → LLM」检查 API Key 与配置'
+    case 429: return 'LLM 调用频率受限，请稍后再试'
+    case 408:
+    case 504: return 'LLM 响应超时，请稍后再试'
+    default:
+      if (e.status && e.status >= 500) return 'LLM 服务暂时不可用，请稍后再试'
+      return 'LLM 调用失败，请稍后再试或检查 LLM 配置'
   }
 }

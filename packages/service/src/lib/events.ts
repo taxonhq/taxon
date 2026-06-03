@@ -15,6 +15,7 @@ export const WEBHOOK_EVENTS = [
   'entity_tag.created',
   'entity_tag.status_changed',
   'entity_tag.deleted',
+  'entity_tag.bulk_changed',
   'tag.created',
   'tag.updated',
   'tag.deleted',

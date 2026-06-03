@@ -4,7 +4,8 @@
  *   PATCH /:tagId
  *   DELETE /:tagId
  */
-import { OpenAPIHono, createRoute, z } from '@hono/zod-openapi'
+import { createRoute, z } from '@hono/zod-openapi'
+import { createRouter } from '../../lib/router.js'
 import prisma from '../../lib/db.js'
 import { generateSlug } from '../../lib/slug.js'
 import { isPrismaError } from '../../lib/errors.js'
@@ -14,7 +15,7 @@ import { emitEvent } from '../../lib/events.js'
 import { CreateTagBody, UpdateTagBody, TagSchema, ApiError, OkMessage, okData } from '../../lib/schemas.js'
 import { MAX_SLUG_LENGTH, buildPath, validateParent } from './helpers.js'
 
-export const tagsCrud = new OpenAPIHono()
+export const tagsCrud = createRouter()
 
 const TagIdParam = z.object({ tagId: z.string().min(1).openapi({ description: '标签 ID' }) })
 
@@ -153,9 +154,11 @@ tagsCrud.openapi(updateTagRoute, async (c) => {
         },
       })
       if (pathChanged) {
+        // 锚定前缀替换（#131）：避免 REPLACE 子串全局替换损坏后代路径；
+        // 并补 "deletedAt" IS NULL，与 move 一致，不改写软删除后代。
         await tx.$executeRaw`
-          UPDATE "Tag" SET path = REPLACE(path, ${oldPath}, ${newPath}), depth = depth + ${depthDelta}
-          WHERE path LIKE ${oldPath + '%'} AND id != ${tagId}
+          UPDATE "Tag" SET path = ${newPath} || substr(path, ${oldPath.length + 1}::int), depth = depth + ${depthDelta}
+          WHERE path LIKE ${oldPath + '%'} AND id != ${tagId} AND "deletedAt" IS NULL
         `
       }
       await emitEvent(tx, 'tag.updated', { tagId, groupId: existing.groupId, slug: updated.slug, name: updated.name })

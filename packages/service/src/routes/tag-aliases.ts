@@ -1,11 +1,12 @@
-import { OpenAPIHono, createRoute, z } from '@hono/zod-openapi'
+import { createRoute, z } from '@hono/zod-openapi'
+import { createRouter } from '../lib/router.js'
 import prisma from '../lib/db.js'
 import { isPrismaError } from '../lib/errors.js'
 import logger from '../lib/logger.js'
 import { requireRole } from '../middleware/auth.js'
 import { TagAliasSchema, CreateAliasBody, ApiError, OkMessage, okData } from '../lib/schemas.js'
 
-const tagAliases = new OpenAPIHono()
+const tagAliases = createRouter()
 
 const TagIdParam   = z.object({ tagId:   z.string().min(1).openapi({ description: '标签 ID' }) })
 const AliasIdParam = z.object({ tagId:   z.string().min(1), aliasId: z.string().min(1).openapi({ description: '别名 ID' }) })

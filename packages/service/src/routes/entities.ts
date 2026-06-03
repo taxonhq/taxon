@@ -1,10 +1,10 @@
-import { OpenAPIHono } from '@hono/zod-openapi'
+import { createRouter } from '../lib/router.js'
 import { auditRouter }       from './entity-audit.js'
 import { registrationRouter } from './entity-registration.js'
 import { taggingRouter }      from './entity-tagging.js'
 import { suggestRouter }      from './entity-suggest.js'
 
-const entities = new OpenAPIHono()
+const entities = createRouter()
 
 // 路由顺序很重要：
 // 1. /audit          — 字面量路径，必须最先

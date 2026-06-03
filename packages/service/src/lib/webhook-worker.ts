@@ -15,9 +15,14 @@ import type { Prisma } from '@prisma/client'
 import prisma from './db.js'
 import logger from './logger.js'
 
-// 指数退避（秒）：约 1m → 5m → 30m → 2h → 6h → 24h，共 6 次重试后判定 failed
+// 指数退避（秒）：约 1m → 5m → 30m → 2h → 6h → 24h，共 6 次重试后判定 failed。
+// MAX_ATTEMPTS = 初次投递 + 6 次重试 = length + 1，确保最后一档 24h 退避会被真正用到
+// （#136：原 MAX_ATTEMPTS = length 导致 24h 档永不命中）。
 export const RETRY_DELAYS_SEC = [60, 300, 1800, 7200, 21600, 86400] as const
-export const MAX_ATTEMPTS = RETRY_DELAYS_SEC.length
+export const MAX_ATTEMPTS = RETRY_DELAYS_SEC.length + 1
+
+// 单轮投递的并发上限：避免逐条串行时单个慢/挂起端点造成队头阻塞（#136）。
+const DELIVER_CONCURRENCY = 10
 
 const FANOUT_BATCH = 200
 const DELIVER_BATCH = 100
@@ -60,19 +65,22 @@ export async function fanOutOnce(): Promise<number> {
 
   for (const ev of pending) {
     const matched = webhooks.filter(w => w.events.includes(ev.event) && scopeMatches(w.scopes, ev.payload))
-    if (matched.length > 0) {
-      await prisma.webhookDelivery.createMany({
-        data: matched.map(w => ({
-          webhookId: w.id,
-          event: ev.event,
-          payload: ev.payload as Prisma.InputJsonValue,
-          status: 'pending',
-          nextRetryAt: now,
-        })),
-      })
-      created += matched.length
-    }
-    await prisma.eventOutbox.update({ where: { id: ev.id }, data: { publishedAt: now } })
+    // 原子化：生成投递 + 标记 outbox 已发布在同一事务，崩溃不会重复 fan-out（#136，对齐文件头注释）
+    await prisma.$transaction(async (tx) => {
+      if (matched.length > 0) {
+        await tx.webhookDelivery.createMany({
+          data: matched.map(w => ({
+            webhookId: w.id,
+            event: ev.event,
+            payload: ev.payload as Prisma.InputJsonValue,
+            status: 'pending',
+            nextRetryAt: now,
+          })),
+        })
+      }
+      await tx.eventOutbox.update({ where: { id: ev.id }, data: { publishedAt: now } })
+    })
+    created += matched.length
   }
   return created
 }
@@ -150,14 +158,20 @@ export async function deliverPendingOnce(fetchImpl: FetchImpl = fetch): Promise<
 
   let delivered = 0
   let failed = 0
-  for (const d of due) {
-    const ok = await deliverOne(
-      { id: d.id, webhookId: d.webhookId, event: d.event, payload: d.payload, attempts: d.attempts, createdAt: d.createdAt },
-      d.webhook,
-      fetchImpl,
-    )
-    if (ok) delivered++
-    else failed++
+  // 有界并发：分片 DELIVER_CONCURRENCY 条一组并行，单个慢端点只拖累同组，不阻塞全批（#136）
+  for (let i = 0; i < due.length; i += DELIVER_CONCURRENCY) {
+    const slice = due.slice(i, i + DELIVER_CONCURRENCY)
+    const results = await Promise.all(slice.map(d =>
+      deliverOne(
+        { id: d.id, webhookId: d.webhookId, event: d.event, payload: d.payload, attempts: d.attempts, createdAt: d.createdAt },
+        d.webhook,
+        fetchImpl,
+      ),
+    ))
+    for (const ok of results) {
+      if (ok) delivered++
+      else failed++
+    }
   }
   return { delivered, failed }
 }

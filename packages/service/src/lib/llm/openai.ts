@@ -49,7 +49,7 @@ export class OpenAIProvider implements LlmProvider {
       return { output, text: '', model: `openai/${this.model}` }
     } catch (e) {
       if (e instanceof LlmError) throw e
-      throw new LlmError(`OpenAI 调用失败：${(e as Error).message ?? e}`, e)
+      throw new LlmError(`OpenAI 调用失败：${(e as Error).message ?? e}`, e, (e as { status?: number })?.status)
     }
   }
 
@@ -66,7 +66,7 @@ export class OpenAIProvider implements LlmProvider {
       return { text: typeof text === 'string' ? text.trim() : '', model: `openai/${this.model}` }
     } catch (e) {
       if (e instanceof LlmError) throw e
-      throw new LlmError(`OpenAI plain 调用失败：${(e as Error).message ?? e}`, e)
+      throw new LlmError(`OpenAI plain 调用失败：${(e as Error).message ?? e}`, e, (e as { status?: number })?.status)
     }
   }
 }
