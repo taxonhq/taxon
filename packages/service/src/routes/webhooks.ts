@@ -9,16 +9,18 @@
  *   GET    /webhooks/:id/deliveries               最近投递记录
  *   POST   /webhooks/:id/deliveries/:did/replay   重放某次投递（重排为 pending）
  */
-import { OpenAPIHono, createRoute, z } from '@hono/zod-openapi'
+import { createRoute, z } from '@hono/zod-openapi'
+import { createRouter } from '../lib/router.js'
 import { randomBytes } from 'node:crypto'
 import prisma from '../lib/db.js'
 import logger from '../lib/logger.js'
 import { isPrismaError } from '../lib/errors.js'
 import { requireRole } from '../middleware/auth.js'
 import { WEBHOOK_EVENTS } from '../lib/events.js'
+import { webhookUrlError } from '../lib/ssrf.js'
 import { ApiError, OkMessage, okData } from '../lib/schemas.js'
 
-export const webhooksRouter = new OpenAPIHono()
+export const webhooksRouter = createRouter()
 
 // ── schemas ─────────────────────────────────────────────────────────────────────
 const EventEnum = z.enum(WEBHOOK_EVENTS)
@@ -105,6 +107,8 @@ webhooksRouter.openapi(createRoute({
   },
 }), async (c) => {
   const { name, url, events, scopes, secret } = c.req.valid('json')
+  const urlErr = webhookUrlError(url)
+  if (urlErr) return c.json({ code: 400, message: urlErr }, 400)
   const finalSecret = secret ?? 'whsec_' + randomBytes(24).toString('hex')
   const w = await prisma.webhook.create({
     data: { name: name.trim(), url, events, scopes: scopes ?? [], secret: finalSecret },
@@ -138,11 +142,16 @@ webhooksRouter.openapi(createRoute({
   },
   responses: {
     200: { content: { 'application/json': { schema: okData(WebhookSchema) } }, description: '成功' },
+    400: { content: { 'application/json': { schema: ApiError } }, description: '参数错误' },
     404: { content: { 'application/json': { schema: ApiError } }, description: '不存在' },
   },
 }), async (c) => {
   const { id } = c.req.valid('param')
   const body = c.req.valid('json')
+  if (body.url !== undefined) {
+    const urlErr = webhookUrlError(body.url)
+    if (urlErr) return c.json({ code: 400, message: urlErr }, 400)
+  }
   try {
     const w = await prisma.webhook.update({ where: { id }, data: body })
     return c.json({ code: 0, data: toPublic(w) }, 200)

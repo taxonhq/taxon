@@ -1,4 +1,5 @@
-import { OpenAPIHono, createRoute, z } from '@hono/zod-openapi'
+import { createRoute, z } from '@hono/zod-openapi'
+import { createRouter } from '../lib/router.js'
 import type { Prisma } from '@prisma/client'
 import { TagSource, TagStatus } from '@prisma/client'
 import prisma from '../lib/db.js'
@@ -18,7 +19,7 @@ import {
 const VALID_SOURCES  = new Set<string>(Object.values(TagSource))
 const VALID_STATUSES = new Set<string>(Object.values(TagStatus))
 
-export const taggingRouter = new OpenAPIHono()
+export const taggingRouter = createRouter()
 
 const EntityTagParams = z.object({
   entityType: z.string().min(1),
@@ -109,7 +110,9 @@ taggingRouter.openapi(replaceEntityTagsRoute, async (c) => {
     await prisma.$transaction(async (tx) => {
       await tx.registeredEntity.upsert({ where: { entityType_entityId: { entityType, entityId } }, create: { entityType, entityId }, update: {} })
       await tx.$queryRaw`SELECT 1 FROM "RegisteredEntity" WHERE "entityType" = ${entityType} AND "entityId" = ${entityId} FOR UPDATE`
-      const deletedPending = await tx.entityTag.count({ where: { entityType, entityId, status: 'pending' } })
+      // 取旧集合：用于 gauge 增量 + 计算 added/removed 以补发 webhook 事件（#130）
+      const existing = await tx.entityTag.findMany({ where: { entityType, entityId }, select: { tagId: true, status: true } })
+      const deletedPending = existing.filter(r => r.status === 'pending').length
       await tx.entityTag.deleteMany({ where: { entityType, entityId } })
       if (tagIds.length > 0) {
         await tx.entityTag.createMany({ data: tagIds.map(tagId => ({ tagId, entityType, entityId, source, confidence, status })) })
@@ -118,6 +121,16 @@ taggingRouter.openapi(replaceEntityTagsRoute, async (c) => {
       const delta = addedPending - deletedPending
       if (delta > 0) incAuditGauge(delta)
       else if (delta < 0) decAuditGauge(-delta)
+      // 全量替换的事件（#130）：对成员变化补发 created / deleted，按 entityType 走 scopes。
+      // 只发 added/removed，保留集（交集）的元数据刷新不发，避免 no-op 噪声。
+      const oldIds = new Set(existing.map(r => r.tagId))
+      const newIds = new Set(tagIds)
+      for (const r of existing) {
+        if (!newIds.has(r.tagId)) await emitEvent(tx, 'entity_tag.deleted', { entityType, entityId, tagId: r.tagId, status: r.status })
+      }
+      for (const tagId of tagIds) {
+        if (!oldIds.has(tagId)) await emitEvent(tx, 'entity_tag.created', { entityType, entityId, tagId, source, confidence: confidence ?? null, status })
+      }
     })
     return c.json({ code: 0, message: '更新成功' }, 200)
   } catch (error: unknown) {
@@ -393,7 +406,8 @@ taggingRouter.openapi(bulkTagRoute, async (c) => {
 
   // 5) 分批执行
   const errors: Array<{ entityId: string; error: string }> = []
-  let succeeded = 0
+  let succeeded = 0   // 进入插入流程的实体数（add 模式下含「目标标签已全部存在」的 no-op）
+  let inserted = 0    // 实际写入的 EntityTag 行数（skipDuplicates 后，#139）
   let pendingDelta = 0
 
   for (let off = 0; off < uniqEntityIds.length; off += BULK_BATCH_SIZE) {
@@ -412,6 +426,11 @@ taggingRouter.openapi(bulkTagRoute, async (c) => {
         let toInsertEntities: string[]
         if (mode === 'replace') {
           // 清涉及到的 group 内已有的 active 标签（含 pending —— 全清更符合 "替换" 语义）
+          // 先统计将被删除的 pending 行，回收 audit gauge（#139：replace 删 pending 之前未 dec）
+          const delPending = await tx.entityTag.count({
+            where: { entityType, entityId: { in: batch }, status: 'pending', tag: { groupId: { in: allGroupIds } } },
+          })
+          pendingDelta -= delPending
           await tx.entityTag.deleteMany({
             where: {
               entityType,
@@ -453,8 +472,14 @@ taggingRouter.openapi(bulkTagRoute, async (c) => {
           )
           const result = await tx.entityTag.createMany({ data: rows, skipDuplicates: true })
           succeeded += toInsertEntities.length
-          // 估算 pending delta：新增的行数 × (status==='pending')
+          inserted += result.count
+          // pending delta：实际新增的行数 × (status==='pending')
           if (status === 'pending') pendingDelta += result.count
+          // 批量事件（#130）：每批发一条聚合事件，payload 顶层带 entityType 供 scopes 匹配。
+          await emitEvent(tx, 'entity_tag.bulk_changed', {
+            entityType, mode, source, status,
+            tagIds: uniqTagIds, entityIds: toInsertEntities, inserted: result.count,
+          })
         }
       })
     } catch (error) {
@@ -465,11 +490,13 @@ taggingRouter.openapi(bulkTagRoute, async (c) => {
   }
 
   if (pendingDelta > 0) incAuditGauge(pendingDelta)
+  else if (pendingDelta < 0) decAuditGauge(-pendingDelta)
 
   return c.json({
     code: 0,
     data: {
       succeeded,
+      inserted,
       failed: errors.length,
       errors,
     },

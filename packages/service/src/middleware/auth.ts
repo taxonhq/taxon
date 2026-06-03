@@ -16,6 +16,19 @@ export function invalidateTokenCache(): void {
   _cachedHasDbToken = null
 }
 
+// lastUsedAt 写节流（#138）：每个 token 至多每 N 分钟写一次，避免每请求一写造成写放大。
+// 精度到分钟级足够展示「最近使用」，map 大小受 token 数量限制。
+const LAST_USED_WRITE_INTERVAL_MS = 5 * 60_000
+const _lastUsedWrites = new Map<string, number>()
+
+function touchLastUsed(tokenId: string): void {
+  const now = Date.now()
+  if (now - (_lastUsedWrites.get(tokenId) ?? 0) < LAST_USED_WRITE_INTERVAL_MS) return
+  _lastUsedWrites.set(tokenId, now)
+  // 异步 fire-and-forget，不阻塞请求
+  prisma.apiToken.update({ where: { id: tokenId }, data: { lastUsedAt: new Date() } }).catch(() => {})
+}
+
 const ROLE_LEVEL: Record<ApiRole, number> = {
   reader:   0,
   writer:   1,
@@ -45,11 +58,8 @@ export const tokenAuth: MiddlewareHandler = async (c, next) => {
     if (dbToken.revokedAt) {
       return c.json({ code: 403, message: '认证失败：Token 已撤销' }, 403)
     }
-    // 异步更新 lastUsedAt，不阻塞请求
-    prisma.apiToken.update({
-      where: { id: dbToken.id },
-      data:  { lastUsedAt: new Date() },
-    }).catch(() => {})
+    // 更新 lastUsedAt（按 token 节流，避免每请求一写 → 写放大，#138）
+    touchLastUsed(dbToken.id)
 
     c.set('tokenRole', dbToken.role as ApiRole)
     c.set('tokenName', dbToken.name)

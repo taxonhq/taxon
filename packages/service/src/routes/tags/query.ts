@@ -6,12 +6,13 @@
  *   GET /:tagId/descendants
  *   GET /:tagId/ancestors
  */
-import { OpenAPIHono, createRoute, z } from '@hono/zod-openapi'
+import { createRoute, z } from '@hono/zod-openapi'
+import { createRouter } from '../../lib/router.js'
 import prisma from '../../lib/db.js'
 import { parsePagination } from '../../lib/pagination.js'
 import { TagSchema, ApiError, okData, Paginated, PaginationQuery } from '../../lib/schemas.js'
 
-export const tagsQuery = new OpenAPIHono()
+export const tagsQuery = createRouter()
 
 const TagIdParam = z.object({ tagId: z.string().min(1).openapi({ description: '标签 ID' }) })
 

@@ -5,7 +5,8 @@
  *
  * 详见 issue #17。
  */
-import { OpenAPIHono, createRoute } from '@hono/zod-openapi'
+import { createRoute } from '@hono/zod-openapi'
+import { createRouter } from '../lib/router.js'
 import { Prisma } from '@prisma/client'
 import prisma from '../lib/db.js'
 import logger from '../lib/logger.js'
@@ -19,10 +20,10 @@ import {
 } from '../lib/schemas.js'
 import { compileBoolExpr } from '../lib/search/compile.js'
 import { loadActiveLlmConfig } from './llm-config.js'
-import { buildProvider, LlmError } from '../lib/llm/index.js'
+import { buildProvider, LlmError, llmUserMessage } from '../lib/llm/index.js'
 import { translateNlToDsl, validateBoolExpr } from '../lib/nl-to-dsl.js'
 
-export const searchRouter = new OpenAPIHono()
+export const searchRouter = createRouter()
 
 // ── POST /entities ────────────────────────────────────────────────────────────
 const SEARCH_DESCRIPTION = `
@@ -288,12 +289,12 @@ searchRouter.openapi(searchEntitiesRoute, async (c) => {
     // 3) 主查询 + 总数（COUNT 不需要 ORDER BY/LIMIT）
     //    当存在 BoolExpr 过滤时，在事务内执行 SET LOCAL jit = off，
     //    避免 PG JIT 在结果集小、谓词复杂时产生 ~100-200ms 固定开销。
-    type ItemRow = { entityType: string; entityId: string; registeredAt: Date }
+    type ItemRow = { entityType: string; entityId: string; registeredAt: Date; metadata: unknown }
     type CountRow = { count: bigint }
 
     const runQueries = async (db: Pick<typeof prisma, '$queryRaw'>) => Promise.all([
       db.$queryRaw<ItemRow[]>(Prisma.sql`
-        SELECT re."entityType", re."entityId", re."registeredAt"
+        SELECT re."entityType", re."entityId", re."registeredAt", re."metadata"
         FROM "RegisteredEntity" re
         WHERE re."entityType" = ${entityType}
           ${filterSql}
@@ -396,6 +397,8 @@ searchRouter.openapi(searchEntitiesRoute, async (c) => {
           entityType:   i.entityType,
           entityId:     i.entityId,
           registeredAt: i.registeredAt.toISOString(),
+          // 始终回 metadata，让前端能展示人类可读的 name 而非 entityId（#142）
+          metadata:     (i.metadata ?? null) as Record<string, unknown> | null,
           ...(include.includes('tags') ? { tags: tagsByEntity.get(i.entityId) ?? [] } : {}),
         })),
         total, page, pageSize,
@@ -720,8 +723,9 @@ searchRouter.openapi(nlToDslRoute, async (c) => {
     }, 200)
   } catch (e) {
     if (e instanceof LlmError) {
-      logger.warn({ err: e }, 'NL→DSL LLM error')
-      return c.json({ code: 502, message: e.message }, 502)
+      // 原始上游报文只进日志；对外返回归一化、不泄漏内部细节的提示（#144）
+      logger.warn({ err: e, status: e.status }, 'NL→DSL LLM error')
+      return c.json({ code: 502, message: llmUserMessage(e) }, 502)
     }
     logger.error({ err: e }, 'NL→DSL unexpected error')
     throw e

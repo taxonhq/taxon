@@ -254,7 +254,8 @@ export const BulkTagErrorSchema = z.object({
 })
 
 export const BulkTagResponseData = z.object({
-  succeeded: z.number().int().openapi({ description: '成功写入标签的实体数' }),
+  succeeded: z.number().int().openapi({ description: '进入插入流程的实体数（add 模式含目标标签已全部存在的 no-op）' }),
+  inserted:  z.number().int().openapi({ description: '实际写入的 EntityTag 行数（skipDuplicates 去重后；可据此识别 no-op 重跑）' }),
   failed:    z.number().int().openapi({ description: '因冲突跳过的实体数（= errors.length）' }),
   errors:    z.array(BulkTagErrorSchema),
 })

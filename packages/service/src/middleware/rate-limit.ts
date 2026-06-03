@@ -45,6 +45,35 @@ interface RateLimitOptions {
 /** Sliding-window bucket: array of request timestamps (ms since epoch). */
 const buckets = new Map<string, number[]>()
 
+/**
+ * Trusted-proxy hop count. X-Forwarded-For is only honored when running behind
+ * a known reverse proxy; otherwise the header is client-controlled and trivially
+ * spoofable to bypass the limiter (#135). Set TRUST_PROXY_HOPS=N to the number of
+ * trusted proxies appending to XFF (the real client IP is the Nth-from-last entry).
+ * Default 0 = ignore XFF, use the socket peer address.
+ */
+const TRUST_PROXY_HOPS = Math.max(0, Math.floor(Number(process.env.TRUST_PROXY_HOPS) || 0))
+
+/** Hard cap on distinct keys to bound memory against spoofed-IP key explosion (#135). */
+const MAX_BUCKETS = 50_000
+
+function socketAddr(c: Parameters<MiddlewareHandler>[0]): string {
+  return (
+    (c.env as { incoming?: { socket?: { remoteAddress?: string } } })?.incoming?.socket?.remoteAddress ||
+    'unknown'
+  )
+}
+
+/** Derive the client IP, trusting XFF only when explicitly configured. */
+function clientIp(c: Parameters<MiddlewareHandler>[0]): string {
+  if (TRUST_PROXY_HOPS > 0) {
+    const chain = (c.req.header('x-forwarded-for') ?? '').split(',').map(s => s.trim()).filter(Boolean)
+    const idx = chain.length - TRUST_PROXY_HOPS
+    if (idx >= 0 && chain[idx]) return chain[idx]
+  }
+  return socketAddr(c)
+}
+
 /** Periodic cleanup — drop empty buckets to prevent unbounded memory growth. */
 setInterval(() => {
   const now = Date.now()
@@ -70,21 +99,18 @@ export function rateLimit({
     // If a method filter is set, let non-matching methods pass through freely.
     if (methods && !methods.includes(c.req.method)) return next()
 
-    const key = keyFn
-      ? keyFn(c)
-      : (
-          (c.req.header('x-forwarded-for') ?? '').split(',')[0].trim() ||
-          // Hono node adapter exposes the raw socket via c.env
-          (c.env as { incoming?: { socket?: { remoteAddress?: string } } })
-            ?.incoming?.socket?.remoteAddress ||
-          'unknown'
-        )
+    const key = keyFn ? keyFn(c) : clientIp(c)
 
     const now = Date.now()
     const cutoff = now - windowMs
-    const prev = buckets.get(key) ?? []
+    const prev = buckets.get(key)
+    // Bound memory: evict the oldest-inserted bucket when at cap and seeing a new key.
+    if (prev === undefined && buckets.size >= MAX_BUCKETS) {
+      const oldest = buckets.keys().next().value
+      if (oldest !== undefined) buckets.delete(oldest)
+    }
     // Slide the window: drop timestamps older than cutoff
-    const current = prev.filter(t => t > cutoff)
+    const current = (prev ?? []).filter(t => t > cutoff)
 
     if (current.length >= max) {
       const oldestInWindow = current[0]

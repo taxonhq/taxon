@@ -1,4 +1,5 @@
-import { OpenAPIHono, createRoute, z } from '@hono/zod-openapi'
+import { createRoute, z } from '@hono/zod-openapi'
+import { createRouter } from '../lib/router.js'
 import { randomBytes, createHash } from 'crypto'
 import prisma from '../lib/db.js'
 import { requireRole, invalidateTokenCache } from '../middleware/auth.js'
@@ -6,7 +7,7 @@ import { isPrismaError } from '../lib/errors.js'
 import type { ApiRole } from '../middleware/auth.js'
 import { ApiTokenSchema, CreatedTokenSchema, CreateTokenBody, ApiError, OkMessage, okData } from '../lib/schemas.js'
 
-export const tokensRouter = new OpenAPIHono()
+export const tokensRouter = createRouter()
 
 // ── GET /tokens ───────────────────────────────────────────────────────────────
 const listTokensRoute = createRoute({

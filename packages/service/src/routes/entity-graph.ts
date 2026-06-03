@@ -10,14 +10,15 @@
  *
  * 核心原则：永不全量渲染。任意调用只返回一个节点的直接邻居（受 limit 兜底）。
  */
-import { OpenAPIHono, createRoute, z } from '@hono/zod-openapi'
+import { createRoute, z } from '@hono/zod-openapi'
+import { createRouter } from '../lib/router.js'
 import { Prisma } from '@prisma/client'
 import prisma from '../lib/db.js'
 import logger from '../lib/logger.js'
 import { requireRole } from '../middleware/auth.js'
 import { ApiError, okData } from '../lib/schemas.js'
 
-export const entityGraphRouter = new OpenAPIHono()
+export const entityGraphRouter = createRouter()
 
 const DEFAULT_LIMIT = 200
 const MAX_LIMIT = 500

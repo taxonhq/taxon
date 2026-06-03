@@ -1,4 +1,5 @@
-import { OpenAPIHono, createRoute, z } from '@hono/zod-openapi'
+import { createRoute, z } from '@hono/zod-openapi'
+import { createRouter } from '../lib/router.js'
 import { Prisma, TagStatus } from '@prisma/client'
 import type { Prisma as PrismaTypes } from '@prisma/client'
 import prisma from '../lib/db.js'
@@ -11,7 +12,7 @@ import {
 
 const VALID_STATUSES = new Set<string>(Object.values(TagStatus))
 
-export const auditRouter = new OpenAPIHono()
+export const auditRouter = createRouter()
 
 // ── GET /audit ────────────────────────────────────────────────────────────────
 const listAuditRoute = createRoute({
@@ -43,14 +44,24 @@ auditRouter.openapi(listAuditRoute, async (c) => {
   const reviewerId   = c.req.query('reviewerId')
   const from         = c.req.query('from')
   const to           = c.req.query('to')
-  const minConf      = c.req.query('minConfidence') ? parseFloat(c.req.query('minConfidence')!) : undefined
-  const maxConf      = c.req.query('maxConfidence') ? parseFloat(c.req.query('maxConfidence')!) : undefined
+  const rawMin       = c.req.query('minConfidence')
+  const rawMax       = c.req.query('maxConfidence')
+  const minConf      = rawMin != null ? Number(rawMin) : undefined
+  const maxConf      = rawMax != null ? Number(rawMax) : undefined
   const page         = Math.max(1, parseInt(c.req.query('page') || '1'))
   const pageSize     = Math.min(100, Math.max(1, parseInt(c.req.query('pageSize') || '20')))
   const skip         = (page - 1) * pageSize
 
   if (!VALID_STATUSES.has(statusParam))
     return c.json({ code: 400, message: `status 无效，可选值：${[...VALID_STATUSES].join(', ')}` }, 400)
+
+  // 校验置信度：非数值（NaN）会被传进 Prisma 触发 500，须前置拦成 400（#143）
+  for (const [name, v] of [['minConfidence', minConf], ['maxConfidence', maxConf]] as const) {
+    if (v !== undefined && (!Number.isFinite(v) || v < 0 || v > 1))
+      return c.json({ code: 400, message: `${name} 必须为 0~1 的数值` }, 400)
+  }
+  if (minConf !== undefined && maxConf !== undefined && minConf > maxConf)
+    return c.json({ code: 400, message: 'minConfidence 不能大于 maxConfidence' }, 400)
 
   const where: PrismaTypes.EntityTagWhereInput = {
     status: statusParam as TagStatus,
@@ -170,7 +181,7 @@ auditRouter.openapi(listEntitiesRoute, async (c) => {
     const rows = await prisma.registeredEntity.findMany({
       where,
       select: {
-        entityType: true, entityId: true, registeredAt: true,
+        entityType: true, entityId: true, registeredAt: true, metadata: true,
         entityTags: {
           where: { status: 'active', tag: { deletedAt: null } },
           select: { tagId: true, source: true, confidence: true, status: true, createdAt: true, tag: { select: { id: true, slug: true, name: true, groupId: true, group: { select: { id: true, slug: true, name: true } } } } },
@@ -181,13 +192,14 @@ auditRouter.openapi(listEntitiesRoute, async (c) => {
     })
     const items = rows.map(r => ({
       entityType: r.entityType, entityId: r.entityId, registeredAt: r.registeredAt.toISOString(),
+      metadata: (r.metadata ?? null) as Record<string, unknown> | null,  // #142：回 name 供前端展示
       tags: r.entityTags.map(et => ({ id: et.tag.id, slug: et.tag.slug, name: et.tag.name, groupId: et.tag.groupId, group: et.tag.group, source: et.source, confidence: et.confidence, status: et.status as string, taggedAt: et.createdAt.toISOString() })),
     }))
     return c.json({ code: 0, data: { items, total, page, pageSize } }, 200)
   }
 
-  const rows = await prisma.registeredEntity.findMany({ where, select: { entityType: true, entityId: true, registeredAt: true }, orderBy: { registeredAt: 'desc' }, skip, take: pageSize })
-  const items = rows.map(r => ({ entityType: r.entityType, entityId: r.entityId, registeredAt: r.registeredAt.toISOString() }))
+  const rows = await prisma.registeredEntity.findMany({ where, select: { entityType: true, entityId: true, registeredAt: true, metadata: true }, orderBy: { registeredAt: 'desc' }, skip, take: pageSize })
+  const items = rows.map(r => ({ entityType: r.entityType, entityId: r.entityId, registeredAt: r.registeredAt.toISOString(), metadata: (r.metadata ?? null) as Record<string, unknown> | null }))
   return c.json({ code: 0, data: { items, total, page, pageSize } }, 200)
 })
 

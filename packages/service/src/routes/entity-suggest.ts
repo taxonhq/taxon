@@ -12,7 +12,8 @@
  *   6. 可选：apply=true 时将建议自动写入为 pending EntityTag
  */
 
-import { OpenAPIHono, createRoute, z } from '@hono/zod-openapi'
+import { createRoute, z } from '@hono/zod-openapi'
+import { createRouter } from '../lib/router.js'
 import prisma from '../lib/db.js'
 import logger from '../lib/logger.js'
 import { requireRole } from '../middleware/auth.js'
@@ -23,7 +24,7 @@ import {
   ApiError, okData,
 } from '../lib/schemas.js'
 
-export const suggestRouter = new OpenAPIHono()
+export const suggestRouter = createRouter()
 
 const SuggestParams = z.object({
   entityType: z.string().min(1),

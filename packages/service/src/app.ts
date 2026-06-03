@@ -6,7 +6,6 @@
  * that live in src/index.ts.
  */
 
-import { OpenAPIHono } from '@hono/zod-openapi'
 import { cors } from 'hono/cors'
 import { secureHeaders } from 'hono/secure-headers'
 import { bearerAuth } from './middleware/auth.js'
@@ -14,6 +13,7 @@ import { rateLimit } from './middleware/rate-limit.js'
 import { requestIdMiddleware, getRequestId } from './middleware/request-id.js'
 import { validateEntityParams } from './middleware/validate-params.js'
 import prisma from './lib/db.js'
+import { createRouter } from './lib/router.js'
 import logger from './lib/logger.js'
 import { registry, httpRequestsTotal, httpRequestDuration, normalizeRoute } from './lib/metrics.js'
 import { entities } from './routes/entities.js'
@@ -37,15 +37,9 @@ export interface AppOptions {
 }
 
 export function buildApp(opts: AppOptions = {}) {
-  const app = new OpenAPIHono({
-    // 将 @hono/zod-openapi 默认的 {success,error} 校验错误包装为项目统一的 {code,message} 格式
-    defaultHook: (result, c) => {
-      if (!result.success) {
-        const msg = result.error.issues[0]?.message ?? 'Validation error'
-        return c.json({ code: 422, message: msg }, 422)
-      }
-    },
-  })
+  // createRouter() 统一注入 defaultHook，把 @hono/zod-openapi 默认的 {success,error}
+  // 校验错误包装为项目统一的 {code,message}（见 lib/router.ts / #140）。
+  const app = createRouter()
   const version = opts.version ?? 'unknown'
 
   // BearerAuth セキュリティスキームをレジストリに登録（app.doc の components は Omit されているため）
