@@ -10,7 +10,8 @@
  */
 
 // 1 个模板单位的像素尺寸（@scale=1）。相机缩放在此之上再乘 scale。
-export const UNIT = 76;
+// 110px：2×1 KPI = 220×110，4×2 趋势 = 440×220，视觉上不再像邮票。
+export const UNIT = 110;
 // widget 之间落点轻吸附的网格步长（= 半个单位，对齐但不死板）
 export const SNAP = UNIT / 2;
 
@@ -55,9 +56,9 @@ export interface WidgetDef {
 }
 
 export const WIDGET_DEFS: Record<WidgetId, WidgetDef> = {
-  // 单指标 KPI：小数字配 1×1，大数字（实体/待审，常上万）默认给宽 2×1
-  "stat-groups":   { id: "stat-groups",   labelKey: "statGroups",   allowed: ["1x1", "2x1"],                    defaultTpl: "1x1" },
-  "stat-tags":     { id: "stat-tags",     labelKey: "statTags",     allowed: ["1x1", "2x1"],                    defaultTpl: "1x1" },
+  // 单指标 KPI：统一 2×1（220×110px）。1×1 太小（110px 方块像邮票），保留作可切换档。
+  "stat-groups":   { id: "stat-groups",   labelKey: "statGroups",   allowed: ["2x1", "1x1"],                    defaultTpl: "2x1" },
+  "stat-tags":     { id: "stat-tags",     labelKey: "statTags",     allowed: ["2x1", "1x1"],                    defaultTpl: "2x1" },
   "stat-entities": { id: "stat-entities", labelKey: "statEntities", allowed: ["2x1", "1x1"],                    defaultTpl: "2x1" },
   "stat-pending":  { id: "stat-pending",  labelKey: "statPending",  allowed: ["2x1", "1x1"],                    defaultTpl: "2x1" },
   // 曲线 / 趋势：可大可小，大曲线模板供详读
@@ -88,27 +89,43 @@ export interface CanvasItem {
 
 export interface CanvasCamera { x: number; y: number; s: number }
 
-/** 布局版本：结构变更时旧布局自动失效，回落默认 */
-export const CANVAS_VERSION = 1;
+/**
+ * 布局版本：结构/单位/默认位置变更时旧布局自动失效，回落默认。
+ * v1 → v2：UNIT 76→110，KPI 1×1→2×1，布局重排。
+ */
+export const CANVAS_VERSION = 2;
 
 /**
- * 默认布局：KPI 聚右上，趋势/环/活动/健康分布四周，中心留给有机体。
- * 坐标为左上角分数；渲染时按视口换算并夹取进可视区。
+ * 默认布局（基准：1440×900 视口，UNIT=110）。
+ *
+ * 分区原则：
+ *  ┌──────────────────────────────────────┐
+ *  │  [KPI 2×2网格]      有机体中心       [活动流] │
+ *  │  [趋势曲线4×2]                       [实体环] │
+ *  │                [健康横幅4×1]                   │
+ *  └──────────────────────────────────────┘
+ *
+ *  左侧：KPI 4 张（2列×2行）+ 趋势曲线；中心空留有机体；
+ *  右侧：活动流（高竖条）+ 实体环；下方：健康横幅居中。
+ *
+ *  x/y 均为左上角分数坐标 [0,1]。
+ *  左边距 0.055（≈79px）刚好避开 spine（74px）。
+ *  右侧 0.84（≈1210px）+ 220px = 1430px < 1440px。
  */
 export const DEFAULT_CANVAS: CanvasItem[] = [
-  // 左上 KPI 簇（避开顶部居中工具条 + 右上状态簇）
-  { i: "stat-groups",   tpl: "1x1", x: 0.065, y: 0.13 },
-  { i: "stat-tags",     tpl: "1x1", x: 0.130, y: 0.13 },
-  { i: "stat-entities", tpl: "2x1", x: 0.195, y: 0.13 },
-  { i: "stat-pending",  tpl: "2x1", x: 0.305, y: 0.13 },
-  // 左中 趋势曲线
-  { i: "trend-chart",   tpl: "4x2", x: 0.055, y: 0.42 },
-  // 右中 活动流（避开右上状态簇，下移）
-  { i: "activity-feed", tpl: "2x4", x: 0.840, y: 0.15 },
-  // 右下 实体环
-  { i: "entity-pie",    tpl: "2x2", x: 0.835, y: 0.60 },
-  // 下中 健康横幅
-  { i: "health-bar",    tpl: "4x1", x: 0.370, y: 0.86 },
+  // ── 左上 KPI 簇：2列 × 2行，分数间距约 0.16（220px / 1440）──
+  { i: "stat-groups",   tpl: "2x1", x: 0.055, y: 0.11 },
+  { i: "stat-tags",     tpl: "2x1", x: 0.215, y: 0.11 },
+  { i: "stat-entities", tpl: "2x1", x: 0.055, y: 0.24 },
+  { i: "stat-pending",  tpl: "2x1", x: 0.215, y: 0.24 },
+  // ── 左中 趋势曲线（4×2 = 440×220px）────────────────────────
+  { i: "trend-chart",   tpl: "4x2", x: 0.055, y: 0.52 },
+  // ── 右侧 活动流（2×4 = 220×440px，避开右上状态簇）──────────
+  { i: "activity-feed", tpl: "2x4", x: 0.840, y: 0.11 },
+  // ── 右下 实体环（2×2 = 220×220px）──────────────────────────
+  { i: "entity-pie",    tpl: "2x2", x: 0.840, y: 0.63 },
+  // ── 下中 健康横幅（4×1 = 440×110px）────────────────────────
+  { i: "health-bar",    tpl: "4x1", x: 0.375, y: 0.83 },
 ];
 
 /** 缺省相机 */

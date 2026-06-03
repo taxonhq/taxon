@@ -415,12 +415,12 @@ body {
 /* ── 单一画布 · 模板化漂浮 widget（#125 / refinement §6 supersede）─────────── */
 .myc-widget {
   z-index: 3;
-  /* 比 chrome 玻璃更实一档：widget 常压在发光有机体上，太透会糊不清内容 */
-  background: color-mix(in srgb, var(--myc-soil) 82%, transparent);
-  border: 1px solid var(--myc-line);
+  /* 92% 不透明度：widget 压在发光有机体上必须清晰可读，玻璃感靠边框+投影+微量模糊体现 */
+  background: color-mix(in srgb, var(--myc-soil) 92%, transparent);
+  border: 1px solid rgba(241,233,218,.14);
   border-radius: 14px;
-  backdrop-filter: blur(18px) saturate(1.1); -webkit-backdrop-filter: blur(18px) saturate(1.1);
-  box-shadow: 0 12px 34px rgba(0,0,0,.42);
+  backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+  box-shadow: 0 8px 32px rgba(0,0,0,.48), 0 1px 0 rgba(255,255,255,.06) inset;
   color: var(--myc-cream);
   overflow: visible;
 }

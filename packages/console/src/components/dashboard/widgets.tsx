@@ -643,7 +643,7 @@ function Dot({ ok, text }: { ok: boolean; text: string }) {
 // ═══════════════════════════════════════════════════════════════
 // 7) Canvas KPI — 单指标，按模板宽度自适应（1×1 紧凑 / 2×1 带今日）
 // ═══════════════════════════════════════════════════════════════
-function CanvasKpi({ id, wide, data }: { id: keyof typeof STAT_CONFIG; wide: boolean; data: DashboardData }) {
+function CanvasKpi({ id, data }: { id: keyof typeof STAT_CONFIG; wide?: boolean; data: DashboardData }) {
   const t = useTranslations("dashboard");
   const config = STAT_CONFIG[id];
   const Icon   = config.icon;
@@ -659,20 +659,30 @@ function CanvasKpi({ id, wide, data }: { id: keyof typeof STAT_CONFIG; wide: boo
   const isAlert = id === "stat-pending" && value > 0;
 
   return (
-    <div className="flex flex-col h-full justify-center gap-1 p-2.5 overflow-hidden relative">
-      <div className="flex items-center gap-1.5 min-w-0">
-        <span className="shrink-0" style={{ color: config.color }}><Icon size={12} strokeWidth={1.8} /></span>
-        <span className="text-[0.5rem] font-semibold uppercase tracking-[0.1em] text-ink-sub truncate">{label}</span>
+    <div className="flex flex-col h-full justify-between p-3.5 overflow-hidden relative">
+      {/* 角落装饰光晕 */}
+      <div className="absolute -top-6 -right-6 w-20 h-20 rounded-full pointer-events-none"
+        style={{ background: `radial-gradient(circle, ${config.color}30, transparent 70%)` }} />
+      {/* 标签行 */}
+      <div className="flex items-center gap-1.5 min-w-0 relative z-10">
+        <span className="p-1 rounded-md shrink-0"
+          style={{ background: `${config.color}22`, color: config.color }}>
+          <Icon size={13} strokeWidth={1.8} />
+        </span>
+        <span className="text-[0.6rem] font-semibold uppercase tracking-[0.08em] truncate" style={{ color: "var(--myc-dim)" }}>{label}</span>
       </div>
-      <p
-        className="font-extrabold tabular-nums leading-none"
-        style={{ fontSize: wide ? "1.7rem" : "1.25rem", letterSpacing: "-0.03em", color: isAlert ? config.color : "var(--color-ink)" }}
-      >
-        {fmt(value)}
-      </p>
-      {wide && today && (
-        <p className="text-[0.5rem] tabular-nums text-ink-sub">{t("statTodayNew", { n: today.today })}</p>
-      )}
+      {/* 大数字 */}
+      <div className="relative z-10">
+        <p className="font-extrabold tabular-nums leading-none"
+          style={{ fontSize: "1.85rem", letterSpacing: "-0.04em", color: isAlert ? config.color : "var(--myc-cream)" }}>
+          {fmt(value)}
+        </p>
+        {today && (
+          <p className="text-[0.58rem] mt-1 tabular-nums" style={{ color: "var(--myc-dim)" }}>
+            {t("statTodayNew", { n: today.today })}
+          </p>
+        )}
+      </div>
     </div>
   );
 }
