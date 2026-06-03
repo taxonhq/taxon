@@ -264,9 +264,17 @@ export default function EntityTypePage() {
                     <td className="pl-5 pr-3 py-3.5">
                       <Link
                         href={`/entities/${encodeURIComponent(entityType)}/${encodeURIComponent(item.entityId)}`}
-                        className="font-mono text-base text-ink hover:text-ink-dim transition-colors flex items-center gap-1.5 group/link"
+                        className="text-base text-ink hover:text-ink-dim transition-colors flex items-center gap-1.5 group/link"
                       >
-                        <span className="truncate max-w-[200px]">{item.entityId}</span>
+                        {/* #142：有 metadata.name 时优先展示人类可读名称，entityId 退为副标题 */}
+                        {typeof item.metadata?.name === "string" && item.metadata.name ? (
+                          <span className="flex flex-col min-w-0">
+                            <span className="truncate max-w-[220px] font-medium">{item.metadata.name as string}</span>
+                            <span className="truncate max-w-[220px] font-mono text-2xs text-ink-faint">{item.entityId}</span>
+                          </span>
+                        ) : (
+                          <span className="truncate max-w-[200px] font-mono">{item.entityId}</span>
+                        )}
                         <ExternalLink size={11} className="text-ink-faint opacity-0 group-hover/link:opacity-100 group-focus-within/link:opacity-100 shrink-0 transition-opacity" />
                       </Link>
                     </td>

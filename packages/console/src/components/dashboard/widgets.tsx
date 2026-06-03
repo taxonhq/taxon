@@ -7,6 +7,7 @@
 
 "use client";
 
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import {
@@ -22,6 +23,24 @@ import type {
 } from "./use-dashboard-data";
 import type { ActivityEvent, HealthInfo, TrendPoint } from "@/lib/api";
 import { cn } from "@/lib/utils";
+
+// 浮动画布里的 widget 首帧可能 0×0，此时 recharts ResponsiveContainer 会量到 width/height=-1
+// 并刷一堆警告（#141）。用 ResizeObserver 等容器有正尺寸再挂图表。
+function useChartReady<T extends HTMLElement>() {
+  const ref = useRef<T | null>(null);
+  const [ready, setReady] = useState(false);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const ro = new ResizeObserver((entries) => {
+      const { width, height } = entries[0].contentRect;
+      setReady(width > 0 && height > 0);
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  return { ref, ready };
+}
 
 // ═══════════════════════════════════════════════════════════════
 // 设计 tokens — 仅保留 recharts 必须用字符串 fill / stroke 的场景
@@ -171,26 +190,34 @@ export function KpiHero({ data }: { data: DashboardData }) {
       </div>
 
       {/* 7 天 Area 图 */}
-      <div className="flex-1 min-h-0 mt-4">
-        {series.length === 0 ? <WidgetEmpty text={t("loadingTrend")} /> : (
-          <ResponsiveContainer width="100%" height="100%" minHeight={80}>
-            <AreaChart data={series} margin={{ top: 0, right: 0, bottom: 0, left: 0 }}>
-              <defs>
-                <linearGradient id="kpi-grad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%"   stopColor={CHART.brand2} stopOpacity={0.5} />
-                  <stop offset="100%" stopColor={CHART.brand2} stopOpacity={0}   />
-                </linearGradient>
-              </defs>
-              <Tooltip content={<TrendTooltip />} cursor={{ stroke: CHART.edge2 }} />
-              <Area type="monotone" dataKey="tags" stroke={CHART.brand2} strokeWidth={2}
-                fill="url(#kpi-grad)" />
-            </AreaChart>
-          </ResponsiveContainer>
-        )}
-      </div>
+      <KpiTrendArea series={series} loadingText={t("loadingTrend")} />
       <p className="text-2xs mt-1 tabular-nums text-ink-faint">
         {t("kpiTrend")}
       </p>
+    </div>
+  );
+}
+
+// KPI 卡片里的 7 天趋势 Area 图，带尺寸就绪门控（#141）
+function KpiTrendArea({ series, loadingText }: { series: TrendPoint[]; loadingText: string }) {
+  const { ref, ready } = useChartReady<HTMLDivElement>();
+  return (
+    <div ref={ref} className="flex-1 min-h-0 mt-4">
+      {series.length === 0 || !ready ? <WidgetEmpty text={loadingText} /> : (
+        <ResponsiveContainer width="100%" height="100%" minHeight={80}>
+          <AreaChart data={series} margin={{ top: 0, right: 0, bottom: 0, left: 0 }}>
+            <defs>
+              <linearGradient id="kpi-grad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%"   stopColor={CHART.brand2} stopOpacity={0.5} />
+                <stop offset="100%" stopColor={CHART.brand2} stopOpacity={0}   />
+              </linearGradient>
+            </defs>
+            <Tooltip content={<TrendTooltip />} cursor={{ stroke: CHART.edge2 }} />
+            <Area type="monotone" dataKey="tags" stroke={CHART.brand2} strokeWidth={2}
+              fill="url(#kpi-grad)" />
+          </AreaChart>
+        </ResponsiveContainer>
+      )}
     </div>
   );
 }
@@ -301,11 +328,13 @@ function TrendTooltip({ active, payload }: { active?: boolean; payload?: Array<{
 export function TrendChart({ data }: { data: DashboardData }) {
   const t = useTranslations("dashboard");
   const series = data.trend?.series ?? [];
+  // 始终渲染测量容器，待其有正尺寸再挂图表，避免 ResponsiveContainer 量到 -1（#141）
+  const { ref, ready } = useChartReady<HTMLDivElement>();
   return (
     <div className="flex flex-col h-full">
       <WidgetHeader icon={<Activity size={13} strokeWidth={1.5} />} title={t("trendTitle")} sub={t("trendSub")} />
-      {series.length === 0 ? <WidgetEmpty text={t("loadingTrend")} /> : (
-        <div className="flex-1 min-h-0 p-3">
+      <div ref={ref} className="flex-1 min-h-0 p-3">
+        {series.length === 0 || !ready ? <WidgetEmpty text={t("loadingTrend")} /> : (
           <ResponsiveContainer width="100%" height="100%" minHeight={80}>
             <LineChart data={series} margin={{ top: 12, right: 16, bottom: 8, left: 0 }}>
               <XAxis dataKey="date" tickFormatter={d => d.slice(5)} stroke={CHART.ink4}
@@ -320,8 +349,8 @@ export function TrendChart({ data }: { data: DashboardData }) {
               <Line type="monotone" dataKey="reviews"  name={t("trendReviewsLine")}  stroke={CHART.amber}  strokeWidth={2} dot={false} />
             </LineChart>
           </ResponsiveContainer>
-        </div>
-      )}
+        )}
+      </div>
       {/* 图例 */}
       <div className="flex items-center justify-center gap-4 px-4 pb-3 shrink-0">
         {[

@@ -14,6 +14,8 @@
 export type { components as ApiSchemas } from "@/lib/api-types.gen";
 
 const BASE  = process.env.NEXT_PUBLIC_TAG_SERVICE_URL   || "http://localhost:3300";
+// ⚠️ NEXT_PUBLIC_ 会把 token 内联进浏览器 bundle（DevTools 可见明文）。仅限本地/可信网络，
+//    勿在公网部署填 admin token。详见 .env.example（#137）。
 const TOKEN = process.env.NEXT_PUBLIC_TAG_SERVICE_TOKEN || "";
 
 function authHeaders(): HeadersInit {
@@ -29,13 +31,33 @@ export class ApiError extends Error {
 }
 
 async function req<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(`${BASE}${path}`, {
-    ...init,
-    headers: { ...authHeaders(), ...(init?.headers ?? {}) },
-  });
-  const data = await res.json();
-  if (data.code !== 0) throw new ApiError(data.code as number, data.message || `Request failed ${res.status}`);
-  return data.data as T;
+  let res: Response;
+  try {
+    res = await fetch(`${BASE}${path}`, {
+      ...init,
+      headers: { ...authHeaders(), ...(init?.headers ?? {}) },
+    });
+  } catch {
+    // 网络层失败（后端未启动 / CORS / DNS）：fetch 直接 reject，没有 res
+    throw new ApiError(0, `无法连接标签服务（${BASE}），请确认后端已启动`);
+  }
+
+  // 非 JSON 响应（502/504 HTML 错误页、空 body 等）：res.json() 会抛 SyntaxError，
+  // 包装成可读的 ApiError，而不是让「Unexpected token <」冒泡到 UI（#133）
+  let data: unknown;
+  try {
+    data = await res.json();
+  } catch {
+    throw new ApiError(res.status, `服务返回了非 JSON 响应（HTTP ${res.status}）`);
+  }
+
+  if (typeof data !== "object" || data === null || typeof (data as { code?: unknown }).code !== "number") {
+    throw new ApiError(res.status, `服务响应格式异常（HTTP ${res.status}）`);
+  }
+
+  const body = data as { code: number; message?: string; data?: unknown };
+  if (body.code !== 0) throw new ApiError(body.code, body.message || `请求失败（HTTP ${res.status}）`);
+  return body.data as T;
 }
 
 // ── 公共类型 ──────────────────────────────────────────────────────
@@ -52,6 +74,8 @@ export interface RegisteredEntity {
   entityType: string;
   entityId: string;
   registeredAt: string;
+  /** 实体元数据（含 name/description）；列表与搜索结果用它展示人类可读名称（#142） */
+  metadata?: Record<string, unknown> | null;
   /** withTags=true 时一并返回的 active 标签（避免 N+1） */
   tags?: EntityTagItem[];
 }
@@ -893,6 +917,7 @@ export const WEBHOOK_EVENTS = [
   "entity_tag.created",
   "entity_tag.status_changed",
   "entity_tag.deleted",
+  "entity_tag.bulk_changed",
   "tag.created",
   "tag.updated",
   "tag.deleted",
