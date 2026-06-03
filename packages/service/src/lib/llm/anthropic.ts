@@ -54,7 +54,7 @@ export class AnthropicProvider implements LlmProvider {
       return { output, text: text.trim(), model: `anthropic/${this.model}` }
     } catch (e) {
       if (e instanceof LlmError) throw e
-      throw new LlmError(`Anthropic 调用失败：${(e as Error).message ?? e}`, e)
+      throw new LlmError(`Anthropic 调用失败：${(e as Error).message ?? e}`, e, (e as { status?: number })?.status)
     }
   }
 
@@ -73,7 +73,7 @@ export class AnthropicProvider implements LlmProvider {
       return { text: text.trim(), model: `anthropic/${this.model}` }
     } catch (e) {
       if (e instanceof LlmError) throw e
-      throw new LlmError(`Anthropic plain 调用失败：${(e as Error).message ?? e}`, e)
+      throw new LlmError(`Anthropic plain 调用失败：${(e as Error).message ?? e}`, e, (e as { status?: number })?.status)
     }
   }
 }

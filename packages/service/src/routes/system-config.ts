@@ -5,12 +5,13 @@
  *
  * 存储：SystemConfig.key='system-config'，value 为 SystemConfigStored。
  */
-import { OpenAPIHono, createRoute, z } from '@hono/zod-openapi'
+import { createRoute, z } from '@hono/zod-openapi'
+import { createRouter } from '../lib/router.js'
 import prisma from '../lib/db.js'
 import { requireRole } from '../middleware/auth.js'
 import { ApiError, okData, OkMessage } from '../lib/schemas.js'
 
-export const systemConfigRouter = new OpenAPIHono()
+export const systemConfigRouter = createRouter()
 
 const CONFIG_KEY = 'system-config'
 

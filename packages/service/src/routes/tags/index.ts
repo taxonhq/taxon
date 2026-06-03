@@ -5,12 +5,12 @@
  *   1. /resolve 等静态路径必须在 /:tagId 参数路由之前
  *   2. 操作路由（merge / move）也在 /:tagId 之前（否则被 GET /:tagId 吃掉）
  */
-import { OpenAPIHono } from '@hono/zod-openapi'
+import { createRouter } from '../../lib/router.js'
 import { tagsQuery }      from './query.js'
 import { tagsCrud }       from './crud.js'
 import { tagsOperations } from './operations.js'
 
-const tags = new OpenAPIHono()
+const tags = createRouter()
 
 // 静态前缀路由（/resolve）必须最先注册
 tags.route('/', tagsQuery)

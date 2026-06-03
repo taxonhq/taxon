@@ -434,7 +434,15 @@ function ListView({ data, onDrill }: { data: SearchEntitiesResult; onDrill: () =
         <div key={`${item.entityType}:${item.entityId}`} className="p-3.5 hover:bg-row-hover">
           <div className="flex items-baseline gap-2 mb-1.5">
             <span className="text-xs text-ink-faint">{item.entityType}</span>
-            <span className="text-sm text-ink font-mono">{item.entityId}</span>
+            {/* #142：优先展示 metadata.name，entityId 作次要 mono 标识 */}
+            {typeof item.metadata?.name === "string" && item.metadata.name ? (
+              <>
+                <span className="text-sm text-ink font-medium">{item.metadata.name as string}</span>
+                <span className="text-xs text-ink-faint font-mono">{item.entityId}</span>
+              </>
+            ) : (
+              <span className="text-sm text-ink font-mono">{item.entityId}</span>
+            )}
             <span className="ml-auto text-xs text-ink-faint">
               {new Date(item.registeredAt).toLocaleString(undefined)}
             </span>

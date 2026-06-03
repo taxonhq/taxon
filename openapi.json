@@ -487,6 +487,7 @@
                 "entity_tag.created",
                 "entity_tag.status_changed",
                 "entity_tag.deleted",
+                "entity_tag.bulk_changed",
                 "tag.created",
                 "tag.updated",
                 "tag.deleted",
@@ -500,7 +501,7 @@
               ]
             },
             "minItems": 1,
-            "description": "订阅事件，可选：entity_tag.created, entity_tag.status_changed, entity_tag.deleted, tag.created, tag.updated, tag.deleted, tag.merged, tag.moved, tag_group.created, tag_group.updated, tag_group.deleted, entity.registered, entity.unregistered"
+            "description": "订阅事件，可选：entity_tag.created, entity_tag.status_changed, entity_tag.deleted, entity_tag.bulk_changed, tag.created, tag.updated, tag.deleted, tag.merged, tag.moved, tag_group.created, tag_group.updated, tag_group.deleted, entity.registered, entity.unregistered"
           },
           "scopes": {
             "type": "array",
@@ -542,6 +543,7 @@
                 "entity_tag.created",
                 "entity_tag.status_changed",
                 "entity_tag.deleted",
+                "entity_tag.bulk_changed",
                 "tag.created",
                 "tag.updated",
                 "tag.deleted",
@@ -2490,7 +2492,11 @@
                       "properties": {
                         "succeeded": {
                           "type": "integer",
-                          "description": "成功写入标签的实体数"
+                          "description": "进入插入流程的实体数（add 模式含目标标签已全部存在的 no-op）"
+                        },
+                        "inserted": {
+                          "type": "integer",
+                          "description": "实际写入的 EntityTag 行数（skipDuplicates 去重后；可据此识别 no-op 重跑）"
                         },
                         "failed": {
                           "type": "integer",
@@ -2517,6 +2523,7 @@
                       },
                       "required": [
                         "succeeded",
+                        "inserted",
                         "failed",
                         "errors"
                       ]
@@ -9503,6 +9510,28 @@
                   "required": [
                     "code",
                     "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "参数错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message"
                   ]
                 }
               }

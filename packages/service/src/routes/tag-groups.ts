@@ -1,4 +1,5 @@
-import { OpenAPIHono, createRoute, z } from '@hono/zod-openapi'
+import { createRoute, z } from '@hono/zod-openapi'
+import { createRouter } from '../lib/router.js'
 import prisma from '../lib/db.js'
 import { parsePagination } from '../lib/pagination.js'
 import { isPrismaError } from '../lib/errors.js'
@@ -11,7 +12,7 @@ import {
   ApiError, OkMessage, okData, Paginated, PaginationQuery,
 } from '../lib/schemas.js'
 
-export const tagGroups = new OpenAPIHono()
+export const tagGroups = createRouter()
 
 // ── Common params ─────────────────────────────────────────────────────────────
 const GroupIdParam = z.object({ groupId: z.string().min(1).openapi({ description: '标签分组 ID' }) })

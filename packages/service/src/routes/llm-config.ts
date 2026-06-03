@@ -5,7 +5,8 @@
  *
  * 存储：SystemConfig.key='llm-config'，value 为 LlmConfigStored（apiKey 加密）。
  */
-import { OpenAPIHono, createRoute } from '@hono/zod-openapi'
+import { createRoute } from '@hono/zod-openapi'
+import { createRouter } from '../lib/router.js'
 import prisma from '../lib/db.js'
 import logger from '../lib/logger.js'
 import { requireRole } from '../middleware/auth.js'
@@ -15,7 +16,7 @@ import {
 } from '../lib/schemas.js'
 import { encryptSecret, decryptSecret, maskApiKey, EncryptionError } from '../lib/crypto.js'
 
-export const llmConfigRouter = new OpenAPIHono()
+export const llmConfigRouter = createRouter()
 
 const CONFIG_KEY = 'llm-config'
 

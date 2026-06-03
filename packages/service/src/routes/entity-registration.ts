@@ -1,4 +1,5 @@
-import { OpenAPIHono, createRoute, z } from '@hono/zod-openapi'
+import { createRoute, z } from '@hono/zod-openapi'
+import { createRouter } from '../lib/router.js'
 import { Prisma } from '@prisma/client'
 import prisma from '../lib/db.js'
 import { isPrismaError } from '../lib/errors.js'
@@ -7,7 +8,7 @@ import { requireRole } from '../middleware/auth.js'
 import { emitEvent } from '../lib/events.js'
 import { RegisteredEntitySchema, RegisterEntityBody, ApiError, OkMessage, okData } from '../lib/schemas.js'
 
-export const registrationRouter = new OpenAPIHono()
+export const registrationRouter = createRouter()
 
 const EntityParams = z.object({
   entityType: z.string().min(1).openapi({ description: '实体类型，如 dish / dining' }),
