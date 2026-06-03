@@ -372,17 +372,26 @@ body {
 .myc-cap {
   width: var(--s); height: var(--s); border-radius: 50%; margin: 0 auto;
   background: radial-gradient(circle at 38% 30%, #fff, var(--c) 58%);
-  /* 收紧辉光外溢半径（1.3→.95），减少大气泡光晕糊掉邻近标签（#125） */
-  box-shadow: 0 0 calc(var(--s)*.95) var(--c);
-  animation: myc-glow var(--t) ease-in-out infinite alternate;
+  /* 静态柔光（收紧外溢，减少糊邻近标签 #125）。呼吸改用 GPU 合成的 transform/opacity，
+     不再每帧重绘 box-shadow / brightness 滤镜（省 paint #8）。 */
+  box-shadow: 0 0 calc(var(--s)*.7) var(--c);
+  /* 大小随容器缩放 / 用量刷新时平滑过渡（原地更新不跳 #1） */
+  transition: width .55s ease, height .55s ease, box-shadow .55s ease;
+  animation: myc-breathe var(--t) ease-in-out infinite alternate;
+  will-change: transform, opacity;
 }
-@keyframes myc-glow { from { filter: brightness(.85); } to { filter: brightness(1.35); } }
+@keyframes myc-breathe { from { transform: scale(.96); opacity: .85; } to { transform: scale(1.05); opacity: 1; } }
 .myc-knot label { display: block; font-weight: 500; font-size: var(--fs,.82rem); margin-top: .4em; color: var(--myc-cream); text-shadow: 0 1px 12px rgba(0,0,0,.7); white-space: nowrap; }
 .myc-knot .n { font-family: var(--font-myc-mono); font-size: .62em; color: var(--myc-bio); opacity: .8; }
 
 /* ── TagOrganism（#125）：气泡层 / 标签层分离 ──────────────────────────────
    标签作为独立的最上层渲染，背后加 pill 背板 → 永不被任何气泡或辉光遮挡。 */
-.myc-cap-pos { position: absolute; transform: translate(-50%,-50%); opacity: 0; animation: myc-bloom 1s ease forwards; cursor: default; }
+.myc-cap-pos { position: absolute; transform: translate(-50%,-50%); opacity: 0; animation: myc-bloom 1s ease forwards; }
+/* 节点即下钻入口（<Link>）：去下划线、手型、键盘 focus 可见环（#12 + a11y） */
+.myc-cap-link { text-decoration: none; cursor: pointer; }
+.myc-cap-link:focus-visible { outline: 2px solid var(--myc-bio); outline-offset: 4px; border-radius: 50%; }
+/* 标签页隐藏时暂停所有动画，后台不烧 GPU（#8） */
+.myc-paused .myc-cap, .myc-paused .myc-cap-pos, .myc-paused .myc-hypha { animation-play-state: paused !important; }
 .myc-label-pos { position: absolute; z-index: 4; pointer-events: none; }
 .myc-label {
   display: inline-flex; align-items: baseline; gap: .22em;
@@ -411,6 +420,15 @@ body {
 .myc-legend-dot { width: .56em; height: .56em; border-radius: 50%; flex-shrink: 0; }
 .myc-legend-more { font-size: .68rem; color: var(--myc-dim); align-self: center; }
 .myc-legend-sub { font-size: .62rem; color: var(--myc-dim); }
+
+/* 浅色主题兜底（#14）：亮 teal/lime 气泡在羊皮纸底上易糊 → 降明度 + 收紧光晕；
+   标签 pill 在深色下是「暗底亮字」，浅色主题字色翻暗会变「暗字暗底」，故 pill 同步翻浅。 */
+[data-theme="light"] .myc-cap {
+  filter: saturate(.92) brightness(.82);
+  box-shadow: 0 0 calc(var(--s)*.5) color-mix(in srgb, var(--c) 70%, transparent);
+}
+[data-theme="light"] .myc-label { background: rgba(255,250,240,.86); border-color: rgba(46,37,25,.14); }
+[data-theme="light"] .myc-label[data-hub] { background: rgba(255,250,240,.94); }
 
 /* ── 单一画布 · 模板化漂浮 widget（#125 / refinement §6 supersede）─────────── */
 .myc-widget {

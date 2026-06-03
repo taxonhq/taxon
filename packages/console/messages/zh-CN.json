@@ -146,7 +146,13 @@
     "organismTitle": "标签有机体",
     "organismHint": "按真实使用量生长 · 悬停看标签 · 分组为菌核",
     "organismLegendColor": "颜色 = 分组",
-    "organismLegendSize": "大小 = 使用量"
+    "organismLegendSize": "大小 = 使用量",
+    "organismLegendSizeRange": "大小 = 使用量（{min}–{max}）",
+    "organismSampling": "显示最常用的 {shown} / 共 {total} 个标签",
+    "organismLegendStale": "暗淡 = {days} 天未使用",
+    "organismLoading": "加载中…",
+    "organismEmpty": "暂无标签使用数据",
+    "organismError": "标签图谱加载失败"
   },
   "palette": {
     "searchPlaceholder": "搜索标签、分组、页面…",

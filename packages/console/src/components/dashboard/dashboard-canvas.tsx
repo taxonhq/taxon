@@ -32,14 +32,18 @@ import {
 interface Props {
   data: DashboardData;
   refreshing: boolean;
+  /** 数据刷新令牌（updatedAt 时间戳）；驱动背景有机体原地平滑更新 */
+  reloadToken: number;
   onRefresh: () => void;
   /** 编辑态暂停自动刷新（由父层根据此回调控制） */
   onEditingChange?: (editing: boolean) => void;
 }
 
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
+// 展示态拖动阈值（px）：位移小于此视为点击（下钻），否则视为平移取景
+const DRAG_THRESH = 4;
 
-export function DashboardCanvas({ data, refreshing, onRefresh, onEditingChange }: Props) {
+export function DashboardCanvas({ data, refreshing, reloadToken, onRefresh, onEditingChange }: Props) {
   const t = useTranslations("dashboard");
   const tCommon = useTranslations("common");
 
@@ -161,8 +165,9 @@ export function DashboardCanvas({ data, refreshing, onRefresh, onEditingChange }
   useEffect(() => { camRef.current = cam; }, [cam]);
 
   useEffect(() => {
-    if (!editing) return;
     const onWheel = (e: WheelEvent) => {
+      // 展示态：滚轮落在 widget 内（如活动流）时正常滚动，不劫持为缩放
+      if (!editing && (e.target as HTMLElement)?.closest?.(".myc-widget")) return;
       e.preventDefault();
       setCam(c => {
         const s = clamp(c.s - Math.sign(e.deltaY) * 0.08, 0.5, 2);
@@ -173,11 +178,52 @@ export function DashboardCanvas({ data, refreshing, onRefresh, onEditingChange }
     return () => window.removeEventListener("wheel", onWheel);
   }, [editing]);
 
+  // ── 展示态：拖背景平移（4px 阈值区分点击下钻 vs 拖动）。相机非默认时给复位入口。──
+  const dispPanRef = useRef<{ sx: number; sy: number; ox: number; oy: number; moved: boolean } | null>(null);
+  const suppressClickRef = useRef(false);
+  const onDisplayPanStart = useCallback((e: React.PointerEvent) => {
+    if (editing) return;
+    // 每次新交互先清掉上次拖动可能遗留的抑制标志（拖动后浏览器常不发 click）
+    suppressClickRef.current = false;
+    dispPanRef.current = { sx: e.clientX, sy: e.clientY, ox: camRef.current.x, oy: camRef.current.y, moved: false };
+  }, [editing]);
+  // 拖动后抑制紧随的 click，避免误触发节点 <Link> 跳转
+  const onDisplayClickCapture = useCallback((e: React.MouseEvent) => {
+    if (suppressClickRef.current) {
+      suppressClickRef.current = false;
+      e.preventDefault();
+      e.stopPropagation();
+    }
+  }, []);
+  useEffect(() => {
+    if (editing) return;
+    const move = (e: PointerEvent) => {
+      const p = dispPanRef.current;
+      if (!p) return;
+      const dx = e.clientX - p.sx, dy = e.clientY - p.sy;
+      if (!p.moved && Math.hypot(dx, dy) < DRAG_THRESH) return;
+      p.moved = true;
+      setPanning(true);
+      setCam(c => ({ ...c, x: p.ox + dx, y: p.oy + dy }));
+    };
+    const up = () => {
+      const p = dispPanRef.current;
+      if (!p) return;
+      if (p.moved) { suppressClickRef.current = true; setPanning(false); }
+      dispPanRef.current = null;
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+    return () => { window.removeEventListener("pointermove", move); window.removeEventListener("pointerup", up); };
+  }, [editing]);
+
+  // 编辑态相机存进布局；展示态取景是临时探索，不持久化
   const zoom = (delta: number) => {
     const c = camRef.current;
-    commitCam({ ...c, s: clamp(Number((c.s + delta).toFixed(2)), 0.5, 2) });
+    const next = { ...c, s: clamp(Number((c.s + delta).toFixed(2)), 0.5, 2) };
+    if (editing) commitCam(next); else setCam(next);
   };
-  const resetCam = () => commitCam(DEFAULT_CAMERA);
+  const resetCam = () => { if (editing) commitCam(DEFAULT_CAMERA); else setCam(DEFAULT_CAMERA); };
 
   // ── 模板切换 / 增删 widget ──────────────────────────────────────
   const switchTpl = (id: string, tpl: TemplateKey) => {
@@ -211,6 +257,7 @@ export function DashboardCanvas({ data, refreshing, onRefresh, onEditingChange }
   );
 
   const boardTransform = `translate(${cam.x}px, ${cam.y}px) scale(${cam.s})`;
+  const camMoved = cam.x !== 0 || cam.y !== 0 || cam.s !== 1;
 
   return (
     <div
@@ -231,11 +278,13 @@ export function DashboardCanvas({ data, refreshing, onRefresh, onEditingChange }
       {/* 地图层：只有背景（有机体「菌丝 / 大地」）随相机缩放 / 平移 */}
       <div
         className="absolute inset-0 z-[2]"
-        style={{ transform: boardTransform, transformOrigin: "50% 50%", transition: panning ? "none" : "transform .12s ease-out" }}
+        style={{ transform: boardTransform, transformOrigin: "50% 50%", transition: panning ? "none" : "transform .12s ease-out", cursor: editing ? undefined : "grab" }}
+        onPointerDown={editing ? undefined : onDisplayPanStart}
+        onClickCapture={editing ? undefined : onDisplayClickCapture}
       >
-        {/* 有机体大地（背景；展示态可 hover 探索） */}
+        {/* 有机体大地（背景；展示态可 hover 探索 / 点击下钻；随刷新原地更新） */}
         <div className="absolute inset-0 z-0">
-          <TagOrganism />
+          <TagOrganism reloadToken={reloadToken} />
         </div>
 
         {/* 空白处拖动 = 平移地图（仅编辑态覆盖，避免挡住展示态的 hover） */}
@@ -345,8 +394,8 @@ export function DashboardCanvas({ data, refreshing, onRefresh, onEditingChange }
         </div>
       )}
 
-      {/* ── 编辑态取景控制 ─────────────────────────────────────── */}
-      {editing && (
+      {/* ── 取景控制：编辑态常显；展示态仅在已平移/缩放时出现（提供复位） ── */}
+      {(editing || camMoved) && (
         <div className="myc-zoomctl">
           <button onClick={() => zoom(0.15)} title={t("zoomIn")}><ZoomIn size={15} /></button>
           <span className="myc-zoom-label">{Math.round(cam.s * 100)}%</span>

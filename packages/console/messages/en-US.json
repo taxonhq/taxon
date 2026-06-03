@@ -146,7 +146,13 @@
     "organismTitle": "Tag Organism",
     "organismHint": "Grown by real usage · hover for labels · groups are cores",
     "organismLegendColor": "Color = group",
-    "organismLegendSize": "Size = usage"
+    "organismLegendSize": "Size = usage",
+    "organismLegendSizeRange": "Size = usage ({min}–{max})",
+    "organismSampling": "Showing top {shown} of {total} tags",
+    "organismLegendStale": "Dimmed = unused {days}d+",
+    "organismLoading": "Loading…",
+    "organismEmpty": "No tag usage data yet",
+    "organismError": "Failed to load tag graph"
   },
   "palette": {
     "searchPlaceholder": "Search tags, groups, pages…",

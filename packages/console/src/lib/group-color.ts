@@ -8,6 +8,8 @@
  * 按 groupId（或缺省时 groupSlug）哈希到固定色相位，bio/lime/amber 暖谱。
  */
 
+// 18 色 bio 暖谱（teal / lime / amber / 橄榄 / 沙金）。色数越多，分组哈希撞色概率越低。
+// 哈希映射规则不变，跨页一致性保留（表格色点 ↔ 图谱菌核同色）。
 export const GROUP_PALETTE = [
   "#6ff5c8", // bio teal
   "#c4f85a", // 孢子 lime
@@ -17,8 +19,16 @@ export const GROUP_PALETTE = [
   "#d98a5a", // 暖橙
   "#8fd9c0", // 浅 teal
   "#e0b87a", // 沙金
-  "#b0e85a",
-  "#cf9a6a",
+  "#b0e85a", // 亮 lime
+  "#cf9a6a", // 陶土
+  "#4fd6a8", // 翡翠 teal
+  "#d6e86a", // 芥末 lime
+  "#f0b888", // 杏
+  "#7ae0d0", // 薄荷 teal
+  "#9cc94e", // 苔绿
+  "#c98e5e", // 焦糖
+  "#abe3c4", // 雾青
+  "#e8c98a", // 浅金
 ] as const;
 
 /** 把分组 key（groupId 优先）映射到固定色 */
