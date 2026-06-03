@@ -23,6 +23,7 @@ import type {
 } from "./use-dashboard-data";
 import type { ActivityEvent, HealthInfo, TrendPoint } from "@/lib/api";
 import { cn } from "@/lib/utils";
+import { parseTemplate, type TemplateKey } from "./canvas-config";
 
 // 浮动画布里的 widget 首帧可能 0×0，此时 recharts ResponsiveContainer 会量到 width/height=-1
 // 并刷一堆警告（#141）。用 ResizeObserver 等容器有正尺寸再挂图表。
@@ -225,7 +226,7 @@ function KpiTrendArea({ series, loadingText }: { series: TrendPoint[]; loadingTe
 // ═══════════════════════════════════════════════════════════════
 // 2) Entity Pie — 实体类型环形分布
 // ═══════════════════════════════════════════════════════════════
-export function EntityPie({ entityTypes }: { entityTypes: EntityTypeStat[] }) {
+export function EntityPie({ entityTypes, compact = false }: { entityTypes: EntityTypeStat[]; compact?: boolean }) {
   const t = useTranslations("dashboard");
   const total = entityTypes.reduce((s, et) => s + et.count, 0);
   // Filter out 0-count types — they carry no visual weight and confuse the legend
@@ -252,6 +253,35 @@ export function EntityPie({ entityTypes }: { entityTypes: EntityTypeStat[] }) {
   const conicGradient = display.length > 1
     ? `conic-gradient(from -90deg, ${gradientStops.join(", ")})`
     : `conic-gradient(${PIE_COLORS[0]} 0% 100%)`;
+
+  // 紧凑档（2×2）：只留环 + 中心数字，省去右侧图例（小尺寸放不下、会溢出）
+  if (compact) {
+    return (
+      <div className="flex flex-col h-full p-2.5">
+        <div className="flex items-center gap-1.5 shrink-0">
+          <Box size={11} strokeWidth={1.5} className="text-ink-sub" />
+          <span className="text-[0.5rem] font-semibold uppercase tracking-[0.1em] text-ink-sub truncate">{t("entityPieTitle")}</span>
+        </div>
+        {display.length === 0 ? <WidgetEmpty text={t("noEntityData")} /> : (
+          <div className="flex-1 grid place-items-center min-h-0 relative">
+            <div
+              className="rounded-full"
+              style={{
+                width: "min(100%, 5.6rem)", aspectRatio: "1",
+                background: conicGradient,
+                mask: "radial-gradient(farthest-side, transparent 56%, black 58%)",
+                WebkitMask: "radial-gradient(farthest-side, transparent 56%, black 58%)",
+              }}
+            />
+            <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+              <p className="font-extrabold tabular-nums leading-none text-base text-ink" style={{ letterSpacing: "-0.04em" }}>{fmt(total)}</p>
+              <p className="text-[0.5rem] mt-0.5 text-ink-sub">{t("statPieTypes", { count: nonEmpty.length })}</p>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col h-full">
@@ -611,20 +641,96 @@ function Dot({ ok, text }: { ok: boolean; text: string }) {
 
 
 // ═══════════════════════════════════════════════════════════════
-// 主入口：根据 widget id 渲染
+// 7) Canvas KPI — 单指标，按模板宽度自适应（1×1 紧凑 / 2×1 带今日）
 // ═══════════════════════════════════════════════════════════════
-export function renderWidget(id: string, data: DashboardData) {
+function CanvasKpi({ id, wide, data }: { id: keyof typeof STAT_CONFIG; wide: boolean; data: DashboardData }) {
+  const t = useTranslations("dashboard");
+  const config = STAT_CONFIG[id];
+  const Icon   = config.icon;
+  const label  = id === "stat-groups"   ? t("statsGroupsTitle")
+               : id === "stat-tags"     ? t("statsTagsTitle")
+               : id === "stat-entities" ? t("statsEntitiesTitle")
+               :                          t("statsAuditsTitle");
+  const value = data.stats[config.metric as keyof typeof data.stats];
+  const today = config.metric === "tags"     ? data.today?.tags
+              : config.metric === "entities" ? data.today?.entities
+              : config.metric === "pending"  ? data.today?.audits
+              : null;
+  const isAlert = id === "stat-pending" && value > 0;
+
+  return (
+    <div className="flex flex-col h-full justify-center gap-1 p-2.5 overflow-hidden relative">
+      <div className="flex items-center gap-1.5 min-w-0">
+        <span className="shrink-0" style={{ color: config.color }}><Icon size={12} strokeWidth={1.8} /></span>
+        <span className="text-[0.5rem] font-semibold uppercase tracking-[0.1em] text-ink-sub truncate">{label}</span>
+      </div>
+      <p
+        className="font-extrabold tabular-nums leading-none"
+        style={{ fontSize: wide ? "1.7rem" : "1.25rem", letterSpacing: "-0.03em", color: isAlert ? config.color : "var(--color-ink)" }}
+      >
+        {fmt(value)}
+      </p>
+      {wide && today && (
+        <p className="text-[0.5rem] tabular-nums text-ink-sub">{t("statTodayNew", { n: today.today })}</p>
+      )}
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 8) Trend Mini — 2×1 紧凑趋势（单线 area + 同比），大模板才上三线 TrendChart
+// ═══════════════════════════════════════════════════════════════
+function TrendMini({ data }: { data: DashboardData }) {
+  const t = useTranslations("dashboard");
+  const series = data.trend?.series ?? [];
+  const today = data.today?.tags;
+  return (
+    <div className="flex flex-col h-full p-3">
+      <div className="flex items-center justify-between shrink-0">
+        <div className="flex items-center gap-1.5">
+          <TrendingUp size={12} className="text-brand-2" />
+          <span className="text-[0.5rem] font-semibold uppercase tracking-[0.12em] text-ink-sub">{t("trendTitle")}</span>
+        </div>
+        {today && today.comparePct !== 0 && today.comparePct > -100 && (
+          <span className={cn("text-[0.55rem] font-bold tabular-nums", today.comparePct >= 0 ? "text-ok" : "text-bad")}>
+            {pctSign(today.comparePct)}
+          </span>
+        )}
+      </div>
+      <div className="flex-1 min-h-0 mt-1">
+        {series.length === 0 ? <WidgetEmpty text={t("loadingTrend")} /> : (
+          <ResponsiveContainer width="100%" height="100%" minHeight={32}>
+            <AreaChart data={series} margin={{ top: 2, right: 0, bottom: 0, left: 0 }}>
+              <defs>
+                <linearGradient id="trendmini-grad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor={CHART.brand2} stopOpacity={0.45} />
+                  <stop offset="100%" stopColor={CHART.brand2} stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <Area type="monotone" dataKey="tags" stroke={CHART.brand2} strokeWidth={1.8} fill="url(#trendmini-grad)" />
+            </AreaChart>
+          </ResponsiveContainer>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════
+// Canvas 分发：按 widget id + 模板尺寸渲染最合适的形态
+// ═══════════════════════════════════════════════════════════════
+export function renderCanvasWidget(id: string, tpl: TemplateKey, data: DashboardData) {
+  const { w } = parseTemplate(tpl);
   switch (id) {
-    case "kpi-hero":      return <KpiHero data={data} />;
-    case "entity-pie":    return <EntityPie entityTypes={data.entityTypes} />;
-    case "trend-chart":   return <TrendChart data={data} />;
-    case "stat-groups":   return <StatMini id="stat-groups"   data={data} />;
-    case "stat-tags":     return <StatMini id="stat-tags"     data={data} />;
-    case "stat-entities": return <StatMini id="stat-entities" data={data} />;
-    case "stat-pending":  return <StatMini id="stat-pending"  data={data} />;
+    case "stat-groups":   return <CanvasKpi id="stat-groups"   wide={w >= 2} data={data} />;
+    case "stat-tags":     return <CanvasKpi id="stat-tags"     wide={w >= 2} data={data} />;
+    case "stat-entities": return <CanvasKpi id="stat-entities" wide={w >= 2} data={data} />;
+    case "stat-pending":  return <CanvasKpi id="stat-pending"  wide={w >= 2} data={data} />;
+    case "trend-chart":   return w <= 2 ? <TrendMini data={data} /> : <TrendChart data={data} />;
+    case "entity-pie":    return <EntityPie entityTypes={data.entityTypes} compact={w <= 2} />;
     case "activity-feed": return <ActivityFeed activity={data.activity} />;
     case "health-bar":    return <HealthBar health={data.health} />;
-    default: return <UnknownWidget id={id} />;
+    default:              return <UnknownWidget id={id} />;
   }
 }
 
@@ -635,3 +741,4 @@ function UnknownWidget({ id }: { id: string }) {
 
 // 临时引用消除 unused 警告
 void AlertCircle;
+void KpiHero;

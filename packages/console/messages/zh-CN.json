@@ -127,6 +127,11 @@
     "resetConfirm": "确认重置布局为默认？",
     "doneEditing": "完成",
     "customize": "自定义",
+    "addWidget": "添加 widget",
+    "allWidgetsAdded": "已全部添加",
+    "zoomIn": "放大",
+    "zoomOut": "缩小",
+    "fitView": "适配视图",
     "widgetLabels": {
       "kpiHero": "核心指标",
       "entityPie": "实体类型分布",
@@ -139,7 +144,9 @@
       "healthBar": "服务健康"
     },
     "organismTitle": "标签有机体",
-    "organismHint": "按真实使用量生长 · 悬停看标签 · 分组为菌核"
+    "organismHint": "按真实使用量生长 · 悬停看标签 · 分组为菌核",
+    "organismLegendColor": "颜色 = 分组",
+    "organismLegendSize": "大小 = 使用量"
   },
   "palette": {
     "searchPlaceholder": "搜索标签、分组、页面…",

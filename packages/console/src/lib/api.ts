@@ -530,28 +530,33 @@ export async function removeEntityTag(
   );
 }
 
-// ── Dashboard 布局 ────────────────────────────────────────────────
+// ── Dashboard 布局（菌丝 v2 · 模板化漂浮 widget） ──────────────────
+//
+// 单一画布模型：每个 widget 用「模板 tpl（W×H 单位）+ 分数坐标 (x,y)」表达，
+// 自由摆放、离散尺寸。后端把整个 { version, items, cam } 当 JSON blob 存。
+// 旧版 react-grid-layout 的 {x,y,w,h} 网格项已废弃，靠 version 失效回落默认。
 
-export interface DashboardLayoutItem {
-  i: string;
+export interface DashboardWidget {
+  i: string;        // widget id
+  tpl: string;      // 模板键，形如 "2x1"
+  x: number;        // 左上角分数坐标 [0,1]（画布宽）
+  y: number;        // 左上角分数坐标 [0,1]（画布高）
+}
+
+export interface DashboardCamera {
   x: number;
   y: number;
-  w: number;
-  h: number;
-  minW?: number;
-  minH?: number;
-  maxW?: number;
-  maxH?: number;
-  static?: boolean;
+  s: number;
 }
 
 export interface PersistedDashboardLayout {
   version: number;
-  items: DashboardLayoutItem[];
+  items: DashboardWidget[];
+  cam?: DashboardCamera;
 }
 
-export async function getDashboardLayout(): Promise<PersistedDashboardLayout | DashboardLayoutItem[] | null> {
-  return req<PersistedDashboardLayout | DashboardLayoutItem[] | null>("/dashboard/layout");
+export async function getDashboardLayout(): Promise<PersistedDashboardLayout | unknown[] | null> {
+  return req<PersistedDashboardLayout | unknown[] | null>("/dashboard/layout");
 }
 
 export async function saveDashboardLayout(layout: PersistedDashboardLayout): Promise<void> {

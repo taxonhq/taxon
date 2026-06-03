@@ -127,6 +127,11 @@
     "resetConfirm": "Reset layout to default?",
     "doneEditing": "Done",
     "customize": "Customize",
+    "addWidget": "Add widget",
+    "allWidgetsAdded": "All added",
+    "zoomIn": "Zoom in",
+    "zoomOut": "Zoom out",
+    "fitView": "Fit view",
     "widgetLabels": {
       "kpiHero": "Core KPI",
       "entityPie": "Entity Distribution",
@@ -139,7 +144,9 @@
       "healthBar": "Service Health"
     },
     "organismTitle": "Tag Organism",
-    "organismHint": "Grown by real usage · hover for labels · groups are cores"
+    "organismHint": "Grown by real usage · hover for labels · groups are cores",
+    "organismLegendColor": "Color = group",
+    "organismLegendSize": "Size = usage"
   },
   "palette": {
     "searchPlaceholder": "Search tags, groups, pages…",
