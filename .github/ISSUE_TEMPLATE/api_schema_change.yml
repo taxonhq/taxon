@@ -1,0 +1,62 @@
+name: 🔌 API / Schema Change / 接口或数据模型变更
+description: Propose a change to a REST endpoint, response format, or Prisma model / 提议变更接口、响应格式或数据模型
+labels: ["api", "schema"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this for changes that affect callers: endpoints, response shape, or the Prisma data model.
+        用于会影响调用方的变更：接口、响应结构、Prisma 数据模型。
+
+  - type: dropdown
+    id: kind
+    attributes:
+      label: Type of change / 变更类型
+      options:
+        - REST endpoint (new / modified / removed)
+        - Response format / 响应格式
+        - Prisma model / migration / 数据模型或迁移
+        - Other / 其他
+    validations:
+      required: true
+
+  - type: textarea
+    id: current
+    attributes:
+      label: Current behavior / 当前行为
+      description: What does it do today? Reference the endpoint or model. / 现在是怎样的？请指明接口或模型。
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposed
+    attributes:
+      label: Proposed change / 提议的变更
+    validations:
+      required: true
+
+  - type: textarea
+    id: motivation
+    attributes:
+      label: Motivation / 动机
+    validations:
+      required: true
+
+  - type: dropdown
+    id: breaking
+    attributes:
+      label: Breaking change? / 是否破坏性变更
+      options:
+        - "No / 否"
+        - "Yes — affects existing callers / 是，会影响现有调用方"
+        - "Not sure / 不确定"
+    validations:
+      required: true
+
+  - type: textarea
+    id: migration
+    attributes:
+      label: Migration / compatibility notes / 迁移与兼容性说明
+      description: If breaking, how should callers migrate? / 若为破坏性变更，调用方该如何迁移？
+    validations:
+      required: false

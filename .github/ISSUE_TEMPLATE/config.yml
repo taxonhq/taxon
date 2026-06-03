@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 🔒 Report a security vulnerability / 上报安全漏洞
+    url: https://github.com/taxonhq/taxon/security/advisories/new
+    about: Please report security issues privately, not as a public issue. / 请通过私有渠道上报，不要开公开 issue。

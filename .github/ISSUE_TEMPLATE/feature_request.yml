@@ -1,0 +1,44 @@
+name: ✨ Feature Request / 功能提案
+description: Suggest a new capability or improvement / 提议新功能或改进
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Describe the problem first, then the solution. Motivation matters more than the conclusion.
+        请先描述问题与动机，再描述方案——动机比结论更重要。
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem / use case / 问题与场景
+      description: "What are you trying to do? Frame it as: I need ___ so that ___. / 你想做什么？建议格式：我需要 ___ 以便 ___。"
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution / 设想的方案
+      description: What would you like to happen? / 你希望它如何工作？
+    validations:
+      required: true
+
+  - type: dropdown
+    id: package
+    attributes:
+      label: Which package? / 涉及哪个包
+      options:
+        - service (Hono + Prisma backend)
+        - console (Next.js UI)
+        - both / 两者
+        - not sure / 不确定
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered / 考虑过的替代方案
+    validations:
+      required: false
