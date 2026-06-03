@@ -116,14 +116,15 @@ export function DashboardCanvas({ data, refreshing, onRefresh, onEditingChange }
     const d = dragRef.current;
     if (!d || d.id !== it.i) return;
     const { width, height } = templateSize(it.tpl);
-    let nx = d.ox + (e.clientX - d.startX) / cam.s;
-    let ny = d.oy + (e.clientY - d.startY) / cam.s;
+    // widget 在屏幕空间（不随相机缩放），拖动 1:1 不除以 cam.s
+    let nx = d.ox + (e.clientX - d.startX);
+    let ny = d.oy + (e.clientY - d.startY);
     nx = Math.round(nx / SNAP) * SNAP;
     ny = Math.round(ny / SNAP) * SNAP;
     nx = clamp(nx, 0, Math.max(0, size.w - width));
     ny = clamp(ny, 0, Math.max(0, size.h - height));
     setItems(prev => prev.map(p => p.i === it.i ? { ...p, x: nx / size.w, y: ny / size.h } : p));
-  }, [cam.s, size]);
+  }, [size]);
 
   const onWidgetPointerUp = useCallback((e: React.PointerEvent, it: CanvasItem) => {
     if (dragRef.current?.id === it.i) {
@@ -227,17 +228,17 @@ export function DashboardCanvas({ data, refreshing, onRefresh, onEditingChange }
         />
       )}
 
-      {/* board：有机体背景 + 漂浮 widget，统一受相机变换 */}
+      {/* 地图层：只有背景（有机体「菌丝 / 大地」）随相机缩放 / 平移 */}
       <div
         className="absolute inset-0 z-[2]"
-        style={{ transform: boardTransform, transformOrigin: "0 0", transition: panning ? "none" : "transform .12s ease-out" }}
+        style={{ transform: boardTransform, transformOrigin: "50% 50%", transition: panning ? "none" : "transform .12s ease-out" }}
       >
         {/* 有机体大地（背景；展示态可 hover 探索） */}
         <div className="absolute inset-0 z-0">
           <TagOrganism />
         </div>
 
-        {/* 空白处拖动 = 平移画布（仅编辑态覆盖，避免挡住展示态的 hover） */}
+        {/* 空白处拖动 = 平移地图（仅编辑态覆盖，避免挡住展示态的 hover） */}
         {editing && (
           <div
             className="absolute inset-0 z-[1]"
@@ -245,7 +246,11 @@ export function DashboardCanvas({ data, refreshing, onRefresh, onEditingChange }
             onPointerDown={onBgPointerDown}
           />
         )}
+      </div>
 
+      {/* 前景 widget 层：不随相机缩放 / 平移（像地图上的 UI 覆盖层 / 图钉）。
+          容器 pointer-events:none 让空白处穿透到下方地图层去平移；widget 自身恢复 auto。 */}
+      <div className="absolute inset-0 z-[3]" style={{ pointerEvents: "none" }}>
         {ready && items.map((it) => {
           const { width, height } = templateSize(it.tpl);
           const isSel = sel === it.i;
@@ -257,7 +262,7 @@ export function DashboardCanvas({ data, refreshing, onRefresh, onEditingChange }
                 editing && "is-editing",
                 isSel && "is-sel",
               )}
-              style={{ left: it.x * size.w, top: it.y * size.h, width, height }}
+              style={{ left: it.x * size.w, top: it.y * size.h, width, height, pointerEvents: "auto" }}
               onPointerDown={(e) => onWidgetPointerDown(e, it)}
               onPointerMove={(e) => onWidgetPointerMove(e, it)}
               onPointerUp={(e) => onWidgetPointerUp(e, it)}
