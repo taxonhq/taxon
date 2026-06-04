@@ -49,6 +49,7 @@ export default function DashboardPage() {
         data={data}
         refreshing={refreshing}
         reloadToken={updatedAt?.getTime() ?? 0}
+        updatedAt={updatedAt}
         onRefresh={refresh}
         onEditingChange={setEditing}
       />

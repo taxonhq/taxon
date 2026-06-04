@@ -65,6 +65,7 @@
     "webhooks": "Webhooks",
     "systemSettings": "System Settings",
     "apiDocs": "API Docs",
+    "about": "About",
     "sectionManage": "Manage",
     "sectionSettings": "Settings"
   },
@@ -141,8 +142,10 @@
       "statEntities": "Registered Entities",
       "statPending": "Pending Review",
       "activityFeed": "Recent Activity",
-      "healthBar": "Service Health"
+      "healthBar": "Service Health",
+      "organismLegend": "Graph Legend"
     },
+    "organismLegendTitle": "Graph Legend",
     "organismTitle": "Tag Organism",
     "organismHint": "Grown by real usage · hover for labels · groups are cores",
     "organismLegendColor": "Color = group",

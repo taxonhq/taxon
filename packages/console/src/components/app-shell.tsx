@@ -5,46 +5,24 @@ import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
 import Link from "next/link";
 import {
-  Layers, ClipboardCheck, Box, Search, HelpCircle, ShieldCheck,
+  Layers, ClipboardCheck, Box, Search, ShieldCheck,
 } from "lucide-react";
-import { AboutDialog } from "@/components/ui/about-dialog";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { OnboardingTour, useOnboarding } from "@/components/ui/onboarding";
 import { CommandPalette } from "@/components/ui/command-palette";
 import { MycCanvas } from "@/components/shell/myc-canvas";
 import { SettingsMenu } from "@/components/shell/settings-menu";
 
-type HealthStatus = "ok" | "degraded" | "checking";
-
-const BASE = process.env.NEXT_PUBLIC_TAG_SERVICE_URL ?? "http://localhost:3300";
-const SERVICE_DISPLAY = BASE.replace(/^https?:\/\//, "");
-
 export function AppShell({ children }: { children: React.ReactNode }) {
   const t = useTranslations("nav");
-  const sysT = useTranslations("system");
   const tCommon = useTranslations("common");
   const pathname = usePathname();
   const isDashboard = pathname === "/";
 
-  const [health, setHealth] = useState<HealthStatus>("checking");
-  const [showAbout, setShowAbout] = useState(false);
   const [cmdOpen, setCmdOpen] = useState(false);
 
   // Onboarding
   const { showOnboarding, completeOnboarding, mounted: onboardingMounted } = useOnboarding();
-
-  // Live health check — poll every 30 s ± 5s jitter
-  useEffect(() => {
-    const check = () => {
-      fetch(`${BASE}/health`, { signal: AbortSignal.timeout(4000) })
-        .then(r => setHealth(r.ok ? "ok" : "degraded"))
-        .catch(() => setHealth("degraded"));
-    };
-    check();
-    const jitter = Math.random() * 10000 - 5000;
-    const id = setInterval(check, 30_000 + jitter);
-    return () => clearInterval(id);
-  }, []);
 
   // ── nav-spine 指针视差（#124）：spine 随指针做 ±3px 反向漂移，制造
   //    「操作层浮于内容之上」的 3D 暗示。rAF 节流 + 被动监听；reduced-motion 跳过。
@@ -100,15 +78,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     [pathname],
   );
 
-  const dotClass =
-    health === "ok"       ? "ok" :
-    health === "degraded" ? "bad" :
-    "checking";
-  const dotTitle =
-    health === "ok"       ? sysT("serviceOk") :
-    health === "degraded" ? sysT("serviceDegraded") :
-    sysT("serviceChecking");
-
   return (
     <>
       {/* ── Skip-link for a11y ───────────────────────────────────── */}
@@ -148,17 +117,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         })}
       </nav>
 
-      {/* ── 状态簇（右上）────────────────────────────────────────── */}
+      {/* ── 动作带（右上）：仪表盘把「刷新 / 自定义」portal 进 #myc-dash-actions，
+             与全局的「主题 / 设置」并排成一条带（中间淡分隔由仪表盘侧补）。───────── */}
       <div className="myc-status">
-        <span className="myc-pill" title={dotTitle}>
-          <span className={`d ${dotClass}`} />
-          <span style={{ fontFamily: "var(--font-myc-mono)" }}>{SERVICE_DISPLAY}</span>
-        </span>
+        {isDashboard && <div id="myc-dash-actions" className="myc-dash-actions" />}
         <ThemeToggle />
         <SettingsMenu />
-        <button className="myc-ghost" onClick={() => setShowAbout(true)} title="About" aria-label="About">
-          <HelpCircle size={14} />
-        </button>
       </div>
 
       {/* ── 命令提示（右下）── ⌘K 命令面板用「搜索」（#102 canon：功能=检索，⌘K=搜索）── */}
@@ -174,8 +138,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <div className="myc-field">{children}</div>
         )}
       </main>
-
-      <AboutDialog open={showAbout} onClose={() => setShowAbout(false)} />
 
       {onboardingMounted && showOnboarding && (
         <OnboardingTour onComplete={completeOnboarding} />

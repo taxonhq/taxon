@@ -65,6 +65,7 @@
     "webhooks": "事件订阅",
     "systemSettings": "系统设置",
     "apiDocs": "API 文档",
+    "about": "关于",
     "sectionManage": "管理",
     "sectionSettings": "设置"
   },
@@ -141,8 +142,10 @@
       "statEntities": "已注册实体",
       "statPending": "待审核",
       "activityFeed": "最近活动",
-      "healthBar": "服务健康"
+      "healthBar": "服务健康",
+      "organismLegend": "图谱图例"
     },
+    "organismLegendTitle": "图谱图例",
     "organismTitle": "标签有机体",
     "organismHint": "按真实使用量生长 · 悬停看标签 · 分组为菌核",
     "organismLegendColor": "颜色 = 分组",
@@ -826,6 +829,7 @@
     "seedCreateFirst": "创建第一个分组 →"
   },
   "about": {
+    "title": "关于 Taxon",
     "subtitle": "标签微服务管理控制台",
     "consoleVersion": "控制台版本",
     "serviceVersion": "服务版本",

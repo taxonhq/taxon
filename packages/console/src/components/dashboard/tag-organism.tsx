@@ -30,6 +30,7 @@ import {
 } from "d3-force";
 import { getTagUsage } from "@/lib/api";
 import { groupColor } from "@/lib/group-color";
+import type { OrganismMeta } from "./canvas-config";
 
 // 虚拟布局坐标空间（节点按 % 定位 → 自适应容器）
 const W = 1000;
@@ -90,7 +91,7 @@ interface Settled {
   hasStale: boolean;   // 是否有沉睡标签（决定图例是否提示）
 }
 
-export function TagOrganism({ reloadToken = 0 }: { reloadToken?: number }) {
+export function TagOrganism({ reloadToken = 0, onMeta }: { reloadToken?: number; onMeta?: (m: OrganismMeta | null) => void }) {
   const t = useTranslations("dashboard");
   const rootRef = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState({ w: 1000, h: 700 });
@@ -99,6 +100,9 @@ export function TagOrganism({ reloadToken = 0 }: { reloadToken?: number }) {
   const [hovered, setHovered] = useState<string | null>(null);
   // 上次 settle 后的坐标，按 id 缓存 → 刷新时复用，保持布局稳定不跳
   const posRef = useRef<Map<string, { x: number; y: number }>>(new Map());
+  // onMeta 用 ref 持有，避免把它放进数据 effect 依赖里导致每次渲染都重抓
+  const onMetaRef = useRef(onMeta);
+  useEffect(() => { onMetaRef.current = onMeta; }, [onMeta]);
 
   // ── 容器尺寸跟踪（驱动节点缩放 k + 数量分档 tier）────────────────
   useEffect(() => {
@@ -139,6 +143,7 @@ export function TagOrganism({ reloadToken = 0 }: { reloadToken?: number }) {
         if (tags.length === 0) {
           setSettled({ nodes: [], links: [], legend: [], shown: 0, total: 0, usageMin: 0, usageMax: 0, hasStale: false });
           setErrored(false);
+          onMetaRef.current?.(null);
           return;
         }
 
@@ -238,16 +243,22 @@ export function TagOrganism({ reloadToken = 0 }: { reloadToken?: number }) {
           .sort((a, b) => b.count - a.count);
 
         if (cancelled) return;
+        const hasStale = nodes.some((n) => n.stale);
         setSettled({
           nodes: nodes as (Node & { x: number; y: number })[],
           links: sLinks, legend,
           shown: tags.length, total, usageMin, usageMax: maxUsage,
-          hasStale: nodes.some((n) => n.stale),
+          hasStale,
         });
         setErrored(false);
+        // 向上抛出图例元信息，供「图谱图例」widget 消费（与背景显示一致）
+        onMetaRef.current?.({
+          legend, shown: tags.length, total, usageMin, usageMax: maxUsage,
+          hasStale, staleDays: STALE_DAYS,
+        });
       } catch (e) {
         console.error("TagOrganism load failed", e);
-        if (!cancelled) setErrored(true);
+        if (!cancelled) { setErrored(true); onMetaRef.current?.(null); }
       }
     })();
     return () => { cancelled = true; };
@@ -340,33 +351,7 @@ export function TagOrganism({ reloadToken = 0 }: { reloadToken?: number }) {
               </div>
             );
           })}
-
-          {/* 图例：颜色 = 分组；大小 = 使用量（带区间标尺）；并说明这是 top-N 采样而非全貌（#125）。*/}
-          {settled.legend.length > 0 && (
-            <div className="myc-legend">
-              <div className="myc-legend-head">{t("organismLegendColor")}</div>
-              <div className="myc-legend-items">
-                {settled.legend.slice(0, 6).map((g) => (
-                  <span key={g.id} className="myc-legend-item" title={g.name}>
-                    <span className="myc-legend-dot" style={{ background: g.color }} />
-                    {g.name}
-                  </span>
-                ))}
-                {settled.legend.length > 6 && (
-                  <span className="myc-legend-more">+{settled.legend.length - 6}</span>
-                )}
-              </div>
-              <div className="myc-legend-sub">
-                {t("organismLegendSizeRange", { min: compact(settled.usageMin), max: compact(settled.usageMax) })}
-              </div>
-              {settled.total > settled.shown && (
-                <div className="myc-legend-sub">{t("organismSampling", { shown: settled.shown, total: settled.total })}</div>
-              )}
-              {settled.hasStale && (
-                <div className="myc-legend-sub">{t("organismLegendStale", { days: STALE_DAYS })}</div>
-              )}
-            </div>
-          )}
+          {/* 图例已抽出为独立的「图谱图例」widget（通过 onMeta 抛出元信息）。 */}
         </>
       )}
     </div>

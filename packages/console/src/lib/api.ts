@@ -539,8 +539,9 @@ export async function removeEntityTag(
 export interface DashboardWidget {
   i: string;        // widget id
   tpl: string;      // 模板键，形如 "2x1"
-  x: number;        // 左上角分数坐标 [0,1]（画布宽）
-  y: number;        // 左上角分数坐标 [0,1]（画布高）
+  // v5 固定舞台模型：在 1440×900 虚拟舞台内的绝对坐标，渲染时整层等比缩放适配视口
+  x: number;        // 舞台坐标系左上角 X
+  y: number;        // 舞台坐标系左上角 Y
 }
 
 export interface DashboardCamera {

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { Sparkles, KeyRound, Webhook, SlidersHorizontal, FileCode2, ExternalLink } from "lucide-react";
+import { Sparkles, KeyRound, Webhook, SlidersHorizontal, FileCode2, ExternalLink, Info } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -26,6 +26,7 @@ const SECTIONS: Section[] = [
   { href: "/settings/tokens",   navKey: "apiTokens",      icon: KeyRound },
   { href: "/settings/webhooks", navKey: "webhooks",       icon: Webhook },
   { href: "/settings/system",   navKey: "systemSettings", icon: SlidersHorizontal },
+  { href: "/settings/about",    navKey: "about",          icon: Info },
 ];
 
 export default function SettingsLayout({ children }: { children: React.ReactNode }) {

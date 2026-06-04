@@ -2,7 +2,7 @@
  * Dashboard widgets 集合
  *
  * 所有可视化组件统一管理，便于维护配色和共用工具。
- * 配色遵循 Brand Gradient（蓝紫渐变）+ Cyan/Amber 辅色 + 暗色 elevation 层级。
+ * 配色：菌丝（Mycelial）暖谱 —— bio teal / 孢子 lime / 琥珀（#109），与跨页分组色系统一致。
  */
 
 "use client";
@@ -12,7 +12,7 @@ import Link from "next/link";
 import { useTranslations } from "next-intl";
 import {
   Layers, Tag, Box, ClipboardCheck, TrendingUp, TrendingDown, Activity,
-  CheckCircle2, AlertCircle, ChevronRight, Sparkles,
+  CheckCircle2, ChevronRight,
 } from "lucide-react";
 import {
   AreaChart, Area, LineChart, Line,
@@ -23,7 +23,7 @@ import type {
 } from "./use-dashboard-data";
 import type { ActivityEvent, HealthInfo, TrendPoint } from "@/lib/api";
 import { cn } from "@/lib/utils";
-import { parseTemplate, type TemplateKey } from "./canvas-config";
+import { parseTemplate, type TemplateKey, type OrganismMeta } from "./canvas-config";
 
 // 浮动画布里的 widget 首帧可能 0×0，此时 recharts ResponsiveContainer 会量到 width/height=-1
 // 并刷一堆警告（#141）。用 ResizeObserver 等容器有正尺寸再挂图表。
@@ -133,98 +133,7 @@ export function WidgetEmpty({ text }: { text: string }) {
 }
 
 // ═══════════════════════════════════════════════════════════════
-// 1) KPI Hero — 主指标 + 7 天 Area + 同比
-// ═══════════════════════════════════════════════════════════════
-export function KpiHero({ data }: { data: DashboardData }) {
-  const t = useTranslations("dashboard");
-  const { stats, trend, today } = data;
-  const series = trend?.series ?? [];
-  const todayTags = today?.tags;
-
-  return (
-    <div className="flex flex-col h-full p-6">
-      {/* 标题 */}
-      <div className="flex items-center justify-between shrink-0">
-        <div className="flex items-center gap-2">
-          <Sparkles size={14} className="text-brand-2" />
-          <span className="text-xs font-semibold uppercase tracking-[0.15em] text-ink-sub">
-            {t("kpiTitle")}
-          </span>
-        </div>
-        {todayTags && todayTags.comparePct !== 0 && todayTags.comparePct > -100 && (
-          <div
-            className={cn(
-              "flex items-center gap-1.5 px-2 py-0.5 rounded-full border",
-              todayTags.comparePct >= 0
-                ? "bg-ok/10 border-ok/25 text-ok"
-                : "bg-bad/10 border-bad/25 text-bad",
-            )}
-          >
-            {todayTags.comparePct >= 0 ? <TrendingUp size={10} /> : <TrendingDown size={10} />}
-            <span className="text-2xs font-bold tabular-nums">
-              {pctSign(todayTags.comparePct)}
-            </span>
-          </div>
-        )}
-      </div>
-
-      {/* 大数字 */}
-      <div className="mt-6">
-        <p
-          className="font-extrabold leading-none tabular-nums text-display-2xl bg-clip-text"
-          style={{
-            letterSpacing: "-0.05em",
-            backgroundImage: `linear-gradient(135deg, ${CHART.ink} 0%, ${CHART.brand2} 120%)`,
-            WebkitTextFillColor: "transparent",
-          }}
-        >
-          {fmt(stats.tags)}
-        </p>
-        <div className="flex items-baseline gap-3 mt-2">
-          <span className="text-sm text-ink-sub">{t("kpiSub")}</span>
-          {todayTags && (
-            <span className="text-xs tabular-nums text-ink-sub">
-              {t("kpiToday")} <span className="font-semibold text-ink">+{todayTags.today}</span>
-            </span>
-          )}
-        </div>
-      </div>
-
-      {/* 7 天 Area 图 */}
-      <KpiTrendArea series={series} loadingText={t("loadingTrend")} />
-      <p className="text-2xs mt-1 tabular-nums text-ink-faint">
-        {t("kpiTrend")}
-      </p>
-    </div>
-  );
-}
-
-// KPI 卡片里的 7 天趋势 Area 图，带尺寸就绪门控（#141）
-function KpiTrendArea({ series, loadingText }: { series: TrendPoint[]; loadingText: string }) {
-  const { ref, ready } = useChartReady<HTMLDivElement>();
-  return (
-    <div ref={ref} className="flex-1 min-h-0 mt-4">
-      {series.length === 0 || !ready ? <WidgetEmpty text={loadingText} /> : (
-        <ResponsiveContainer width="100%" height="100%" minHeight={80}>
-          <AreaChart data={series} margin={{ top: 0, right: 0, bottom: 0, left: 0 }}>
-            <defs>
-              <linearGradient id="kpi-grad" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%"   stopColor={CHART.brand2} stopOpacity={0.5} />
-                <stop offset="100%" stopColor={CHART.brand2} stopOpacity={0}   />
-              </linearGradient>
-            </defs>
-            <Tooltip content={<TrendTooltip />} cursor={{ stroke: CHART.edge2 }} />
-            <Area type="monotone" dataKey="tags" stroke={CHART.brand2} strokeWidth={2}
-              fill="url(#kpi-grad)" />
-          </AreaChart>
-        </ResponsiveContainer>
-      )}
-    </div>
-  );
-}
-
-// ═══════════════════════════════════════════════════════════════
-// 2) Entity Pie — 实体类型环形分布
+// 1) Entity Pie — 实体类型环形分布
 // ═══════════════════════════════════════════════════════════════
 export function EntityPie({ entityTypes, compact = false }: { entityTypes: EntityTypeStat[]; compact?: boolean }) {
   const t = useTranslations("dashboard");
@@ -254,10 +163,10 @@ export function EntityPie({ entityTypes, compact = false }: { entityTypes: Entit
     ? `conic-gradient(from -90deg, ${gradientStops.join(", ")})`
     : `conic-gradient(${PIE_COLORS[0]} 0% 100%)`;
 
-  // 紧凑档（2×2）：只留环 + 中心数字，省去右侧图例（小尺寸放不下、会溢出）
+  // 紧凑档（2×2）：只留环 + 中心数字，省去右侧图例（小尺寸放不下、会溢出）。整卡可点 → /entities
   if (compact) {
     return (
-      <div className="flex flex-col h-full p-2.5">
+      <Link href="/entities" className="flex flex-col h-full p-2.5 no-underline">
         <div className="flex items-center gap-1.5 shrink-0">
           <Box size={11} strokeWidth={1.5} className="text-ink-sub" />
           <span className="text-[0.5rem] font-semibold uppercase tracking-[0.1em] text-ink-sub truncate">{t("entityPieTitle")}</span>
@@ -266,6 +175,8 @@ export function EntityPie({ entityTypes, compact = false }: { entityTypes: Entit
           <div className="flex-1 grid place-items-center min-h-0 relative">
             <div
               className="rounded-full"
+              role="img"
+              aria-label={t("statPieTypes", { count: nonEmpty.length })}
               style={{
                 width: "min(100%, 5.6rem)", aspectRatio: "1",
                 background: conicGradient,
@@ -279,7 +190,7 @@ export function EntityPie({ entityTypes, compact = false }: { entityTypes: Entit
             </div>
           </div>
         )}
-      </div>
+      </Link>
     );
   }
 
@@ -292,6 +203,8 @@ export function EntityPie({ entityTypes, compact = false }: { entityTypes: Entit
           <div className="relative flex items-center justify-center min-h-0 h-full">
             <div
               className="rounded-full shrink-0"
+              role="img"
+              aria-label={`${t("statPieTotal")} ${fmt(total)} · ${t("statPieTypes", { count: nonEmpty.length })}`}
               style={{
                 width: "min(80%, 80%)",
                 aspectRatio: "1",
@@ -362,8 +275,8 @@ export function TrendChart({ data }: { data: DashboardData }) {
   const { ref, ready } = useChartReady<HTMLDivElement>();
   return (
     <div className="flex flex-col h-full">
-      <WidgetHeader icon={<Activity size={13} strokeWidth={1.5} />} title={t("trendTitle")} sub={t("trendSub")} />
-      <div ref={ref} className="flex-1 min-h-0 p-3">
+      <WidgetHeader icon={<Activity size={13} strokeWidth={1.5} />} title={t("trendTitle")} sub={t("trendSub")} href="/governance" />
+      <div ref={ref} className="flex-1 min-h-0 p-3" role="img" aria-label={`${t("trendTitle")} · ${t("trendSub")}`}>
         {series.length === 0 || !ready ? <WidgetEmpty text={t("loadingTrend")} /> : (
           <ResponsiveContainer width="100%" height="100%" minHeight={80}>
             <LineChart data={series} margin={{ top: 12, right: 16, bottom: 8, left: 0 }}>
@@ -399,7 +312,7 @@ export function TrendChart({ data }: { data: DashboardData }) {
 }
 
 // ═══════════════════════════════════════════════════════════════
-// 4) Stat Mini — 含 sparkline 的统计小卡
+// 4) KPI 配置 — 单指标卡（CanvasKpi）共用：颜色 / 图标 / 下钻 href / 趋势键
 // ═══════════════════════════════════════════════════════════════
 // 菌丝调色（#109 step3）：bio teal / lime / 深 teal / 暖琥珀，取代旧 indigo/purple/cyan
 const STAT_CONFIG = {
@@ -408,96 +321,6 @@ const STAT_CONFIG = {
   "stat-entities": { color: "#5fe3b4", icon: Box,            href: "/entities", metric: "entities", trendKey: "entities"      as const },
   "stat-pending":  { color: "#eaa066", icon: ClipboardCheck, href: "/audit",    metric: "pending",  trendKey: null            as "tags" | "entities" | "reviews" | null },
 } as const;
-
-export function StatMini({ id, data }: { id: keyof typeof STAT_CONFIG; data: DashboardData }) {
-  const t = useTranslations("dashboard");
-  const config = STAT_CONFIG[id];
-  const Icon   = config.icon;
-  const label  = id === "stat-groups"   ? t("statsGroupsTitle")
-               : id === "stat-tags"     ? t("statsTagsTitle")
-               : id === "stat-entities" ? t("statsEntitiesTitle")
-               :                          t("statsAuditsTitle");
-  const value = data.stats[config.metric as keyof typeof data.stats];
-  const today = config.metric === "tags"     ? data.today?.tags
-              : config.metric === "entities" ? data.today?.entities
-              : config.metric === "pending"  ? data.today?.audits
-              : null;
-  const spark = config.trendKey ? (data.trend?.series ?? []).map(s => ({ v: s[config.trendKey!] })) : null;
-  const isAlert = id === "stat-pending" && value > 0;
-
-  return (
-    <Link href={config.href} className="flex flex-col h-full p-4 group relative overflow-hidden no-underline">
-      {/* 角落淡色装饰 */}
-      <div className="absolute -top-8 -right-8 w-24 h-24 rounded-full pointer-events-none transition-opacity duration-300 opacity-30 group-hover:opacity-50"
-        style={{ background: `radial-gradient(circle, ${config.color}40, transparent 70%)` }} />
-
-      {/* 顶部：图标 + 标签 + 同比 */}
-      <div className="flex items-start justify-between gap-2 shrink-0 relative z-10">
-        <div className="flex items-center gap-2">
-          <span className="p-1.5 rounded-lg border"
-            style={{ background: `${config.color}1F`, color: config.color, borderColor: `${config.color}33` }}>
-            <Icon size={13} strokeWidth={1.8} />
-          </span>
-          <span className="text-2xs font-semibold uppercase tracking-[0.1em] text-ink-sub">
-            {label}
-          </span>
-        </div>
-        {today && today.comparePct !== 0 && today.comparePct > -100 && (
-          <span className={cn(
-            "text-2xs font-bold tabular-nums flex items-center gap-0.5",
-            today.comparePct >= 0 ? "text-ok" : "text-bad",
-          )}>
-            {today.comparePct >= 0 ? <TrendingUp size={9} /> : <TrendingDown size={9} />}
-            {pctSign(today.comparePct)}
-          </span>
-        )}
-      </div>
-
-      {/* 大数字 */}
-      <div className="flex-1 flex flex-col justify-center relative z-10">
-        <p
-          className={cn(
-            "font-extrabold tabular-nums leading-none text-display-xl",
-            !isAlert && "text-ink",
-          )}
-          style={{
-            letterSpacing: "-0.04em",
-            ...(isAlert && { color: config.color }),
-          }}
-        >
-          {fmt(value)}
-        </p>
-        {today ? (
-          <p className="text-2xs mt-1.5 tabular-nums text-ink-sub">
-            {t("statTodayNew", { n: today.today })}
-          </p>
-        ) : id === "stat-groups" && data.stats.groups > 0 ? (
-          <p className="text-2xs mt-1.5 tabular-nums text-ink-sub">
-            {t("statGroupsAvg", { n: Math.round(data.stats.tags / data.stats.groups) })}
-          </p>
-        ) : null}
-      </div>
-
-      {/* Sparkline */}
-      {spark && spark.length > 0 && (
-        <div className="h-7 -mx-1 relative z-10">
-          <ResponsiveContainer width="100%" height="100%" minHeight={28}>
-            <AreaChart data={spark} margin={{ top: 2, right: 2, bottom: 0, left: 2 }}>
-              <defs>
-                <linearGradient id={`spark-${id}`} x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%"   stopColor={config.color} stopOpacity={0.4} />
-                  <stop offset="100%" stopColor={config.color} stopOpacity={0}   />
-                </linearGradient>
-              </defs>
-              <Area type="monotone" dataKey="v" stroke={config.color} strokeWidth={1.5}
-                fill={`url(#spark-${id})`} />
-            </AreaChart>
-          </ResponsiveContainer>
-        </div>
-      )}
-    </Link>
-  );
-}
 
 // ═══════════════════════════════════════════════════════════════
 // 5) Activity Feed — 最近活动流（自滚动）
@@ -525,7 +348,7 @@ export function ActivityFeed({ activity }: { activity: ActivityEvent[] }) {
 
   return (
     <div className="flex flex-col h-full">
-      <WidgetHeader icon={<Activity size={13} strokeWidth={1.5} />} title={t("activityTitle")} sub={t("activityCount", { count: activity.length })} />
+      <WidgetHeader icon={<Activity size={13} strokeWidth={1.5} />} title={t("activityTitle")} sub={t("activityCount", { count: activity.length })} href="/audit" />
       {activity.length === 0 ? <WidgetEmpty text={t("noActivity")} /> : (
         <ul className="flex-1 overflow-y-auto px-2 py-2 space-y-0.5">
           {activity.map((ev, i) => (
@@ -574,7 +397,7 @@ export function ActivityFeed({ activity }: { activity: ActivityEvent[] }) {
 // ═══════════════════════════════════════════════════════════════
 // 6) Health Bar — 服务健康（REC 4×2 横长条）
 // ═══════════════════════════════════════════════════════════════
-export function HealthBar({ health }: { health: HealthInfo | null }) {
+export function HealthBar({ health, wide = true }: { health: HealthInfo | null; wide?: boolean }) {
   const t = useTranslations("dashboard");
   const cells: Array<{ label: string; value: React.ReactNode }> = [
     {
@@ -601,17 +424,20 @@ export function HealthBar({ health }: { health: HealthInfo | null }) {
 
   return (
     <div className="flex flex-col h-full">
-      <WidgetHeader icon={<CheckCircle2 size={13} strokeWidth={1.5} />} title={t("healthTitle")} />
-      <div className="flex-1 grid grid-cols-4 min-h-0">
+      <WidgetHeader icon={<CheckCircle2 size={13} strokeWidth={1.5} />} title={t("healthTitle")} href="/settings/system" />
+      {/* 宽档 4 列；窄档（2×1/2×2）2 列换行，避免挤成一团 */}
+      <div className={cn("flex-1 grid min-h-0", wide ? "grid-cols-4" : "grid-cols-2")}>
         {cells.map((c, i) => (
           <div
             key={c.label}
             className={cn(
-              "flex flex-col justify-center gap-1 px-4",
-              i < cells.length - 1 && "border-r border-edge",
+              "flex flex-col justify-center gap-1 px-4 py-2",
+              wide
+                ? (i < cells.length - 1 && "border-r border-edge")
+                : cn(i % 2 === 0 && "border-r border-edge", i < 2 && "border-b border-edge"),
             )}
           >
-            <p className="text-2xs font-semibold uppercase tracking-[0.1em] text-ink-faint">
+            <p className="text-2xs font-semibold uppercase tracking-[0.1em] text-ink-faint truncate">
               {c.label}
             </p>
             <div>{c.value}</div>
@@ -641,10 +467,12 @@ function Dot({ ok, text }: { ok: boolean; text: string }) {
 
 
 // ═══════════════════════════════════════════════════════════════
-// 7) Canvas KPI — 单指标，按模板宽度自适应（1×1 紧凑 / 2×1 带今日）
+// 7) Canvas KPI — 单指标卡：同比 + 大数字 + 点击下钻；sparkline 仅在够高时显示
+//    1×1 紧凑（图标+数字） / 2×1 标准 / 2×2+ 带 sparkline
 // ═══════════════════════════════════════════════════════════════
-function CanvasKpi({ id, data }: { id: keyof typeof STAT_CONFIG; wide?: boolean; data: DashboardData }) {
+function CanvasKpi({ id, tpl, data }: { id: keyof typeof STAT_CONFIG; tpl: TemplateKey; data: DashboardData }) {
   const t = useTranslations("dashboard");
+  const { w, h } = parseTemplate(tpl);
   const config = STAT_CONFIG[id];
   const Icon   = config.icon;
   const label  = id === "stat-groups"   ? t("statsGroupsTitle")
@@ -656,33 +484,93 @@ function CanvasKpi({ id, data }: { id: keyof typeof STAT_CONFIG; wide?: boolean;
               : config.metric === "entities" ? data.today?.entities
               : config.metric === "pending"  ? data.today?.audits
               : null;
+  const spark = config.trendKey ? (data.trend?.series ?? []).map(s => ({ v: s[config.trendKey!] })) : null;
   const isAlert = id === "stat-pending" && value > 0;
+  const compact = w < 2 && h < 2;     // 1×1
+  const tall    = h >= 2;             // 2×2+ 才放 sparkline（2×1 110px 放不下）
 
-  return (
-    <div className="flex flex-col h-full justify-between p-3.5 overflow-hidden relative">
-      {/* 角落装饰光晕 */}
-      <div className="absolute -top-6 -right-6 w-20 h-20 rounded-full pointer-events-none"
-        style={{ background: `radial-gradient(circle, ${config.color}30, transparent 70%)` }} />
-      {/* 标签行 */}
-      <div className="flex items-center gap-1.5 min-w-0 relative z-10">
-        <span className="p-1 rounded-md shrink-0"
-          style={{ background: `${config.color}22`, color: config.color }}>
-          <Icon size={13} strokeWidth={1.8} />
+  // 1×1：仅图标 + 大数字（居中）
+  if (compact) {
+    return (
+      <Link href={config.href} className="flex flex-col items-center justify-center gap-1.5 h-full p-2 no-underline group relative overflow-hidden">
+        <span className="p-1 rounded-md" style={{ background: `${config.color}22`, color: config.color }}>
+          <Icon size={14} strokeWidth={1.8} />
         </span>
-        <span className="text-[0.6rem] font-semibold uppercase tracking-[0.08em] truncate" style={{ color: "var(--myc-dim)" }}>{label}</span>
-      </div>
-      {/* 大数字 */}
-      <div className="relative z-10">
-        <p className="font-extrabold tabular-nums leading-none"
-          style={{ fontSize: "1.85rem", letterSpacing: "-0.04em", color: isAlert ? config.color : "var(--myc-cream)" }}>
+        <p className={cn("font-extrabold tabular-nums leading-none", !isAlert && "text-ink")}
+          style={{ fontSize: "1.5rem", letterSpacing: "-0.04em", ...(isAlert && { color: config.color }) }}>
           {fmt(value)}
         </p>
-        {today && (
-          <p className="text-[0.58rem] mt-1 tabular-nums" style={{ color: "var(--myc-dim)" }}>
-            {t("statTodayNew", { n: today.today })}
-          </p>
+      </Link>
+    );
+  }
+
+  return (
+    <Link href={config.href} className="flex flex-col h-full p-3.5 group relative overflow-hidden no-underline">
+      {/* 角落淡色装饰 */}
+      <div className="absolute -top-8 -right-8 w-24 h-24 rounded-full pointer-events-none transition-opacity duration-300 opacity-30 group-hover:opacity-50"
+        style={{ background: `radial-gradient(circle, ${config.color}40, transparent 70%)` }} />
+
+      {/* 顶部：图标 + 标签 + 同比 */}
+      <div className="flex items-start justify-between gap-2 shrink-0 relative z-10">
+        <div className="flex items-center gap-2 min-w-0">
+          <span className="p-1.5 rounded-lg border shrink-0"
+            style={{ background: `${config.color}1F`, color: config.color, borderColor: `${config.color}33` }}>
+            <Icon size={13} strokeWidth={1.8} />
+          </span>
+          <span className="text-2xs font-semibold uppercase tracking-[0.1em] text-ink-sub truncate">{label}</span>
+        </div>
+        {today && today.comparePct !== 0 && today.comparePct > -100 && (
+          <span className={cn(
+            "text-2xs font-bold tabular-nums flex items-center gap-0.5 shrink-0",
+            today.comparePct >= 0 ? "text-ok" : "text-bad",
+          )}>
+            {today.comparePct >= 0 ? <TrendingUp size={9} /> : <TrendingDown size={9} />}
+            {pctSign(today.comparePct)}
+          </span>
         )}
       </div>
+
+      {/* 大数字 + 今日/均值 */}
+      <div className="flex-1 flex flex-col justify-center relative z-10 min-h-0">
+        <p
+          className={cn("font-extrabold tabular-nums leading-none text-display-xl", !isAlert && "text-ink")}
+          style={{ letterSpacing: "-0.04em", ...(isAlert && { color: config.color }) }}
+        >
+          {fmt(value)}
+        </p>
+        {today ? (
+          <p className="text-2xs mt-1.5 tabular-nums text-ink-sub">{t("statTodayNew", { n: today.today })}</p>
+        ) : id === "stat-groups" && data.stats.groups > 0 ? (
+          <p className="text-2xs mt-1.5 tabular-nums text-ink-sub">{t("statGroupsAvg", { n: Math.round(data.stats.tags / data.stats.groups) })}</p>
+        ) : null}
+      </div>
+
+      {/* sparkline：仅 trendKey 非空且模板够高；走尺寸就绪门控避免 width(-1) */}
+      {tall && spark && spark.length > 0 && (
+        <KpiSparkline id={id} color={config.color} data={spark} />
+      )}
+    </Link>
+  );
+}
+
+// KPI 卡底部迷你曲线，带尺寸就绪门控（#141），仅在够高的模板里出现
+function KpiSparkline({ id, color, data }: { id: string; color: string; data: { v: number }[] }) {
+  const { ref, ready } = useChartReady<HTMLDivElement>();
+  return (
+    <div ref={ref} className="h-14 -mx-1 mt-2 shrink-0 relative z-10" aria-hidden="true">
+      {ready && (
+        <ResponsiveContainer width="100%" height="100%" minHeight={40}>
+          <AreaChart data={data} margin={{ top: 2, right: 2, bottom: 0, left: 2 }}>
+            <defs>
+              <linearGradient id={`spark-${id}`} x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%"   stopColor={color} stopOpacity={0.4} />
+                <stop offset="100%" stopColor={color} stopOpacity={0}   />
+              </linearGradient>
+            </defs>
+            <Area type="monotone" dataKey="v" stroke={color} strokeWidth={1.5} fill={`url(#spark-${id})`} />
+          </AreaChart>
+        </ResponsiveContainer>
+      )}
     </div>
   );
 }
@@ -694,8 +582,10 @@ function TrendMini({ data }: { data: DashboardData }) {
   const t = useTranslations("dashboard");
   const series = data.trend?.series ?? [];
   const today = data.today?.tags;
+  // 始终渲染测量容器，待其有正尺寸再挂图表，避免 ResponsiveContainer 量到 -1（#141）
+  const { ref, ready } = useChartReady<HTMLDivElement>();
   return (
-    <div className="flex flex-col h-full p-3">
+    <Link href="/governance" className="flex flex-col h-full p-3 no-underline">
       <div className="flex items-center justify-between shrink-0">
         <div className="flex items-center gap-1.5">
           <TrendingUp size={12} className="text-brand-2" />
@@ -707,8 +597,8 @@ function TrendMini({ data }: { data: DashboardData }) {
           </span>
         )}
       </div>
-      <div className="flex-1 min-h-0 mt-1">
-        {series.length === 0 ? <WidgetEmpty text={t("loadingTrend")} /> : (
+      <div ref={ref} className="flex-1 min-h-0 mt-1" aria-hidden="true">
+        {series.length === 0 || !ready ? <WidgetEmpty text={t("loadingTrend")} /> : (
           <ResponsiveContainer width="100%" height="100%" minHeight={32}>
             <AreaChart data={series} margin={{ top: 2, right: 0, bottom: 0, left: 0 }}>
               <defs>
@@ -722,6 +612,43 @@ function TrendMini({ data }: { data: DashboardData }) {
           </ResponsiveContainer>
         )}
       </div>
+    </Link>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 9) Organism Legend — 背景有机体图例（颜色=分组 / 大小=使用量 / 采样）
+//    数据来自背景 TagOrganism 抛出的 meta，保证与背景实际显示一致
+// ═══════════════════════════════════════════════════════════════
+export function OrganismLegend({ meta }: { meta: OrganismMeta | null }) {
+  const t = useTranslations("dashboard");
+  const k = (n: number) => (n >= 1000 ? `${(n / 1000).toFixed(1)}k` : String(n));
+  return (
+    <div className="flex flex-col h-full">
+      <WidgetHeader icon={<Activity size={13} strokeWidth={1.5} />} title={t("organismLegendTitle")} />
+      {!meta || meta.legend.length === 0 ? <WidgetEmpty text={t("organismEmpty")} /> : (
+        <div className="flex-1 flex flex-col gap-2 px-5 py-4 min-h-0 overflow-y-auto justify-center">
+          <div className="myc-legend-head">{t("organismLegendColor")}</div>
+          <div className="myc-legend-items">
+            {meta.legend.slice(0, 8).map((g) => (
+              <span key={g.id} className="myc-legend-item" title={g.name}>
+                <span className="myc-legend-dot" style={{ background: g.color }} />
+                {g.name}
+              </span>
+            ))}
+            {meta.legend.length > 8 && <span className="myc-legend-more">+{meta.legend.length - 8}</span>}
+          </div>
+          <div className="myc-legend-sub">
+            {t("organismLegendSizeRange", { min: k(meta.usageMin), max: k(meta.usageMax) })}
+          </div>
+          {meta.total > meta.shown && (
+            <div className="myc-legend-sub">{t("organismSampling", { shown: meta.shown, total: meta.total })}</div>
+          )}
+          {meta.hasStale && (
+            <div className="myc-legend-sub">{t("organismLegendStale", { days: meta.staleDays })}</div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -729,17 +656,18 @@ function TrendMini({ data }: { data: DashboardData }) {
 // ═══════════════════════════════════════════════════════════════
 // Canvas 分发：按 widget id + 模板尺寸渲染最合适的形态
 // ═══════════════════════════════════════════════════════════════
-export function renderCanvasWidget(id: string, tpl: TemplateKey, data: DashboardData) {
+export function renderCanvasWidget(id: string, tpl: TemplateKey, data: DashboardData, orgMeta: OrganismMeta | null) {
   const { w } = parseTemplate(tpl);
   switch (id) {
-    case "stat-groups":   return <CanvasKpi id="stat-groups"   wide={w >= 2} data={data} />;
-    case "stat-tags":     return <CanvasKpi id="stat-tags"     wide={w >= 2} data={data} />;
-    case "stat-entities": return <CanvasKpi id="stat-entities" wide={w >= 2} data={data} />;
-    case "stat-pending":  return <CanvasKpi id="stat-pending"  wide={w >= 2} data={data} />;
+    case "stat-groups":   return <CanvasKpi id="stat-groups"   tpl={tpl} data={data} />;
+    case "stat-tags":     return <CanvasKpi id="stat-tags"     tpl={tpl} data={data} />;
+    case "stat-entities": return <CanvasKpi id="stat-entities" tpl={tpl} data={data} />;
+    case "stat-pending":  return <CanvasKpi id="stat-pending"  tpl={tpl} data={data} />;
     case "trend-chart":   return w <= 2 ? <TrendMini data={data} /> : <TrendChart data={data} />;
     case "entity-pie":    return <EntityPie entityTypes={data.entityTypes} compact={w <= 2} />;
     case "activity-feed": return <ActivityFeed activity={data.activity} />;
-    case "health-bar":    return <HealthBar health={data.health} />;
+    case "health-bar":    return <HealthBar health={data.health} wide={w >= 4} />;
+    case "organism-legend": return <OrganismLegend meta={orgMeta} />;
     default:              return <UnknownWidget id={id} />;
   }
 }
@@ -748,7 +676,3 @@ function UnknownWidget({ id }: { id: string }) {
   const t = useTranslations("dashboard");
   return <WidgetEmpty text={t("unknownWidget", { id })} />;
 }
-
-// 临时引用消除 unused 警告
-void AlertCircle;
-void KpiHero;

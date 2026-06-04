@@ -424,21 +424,36 @@ body {
 /* 浅色主题兜底（#14）：亮 teal/lime 气泡在羊皮纸底上易糊 → 降明度 + 收紧光晕；
    标签 pill 在深色下是「暗底亮字」，浅色主题字色翻暗会变「暗字暗底」，故 pill 同步翻浅。 */
 [data-theme="light"] .myc-cap {
-  filter: saturate(.92) brightness(.82);
-  box-shadow: 0 0 calc(var(--s)*.5) color-mix(in srgb, var(--c) 70%, transparent);
+  /* 加深 + 提饱和，让气泡在羊皮纸底上立得住（之前 .82 还是发白）；中心白点也压暗些 */
+  filter: saturate(1.12) brightness(.66);
+  background: radial-gradient(circle at 38% 30%, #fff8, var(--c) 52%);
+  box-shadow: 0 0 calc(var(--s)*.42) color-mix(in srgb, var(--c) 60%, transparent);
 }
 [data-theme="light"] .myc-label { background: rgba(255,250,240,.86); border-color: rgba(46,37,25,.14); }
 [data-theme="light"] .myc-label[data-hub] { background: rgba(255,250,240,.94); }
+
+/* 浅色 widget chrome：深色调的 chrome 放浅底会「奶油卡贴奶油底」糊成一片。
+   → 卡面提白、边框翻深、投影转暖，恢复层次与边界。 */
+[data-theme="light"] .myc-widget {
+  /* 提白的暖卡面，但保留 ~12% 透明 → backdrop-blur 仍透出底下有机体（玻璃感，不再实心） */
+  background: color-mix(in srgb, color-mix(in srgb, #ffffff 58%, var(--myc-soil)) 88%, transparent);
+  border-color: rgba(46,37,25,.14);
+  box-shadow: 0 5px 18px rgba(74,58,38,.12), 0 1px 0 rgba(255,255,255,.7) inset;
+}
+[data-theme="light"] .myc-widget.is-editing:hover { box-shadow: 0 8px 22px rgba(74,58,38,.18), inset 0 0 0 1px var(--myc-bio); }
+[data-theme="light"] .myc-widget.is-sel { box-shadow: 0 10px 26px rgba(74,58,38,.2), inset 0 0 0 1px var(--myc-bio); }
 
 /* ── 单一画布 · 模板化漂浮 widget（#125 / refinement §6 supersede）─────────── */
 .myc-widget {
   z-index: 3;
   /* 92% 不透明度：widget 压在发光有机体上必须清晰可读，玻璃感靠边框+投影+微量模糊体现 */
   background: color-mix(in srgb, var(--myc-soil) 92%, transparent);
-  border: 1px solid rgba(241,233,218,.14);
-  border-radius: 14px;
+  /* 克制的 hairline 边框：贴合时双线读作「干净分隔」而非「双重粗框」 */
+  border: 1px solid rgba(241,233,218,.10);
+  border-radius: 10px;
   backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
-  box-shadow: 0 8px 32px rgba(0,0,0,.48), 0 1px 0 rgba(255,255,255,.06) inset;
+  /* 更轻的投影 → 读作面板而非漂浮厚板，贴合平铺不堆叠成黑块；inset 高光细线让边缘更精致 */
+  box-shadow: 0 4px 16px rgba(0,0,0,.34), 0 1px 0 rgba(255,255,255,.07) inset;
   color: var(--myc-cream);
   overflow: visible;
 }
@@ -446,19 +461,20 @@ body {
 .myc-widget-body { position: absolute; inset: 0; overflow: hidden; border-radius: inherit; display: flex; flex-direction: column; }
 .myc-widget.is-editing { border-color: color-mix(in srgb, var(--myc-bio) 35%, var(--myc-line)); cursor: grab; }
 .myc-widget.is-editing:active { cursor: grabbing; }
-.myc-widget.is-editing:hover { border-color: var(--myc-bio); box-shadow: 0 14px 38px rgba(0,0,0,.5), inset 0 0 0 1px var(--myc-bio); }
-.myc-widget.is-sel { border-color: var(--myc-bio); box-shadow: 0 16px 42px rgba(0,0,0,.55), inset 0 0 0 1px var(--myc-bio); z-index: 5; }
+.myc-widget.is-editing:hover { border-color: var(--myc-bio); box-shadow: 0 8px 24px rgba(0,0,0,.42), inset 0 0 0 1px var(--myc-bio); }
+.myc-widget.is-sel { border-color: var(--myc-bio); box-shadow: 0 10px 28px rgba(0,0,0,.46), inset 0 0 0 1px var(--myc-bio); z-index: 5; }
 .myc-widget-tpl {
   position: absolute; top: .35rem; right: .4rem; z-index: 4; pointer-events: none;
   font-family: var(--font-myc-mono); font-size: .5rem; color: var(--myc-bio);
   background: rgba(18,14,9,.6); border: 1px solid var(--myc-thread); border-radius: 5px; padding: .04em .3em;
 }
-/* 尺寸切换器（选中 widget 上方悬浮） */
+/* 尺寸切换器（选中 widget 上方悬浮；贴顶时翻到下方，避免冒出视口） */
 .myc-sizesw {
   position: absolute; left: 50%; top: -1.95rem; transform: translateX(-50%); z-index: 6;
   display: flex; align-items: center; gap: .25rem; padding: .25rem .35rem; border-radius: .5rem;
   background: rgba(18,14,9,.88); border: 1px solid var(--myc-thread); backdrop-filter: blur(8px);
 }
+.myc-sizesw.below { top: auto; bottom: -1.95rem; }
 .myc-sizesw-b { display: block; border: 1px solid var(--myc-dim); border-radius: 2px; opacity: .65; cursor: pointer; background: transparent; padding: 0; }
 .myc-sizesw-b:hover { border-color: var(--myc-bio); opacity: 1; }
 .myc-sizesw-b.on { border-color: var(--myc-bio); background: rgba(111,245,200,.2); opacity: 1; }
@@ -565,17 +581,14 @@ body {
 .myc-gnode.on::after { opacity: 1; transform: translateY(-50%); }
 
 /* ── 状态簇（右上漂浮）──────────────────────────────────────────────────── */
-.myc-status { position: fixed; top: 1.5rem; right: 1.6rem; z-index: 10; display: flex; align-items: center; gap: .7rem; }
-.myc-pill { display: flex; align-items: center; gap: .45rem; font-size: .72rem; padding: .34rem .75rem; border-radius: 999px; background: var(--myc-glass); border: 1px solid var(--myc-thread); backdrop-filter: blur(8px); color: var(--myc-cream); white-space: nowrap; }
-.myc-pill .d { width: .42em; height: .42em; border-radius: 50%; background: var(--myc-bio); box-shadow: 0 0 8px var(--myc-bio); }
-.myc-pill .d.ok  { background: var(--myc-bio);  box-shadow: 0 0 8px var(--myc-bio); }
-.myc-pill .d.bad { background: var(--myc-amber); box-shadow: 0 0 8px var(--myc-amber); }
-.myc-pill .d.checking { background: var(--myc-dim); box-shadow: none; animation: myc-pulse 1.4s infinite; }
-.myc-ghost { display: flex; align-items: center; gap: .35rem; font-size: .72rem; padding: .34rem .7rem; border-radius: 999px; border: 1px solid var(--myc-line); background: var(--myc-glass); backdrop-filter: blur(8px); color: var(--myc-dim); cursor: pointer; transition: .18s; }
-.myc-ghost:hover { color: var(--myc-cream); border-color: var(--myc-thread); }
+.myc-status { position: fixed; top: 1.5rem; right: 1.6rem; z-index: 31; display: flex; align-items: center; gap: .55rem; }
+/* 仪表盘 portal 落点：display:contents 让「刷新/自定义」直接成为 status 的 flex 子项 */
+.myc-dash-actions { display: contents; }
+/* 动作带分隔：把「仪表盘上下文操作」与「全局 主题/设置」轻轻分开 */
+.myc-status-sep { width: 1px; height: 1.1rem; background: var(--myc-line); margin: 0 .15rem; }
 
-/* ── 命令提示（右下）───────────────────────────────────────────────────── */
-.myc-cmd { position: fixed; bottom: 1.5rem; right: 1.6rem; z-index: 10; font-size: .72rem; color: var(--myc-dim); display: flex; align-items: center; gap: .5rem; padding: .4rem .8rem; border-radius: 999px; background: var(--myc-glass); border: 1px solid var(--myc-line); backdrop-filter: blur(8px); cursor: pointer; transition: .18s; }
+/* ── 命令提示（左下，避开右下角 缩放控件 / dev 角标 拥挤）──────────────────── */
+.myc-cmd { position: fixed; bottom: 1.5rem; left: 1.6rem; z-index: 10; font-size: .72rem; color: var(--myc-dim); display: flex; align-items: center; gap: .5rem; padding: .4rem .8rem; border-radius: 999px; background: var(--myc-glass); border: 1px solid var(--myc-line); backdrop-filter: blur(8px); cursor: pointer; transition: .18s; }
 .myc-cmd:hover { color: var(--myc-cream); border-color: var(--myc-thread); }
 .myc-cmd kbd { font-family: var(--font-myc-mono); background: rgba(241,233,218,.1); padding: .1em .45em; border-radius: 5px; font-size: .92em; }
 
@@ -607,7 +620,7 @@ body {
 [data-theme="light"] .myc-knot label { text-shadow: 0 1px 8px rgba(255,250,240,.7); }
 
 @media (prefers-reduced-motion: reduce) {
-  .myc-hypha, .myc-knot, .myc-cap, .myc-cap-pos, .myc-brand .spore, .myc-pill .d.checking { animation: none !important; }
+  .myc-hypha, .myc-knot, .myc-cap, .myc-cap-pos, .myc-brand .spore { animation: none !important; }
   .myc-hypha { stroke-dashoffset: 0; }
   .myc-knot, .myc-cap-pos { opacity: 1; transform: translate(-50%,-50%); }
   /* spine（#124）：去掉指针视差与节点位移/缩放，仅保留颜色/描边/标签反馈 */
