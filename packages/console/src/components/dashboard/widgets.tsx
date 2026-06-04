@@ -7,7 +7,7 @@
 
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import {
@@ -133,37 +133,67 @@ export function WidgetEmpty({ text }: { text: string }) {
 }
 
 // ═══════════════════════════════════════════════════════════════
-// 1) Entity Pie — 实体类型环形分布
+// 1) Entity Pie — 实体类型分布 → 「微缩菌落」（与背景有机体同构，仪表盘自相似）
 // ═══════════════════════════════════════════════════════════════
+/**
+ * 微缩菌落：中心核 + 一圈叶孢子（= 实体类型，大小映射数量），菌丝相连。
+ * 复刻背景那颗活世界的语汇 → 整个 dashboard 在每个尺度上自相似。
+ */
+function MiniColony({ items, total, label, big }: {
+  items: { entityType: string; count: number }[];
+  total: number; label: string; big?: boolean;
+}) {
+  const VB = 200, c = VB / 2;
+  const gid = useId().replace(/:/g, "");
+  const max = Math.max(...items.map(d => d.count), 1);
+  const n = Math.max(items.length, 1);
+  const leaves = items.map((d, i) => {
+    const ang = (i / n) * Math.PI * 2 - Math.PI / 2;
+    const rad = 64 + (i % 2 ? 6 : -5);             // 轻微抖动 → 更有机，不是死板的环
+    const r = 9 + Math.sqrt(d.count / max) * 17;   // 大小 = 数量
+    return { ...d, color: PIE_COLORS[i % PIE_COLORS.length], x: c + Math.cos(ang) * rad, y: c + Math.sin(ang) * rad, r };
+  });
+  return (
+    <div className="relative w-full h-full grid place-items-center min-h-0">
+      <svg viewBox={`0 0 ${VB} ${VB}`} className="w-full h-full" style={{ maxWidth: big ? 188 : 150 }}
+        role="img" aria-label={`${label} · ${fmt(total)}`}>
+        <defs>
+          <filter id={`glow${gid}`} x="-50%" y="-50%" width="200%" height="200%">
+            <feGaussianBlur stdDeviation="2.2" result="b" /><feMerge><feMergeNode in="b" /><feMergeNode in="SourceGraphic" /></feMerge>
+          </filter>
+        </defs>
+        <g filter={`url(#glow${gid})`}>
+          {leaves.map((l, i) => (
+            <line key={`h${i}`} x1={c} y1={c} x2={l.x} y2={l.y} style={{ stroke: "var(--myc-thread)" }} strokeWidth={1} />
+          ))}
+          <circle cx={c} cy={c} r={14} style={{ fill: "var(--myc-soil2)", stroke: "var(--myc-thread)" }} strokeWidth={1.5} />
+          {leaves.map((l, i) => (
+            <circle key={`s${i}`} cx={l.x} cy={l.y} r={l.r} fill={l.color} />
+          ))}
+        </g>
+      </svg>
+      <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+        <p className={cn("font-extrabold tabular-nums leading-none text-ink", big ? "text-display-lg" : "text-base")}
+          style={{ letterSpacing: "-0.04em" }}>{fmt(total)}</p>
+        <p className={cn("text-ink-sub", big ? "text-2xs mt-1" : "text-[0.5rem] mt-0.5")}>{label}</p>
+      </div>
+    </div>
+  );
+}
+
 export function EntityPie({ entityTypes, compact = false }: { entityTypes: EntityTypeStat[]; compact?: boolean }) {
   const t = useTranslations("dashboard");
   const total = entityTypes.reduce((s, et) => s + et.count, 0);
-  // Filter out 0-count types — they carry no visual weight and confuse the legend
+  // Filter out 0-count types — they carry no visual weight
   const nonEmpty = entityTypes.filter(et => et.count > 0);
   const display = nonEmpty.slice(0, 8);
   if (nonEmpty.length > 8) {
     const rest = nonEmpty.slice(8).reduce((s, et) => s + et.count, 0);
     if (rest > 0) display.push({ entityType: t("entityPieOther"), count: rest });
   }
+  const typesLabel = t("statPieTypes", { count: nonEmpty.length });
 
-  // Build CSS conic-gradient for the donut ring.
-  // recharts v3 PieChart fails to render in this layout (initial render with 0
-  // dimensions, ResizeObserver fires after mount but sectors never re-render).
-  // Pure CSS is simpler, zero-dependency, and handles single-100% trivially.
-  let cumPct = 0;
-  const gradientStops = display.map((d, i) => {
-    const pct = total ? (d.count / total) * 100 : 0;
-    const color = PIE_COLORS[i % PIE_COLORS.length];
-    const stop = `${color} ${cumPct.toFixed(3)}% ${(cumPct + pct).toFixed(3)}%`;
-    cumPct += pct;
-    return stop;
-  });
-  // 2px gap between segments for multi-segment pies (transparent border-bg slice)
-  const conicGradient = display.length > 1
-    ? `conic-gradient(from -90deg, ${gradientStops.join(", ")})`
-    : `conic-gradient(${PIE_COLORS[0]} 0% 100%)`;
-
-  // 紧凑档（2×2）：只留环 + 中心数字，省去右侧图例（小尺寸放不下、会溢出）。整卡可点 → /entities
+  // 紧凑档（2×2）：只留菌落 + 中心数字，整卡可点 → /entities
   if (compact) {
     return (
       <Link href="/entities" className="flex flex-col h-full p-2.5 no-underline">
@@ -172,22 +202,8 @@ export function EntityPie({ entityTypes, compact = false }: { entityTypes: Entit
           <span className="text-[0.5rem] font-semibold uppercase tracking-[0.1em] text-ink-sub truncate">{t("entityPieTitle")}</span>
         </div>
         {display.length === 0 ? <WidgetEmpty text={t("noEntityData")} /> : (
-          <div className="flex-1 grid place-items-center min-h-0 relative">
-            <div
-              className="rounded-full"
-              role="img"
-              aria-label={t("statPieTypes", { count: nonEmpty.length })}
-              style={{
-                width: "min(100%, 5.6rem)", aspectRatio: "1",
-                background: conicGradient,
-                mask: "radial-gradient(farthest-side, transparent 56%, black 58%)",
-                WebkitMask: "radial-gradient(farthest-side, transparent 56%, black 58%)",
-              }}
-            />
-            <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-              <p className="font-extrabold tabular-nums leading-none text-base text-ink" style={{ letterSpacing: "-0.04em" }}>{fmt(total)}</p>
-              <p className="text-[0.5rem] mt-0.5 text-ink-sub">{t("statPieTypes", { count: nonEmpty.length })}</p>
-            </div>
+          <div className="flex-1 min-h-0">
+            <MiniColony items={display} total={total} label={typesLabel} />
           </div>
         )}
       </Link>
@@ -199,43 +215,18 @@ export function EntityPie({ entityTypes, compact = false }: { entityTypes: Entit
       <WidgetHeader icon={<Box size={13} strokeWidth={1.5} />} title={t("entityPieTitle")} href="/entities" />
       {display.length === 0 ? <WidgetEmpty text={t("noEntityData")} /> : (
         <div className="flex-1 grid grid-cols-[1fr,1fr] gap-3 px-5 py-4 min-h-0 items-center">
-          {/* CSS conic-gradient donut — no JS size-measurement required */}
-          <div className="relative flex items-center justify-center min-h-0 h-full">
-            <div
-              className="rounded-full shrink-0"
-              role="img"
-              aria-label={`${t("statPieTotal")} ${fmt(total)} · ${t("statPieTypes", { count: nonEmpty.length })}`}
-              style={{
-                width: "min(80%, 80%)",
-                aspectRatio: "1",
-                maxWidth: 160,
-                background: conicGradient,
-                mask:       "radial-gradient(farthest-side, transparent 56%, black 58%)",
-                WebkitMask: "radial-gradient(farthest-side, transparent 56%, black 58%)",
-              }}
-            />
-            {/* Center text overlay */}
-            <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-              <p className="text-2xs uppercase tracking-wider text-ink-faint">{t("statPieTotal")}</p>
-              <p
-                className="font-extrabold tabular-nums leading-none mt-1 text-display-lg text-ink"
-                style={{ letterSpacing: "-0.04em" }}
-              >
-                {fmt(total)}
-              </p>
-              <p className="text-2xs mt-1 text-ink-sub">
-                {t("statPieTypes", { count: nonEmpty.length })}
-              </p>
-            </div>
+          {/* 左：微缩菌落（同构背景有机体） */}
+          <div className="relative min-h-0 h-full">
+            <MiniColony items={display} total={total} label={typesLabel} big />
           </div>
-          {/* 图例列表 */}
+          {/* 右：图例列表（名称 + 占比，色点=同款孢子色） */}
           <div className="flex flex-col gap-1.5 min-h-0 overflow-y-auto pr-1 self-center">
             {display.map((et, i) => {
               const pct = total ? Math.round((et.count / total) * 100) : 0;
               const pctLabel = pct === 0 && et.count > 0 ? "< 1%" : `${pct}%`;
               return (
                 <div key={et.entityType} className="flex items-center gap-2 text-xs">
-                  <span className="w-2 h-2 rounded-sm shrink-0" style={{ background: PIE_COLORS[i % PIE_COLORS.length] }} />
+                  <span className="w-2 h-2 rounded-full shrink-0" style={{ background: PIE_COLORS[i % PIE_COLORS.length], boxShadow: `0 0 6px ${PIE_COLORS[i % PIE_COLORS.length]}66` }} />
                   <span className="flex-1 truncate font-mono text-ink-dim">{et.entityType}</span>
                   <span className="tabular-nums shrink-0 text-ink-sub">{pctLabel}</span>
                 </div>
@@ -350,44 +341,44 @@ export function ActivityFeed({ activity }: { activity: ActivityEvent[] }) {
     <div className="flex flex-col h-full">
       <WidgetHeader icon={<Activity size={13} strokeWidth={1.5} />} title={t("activityTitle")} sub={t("activityCount", { count: activity.length })} href="/audit" />
       {activity.length === 0 ? <WidgetEmpty text={t("noActivity")} /> : (
-        <ul className="flex-1 overflow-y-auto px-2 py-2 space-y-0.5">
-          {activity.map((ev, i) => (
-            <li
-              key={`${ev.kind}-${ev.time}-${i}`}
-              className="px-3 py-2 rounded-md text-xs transition-colors hover:bg-surface-alt animate-slide-up"
-              style={{ animationDelay: `${Math.min(i, 7) * 25}ms` }}
-            >
-              <div className="flex items-center gap-2">
-                {ev.kind === "tag-added" ? (
-                  <span
-                    className="text-2xs font-bold px-1.5 py-0.5 rounded font-mono shrink-0"
-                    style={{
-                      background: `${SOURCE_COLOR[ev.source] ?? "#fff"}1F`,
-                      color: SOURCE_COLOR[ev.source] ?? "#fff",
-                    }}
-                  >
-                    {sourceLabel(ev.source)}
-                  </span>
-                ) : (
-                  <span
-                    className={cn(
-                      "text-2xs font-bold px-1.5 py-0.5 rounded font-mono shrink-0",
-                      ev.toStatus === "active" ? "bg-ok/15 text-ok" : "bg-bad/15 text-bad",
-                    )}
-                  >
-                    {ev.toStatus === "active" ? t("activityApproved") : t("activityRejected")}
-                  </span>
-                )}
-                <span className="font-mono text-2xs truncate text-ink">{ev.tagName}</span>
-                <span className="text-2xs ml-auto shrink-0 tabular-nums text-ink-faint">
-                  {timeAgo(ev.time)}
-                </span>
-              </div>
-              <p className="text-2xs mt-0.5 truncate font-mono text-ink-sub">
-                {ev.entityType}/{ev.entityId.slice(0, 8)}
-              </p>
-            </li>
-          ))}
+        // 菌丝串珠：一条菌丝主干垂下，每条事件是串在上面的孢子珠（色=来源/审核结果）
+        <ul className="flex-1 overflow-y-auto px-3 py-2">
+          {activity.map((ev, i) => {
+            const beadColor = ev.kind === "tag-added"
+              ? (SOURCE_COLOR[ev.source] ?? "#6ff5c8")
+              : (ev.toStatus === "active" ? "#73c279" : "#dd7a55");
+            return (
+              <li
+                key={`${ev.kind}-${ev.time}-${i}`}
+                className="relative pl-6 pb-3 last:pb-1 text-xs animate-slide-up"
+                style={{ animationDelay: `${Math.min(i, 7) * 25}ms` }}
+              >
+                {/* 菌丝主干（逐条相接成一根连续的丝） */}
+                <span aria-hidden className="absolute left-[7px] top-0 bottom-0 w-px" style={{ background: "var(--myc-thread)", opacity: 0.55 }} />
+                {/* 孢子珠 */}
+                <span aria-hidden className="absolute left-[3px] top-[3px] w-[9px] h-[9px] rounded-full border-[1.5px]"
+                  style={{ borderColor: beadColor, background: "var(--myc-soil2, #2c2317)", boxShadow: `0 0 7px ${beadColor}` }} />
+                <div className="flex items-center gap-2">
+                  {ev.kind === "tag-added" ? (
+                    <span className="text-2xs font-bold px-1.5 py-0.5 rounded font-mono shrink-0"
+                      style={{ background: `${beadColor}1F`, color: beadColor }}>
+                      {sourceLabel(ev.source)}
+                    </span>
+                  ) : (
+                    <span className={cn("text-2xs font-bold px-1.5 py-0.5 rounded font-mono shrink-0",
+                      ev.toStatus === "active" ? "bg-ok/15 text-ok" : "bg-bad/15 text-bad")}>
+                      {ev.toStatus === "active" ? t("activityApproved") : t("activityRejected")}
+                    </span>
+                  )}
+                  <span className="font-mono text-2xs truncate text-ink">{ev.tagName}</span>
+                  <span className="text-2xs ml-auto shrink-0 tabular-nums text-ink-faint">{timeAgo(ev.time)}</span>
+                </div>
+                <p className="text-2xs mt-0.5 truncate font-mono text-ink-sub">
+                  {ev.entityType}/{ev.entityId.slice(0, 8)}
+                </p>
+              </li>
+            );
+          })}
         </ul>
       )}
     </div>
@@ -422,16 +413,28 @@ export function HealthBar({ health, wide = true }: { health: HealthInfo | null; 
     },
   ];
 
+  const alive = health?.status === "ok";
+  // 生命体征：健康=脉冲波形，异常=拉平的直线；色随状态（bio / amber）
+  const pulse = alive
+    ? "M0 20 H120 L150 20 L162 7 L174 33 L186 20 H300 L322 20 L334 11 L346 29 L358 20 H520"
+    : "M0 20 H520";
+  const pulseColor = alive ? "var(--myc-bio)" : "var(--myc-amber)";
+
   return (
     <div className="flex flex-col h-full">
       <WidgetHeader icon={<CheckCircle2 size={13} strokeWidth={1.5} />} title={t("healthTitle")} href="/settings/system" />
       {/* 宽档 4 列；窄档（2×1/2×2）2 列换行，避免挤成一团 */}
-      <div className={cn("flex-1 grid min-h-0", wide ? "grid-cols-4" : "grid-cols-2")}>
+      <div className={cn("relative flex-1 grid min-h-0", wide ? "grid-cols-4" : "grid-cols-2")}>
+        {/* 背景生命体征脉冲（淡，置于数据之下） */}
+        <svg aria-hidden viewBox="0 0 520 40" preserveAspectRatio="none"
+          className="absolute inset-0 w-full h-full pointer-events-none" style={{ opacity: 0.22 }}>
+          <path d={pulse} fill="none" stroke={pulseColor} strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
+        </svg>
         {cells.map((c, i) => (
           <div
             key={c.label}
             className={cn(
-              "flex flex-col justify-center gap-1 px-4 py-2",
+              "relative flex flex-col justify-center gap-1 px-4 py-2",
               wide
                 ? (i < cells.length - 1 && "border-r border-edge")
                 : cn(i % 2 === 0 && "border-r border-edge", i < 2 && "border-b border-edge"),

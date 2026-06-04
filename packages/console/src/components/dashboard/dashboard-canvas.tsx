@@ -328,7 +328,7 @@ export function DashboardCanvas({ data, refreshing, reloadToken, updatedAt, onRe
       >
         {/* 有机体大地（背景；展示态可 hover 探索 / 点击下钻；随刷新原地更新） */}
         <div className="absolute inset-0 z-0">
-          <TagOrganism reloadToken={reloadToken} onMeta={setOrgMeta} />
+          <TagOrganism reloadToken={reloadToken} onMeta={setOrgMeta} zoom={cam.s} />
         </div>
 
         {/* 空白处拖动 = 平移地图（仅编辑态覆盖，避免挡住展示态的 hover） */}

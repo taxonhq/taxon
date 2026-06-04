@@ -91,8 +91,14 @@ interface Settled {
   hasStale: boolean;   // 是否有沉睡标签（决定图例是否提示）
 }
 
-export function TagOrganism({ reloadToken = 0, onMeta }: { reloadToken?: number; onMeta?: (m: OrganismMeta | null) => void }) {
+// LOD 阈值：相机缩放低于此值 → 收起标签叶/菌丝/标签 label，只留分组 hub（远观「森林」）；
+// 高于此 → 展开到单个标签（近看「树木」）。语义缩放，非几何——纯渲染开关，不重算布局。
+const LOD_DETAIL = 0.85;
+
+export function TagOrganism({ reloadToken = 0, onMeta, zoom = 1 }: { reloadToken?: number; onMeta?: (m: OrganismMeta | null) => void; zoom?: number }) {
   const t = useTranslations("dashboard");
+  // 是否展开到标签层级（近看）；低于阈值只显示分组 hub（远观）
+  const detail = zoom >= LOD_DETAIL;
   const rootRef = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState({ w: 1000, h: 700 });
   const [settled, setSettled] = useState<Settled | null>(null);
@@ -288,7 +294,7 @@ export function TagOrganism({ reloadToken = 0, onMeta }: { reloadToken?: number;
           {/* preserveAspectRatio=none：viewBox 直接拉伸填满容器，与 HTML 节点的
               百分比定位用同一坐标系（slice 会等比裁剪导致边与节点错位） */}
           <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" className="absolute inset-0 w-full h-full">
-            {settled.links.map((l, i) => (
+            {detail && settled.links.map((l, i) => (
               <path
                 key={i}
                 className="myc-hypha"
@@ -300,7 +306,9 @@ export function TagOrganism({ reloadToken = 0, onMeta }: { reloadToken?: number;
           </svg>
 
           {/* 层 1：发光气泡（可交互、可下钻、承载 hover）。先画，永远在标签之下。 */}
-          {settled.nodes.map((n, i) => (
+          {settled.nodes.map((n, i) => {
+            if (n.kind === "tag" && !detail) return null;   // LOD：远观（低缩放）收起标签叶，只留分组 hub
+            return (
             <Link
               key={n.id}
               href={`/groups/${n.groupId}`}
@@ -326,12 +334,14 @@ export function TagOrganism({ reloadToken = 0, onMeta }: { reloadToken?: number;
                 } as CSSProperties}
               />
             </Link>
-          ))}
+            );
+          })}
 
           {/* 层 2：标签（pill 背板）。整体置于所有气泡之上，永不被气泡/辉光遮挡（#125）。
               只渲染常显（hub + 高频）或当前 hover 的节点；pointer-events:none 不挡气泡 hover。 */}
           {settled.nodes.map((n) => {
-            const showLabel = n.kind === "hub" || n.top === true || hovered === n.id;
+            // 远观（低缩放）只显示分组 hub 的名字，标签 label 全收起
+            const showLabel = n.kind === "hub" || (detail && (n.top === true || hovered === n.id));
             if (!showLabel) return null;
             const capR = n.r * 0.95 * k;          // 渲染态气泡半径
             return (

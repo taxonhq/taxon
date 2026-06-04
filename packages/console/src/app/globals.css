@@ -438,7 +438,10 @@ body {
   /* 提白的暖卡面，但保留 ~12% 透明 → backdrop-blur 仍透出底下有机体（玻璃感，不再实心） */
   background: color-mix(in srgb, color-mix(in srgb, #ffffff 58%, var(--myc-soil)) 88%, transparent);
   border-color: rgba(46,37,25,.14);
-  box-shadow: 0 5px 18px rgba(74,58,38,.12), 0 1px 0 rgba(255,255,255,.7) inset;
+  /* 景深包（浅色）：底已亮，故反向微提亮衬底，卡面读作浮于其上的亮面板；双层暖投影坐实悬浮 */
+  backdrop-filter: blur(12px) brightness(1.06) saturate(1.02);
+  -webkit-backdrop-filter: blur(12px) brightness(1.06) saturate(1.02);
+  box-shadow: 0 2px 5px rgba(74,58,38,.10), 0 14px 30px rgba(74,58,38,.11), 0 1px 0 rgba(255,255,255,.7) inset;
 }
 [data-theme="light"] .myc-widget.is-editing:hover { box-shadow: 0 8px 22px rgba(74,58,38,.18), inset 0 0 0 1px var(--myc-bio); }
 [data-theme="light"] .myc-widget.is-sel { box-shadow: 0 10px 26px rgba(74,58,38,.2), inset 0 0 0 1px var(--myc-bio); }
@@ -446,19 +449,35 @@ body {
 /* ── 单一画布 · 模板化漂浮 widget（#125 / refinement §6 supersede）─────────── */
 .myc-widget {
   z-index: 3;
-  /* 92% 不透明度：widget 压在发光有机体上必须清晰可读，玻璃感靠边框+投影+微量模糊体现 */
-  background: color-mix(in srgb, var(--myc-soil) 92%, transparent);
-  /* 克制的 hairline 边框：贴合时双线读作「干净分隔」而非「双重粗框」 */
-  border: 1px solid rgba(241,233,218,.10);
+  /* 景深核心：卡面比「大地」抬亮一档 → 用明度差把 figure 从 ground 里浮出来。
+     深色 UI 的悬浮靠明度差 + 顶沿高光，不靠投影（黑影叠黑底看不见）。
+     仍留 ~10% 透明 + backdrop-blur，玻璃感与「透出有机体」都在。 */
+  background: color-mix(in srgb, #ffffff 7%, color-mix(in srgb, var(--myc-soil) 90%, transparent));
+  border: 1px solid rgba(241,233,218,.12);
   border-radius: 10px;
-  backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
-  /* 更轻的投影 → 读作面板而非漂浮厚板，贴合平铺不堆叠成黑块；inset 高光细线让边缘更精致 */
-  box-shadow: 0 4px 16px rgba(0,0,0,.34), 0 1px 0 rgba(255,255,255,.07) inset;
+  backdrop-filter: blur(14px) saturate(1.06);
+  -webkit-backdrop-filter: blur(14px) saturate(1.06);
+  /* 顶沿高光(bevel，光从上方来) + 极淡内描边 + 接触影 + 软环境影(压在亮菌核上才显形) */
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.16),
+    inset 0 0 0 1px rgba(255,255,255,.025),
+    0 1px 3px rgba(0,0,0,.45),
+    0 16px 38px rgba(0,0,0,.36);
   color: var(--myc-cream);
   overflow: visible;
 }
+/* 玻璃上蚀刻的菌丝脉络（极淡）：玻璃是「长出来」的而非空白板。贴合圆角、置于内容之下、不挡交互。 */
+.myc-widget::before{
+  content:""; position:absolute; inset:0; border-radius:inherit; pointer-events:none; z-index:0; opacity:.07;
+  background-image:url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='240' height='160' viewBox='0 0 240 160' fill='none' stroke='%23f1e9da' stroke-width='1'><path d='M-10 34 C50 22 72 74 132 62 S212 42 252 66'/><path d='M-10 104 C60 98 82 56 142 112 S212 122 252 106'/><path d='M44 -10 C52 52 96 72 82 172'/><path d='M182 -10 C176 60 212 82 202 172'/></svg>");
+  background-size:100% 100%; background-repeat:no-repeat;
+}
+[data-theme="light"] .myc-widget::before{
+  opacity:.06;
+  background-image:url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='240' height='160' viewBox='0 0 240 160' fill='none' stroke='%232e2519' stroke-width='1'><path d='M-10 34 C50 22 72 74 132 62 S212 42 252 66'/><path d='M-10 104 C60 98 82 56 142 112 S212 122 252 106'/><path d='M44 -10 C52 52 96 72 82 172'/><path d='M182 -10 C176 60 212 82 202 172'/></svg>");
+}
 /* 内容裁剪层（圆角内）；尺寸切换器/徽标在它之外，不被裁掉 */
-.myc-widget-body { position: absolute; inset: 0; overflow: hidden; border-radius: inherit; display: flex; flex-direction: column; }
+.myc-widget-body { position: absolute; inset: 0; overflow: hidden; border-radius: inherit; display: flex; flex-direction: column; z-index: 1; }
 .myc-widget.is-editing { border-color: color-mix(in srgb, var(--myc-bio) 35%, var(--myc-line)); cursor: grab; }
 .myc-widget.is-editing:active { cursor: grabbing; }
 .myc-widget.is-editing:hover { border-color: var(--myc-bio); box-shadow: 0 8px 24px rgba(0,0,0,.42), inset 0 0 0 1px var(--myc-bio); }
