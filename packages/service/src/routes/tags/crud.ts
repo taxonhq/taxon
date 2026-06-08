@@ -156,9 +156,10 @@ tagsCrud.openapi(updateTagRoute, async (c) => {
       if (pathChanged) {
         // 锚定前缀替换（#131）：避免 REPLACE 子串全局替换损坏后代路径；
         // 并补 "deletedAt" IS NULL，与 move 一致，不改写软删除后代。
+        // path 仅组内唯一，必须限定 groupId，否则会改写其它分组里同前缀标签的 path（#146）。
         await tx.$executeRaw`
           UPDATE "Tag" SET path = ${newPath} || substr(path, ${oldPath.length + 1}::int), depth = depth + ${depthDelta}
-          WHERE path LIKE ${oldPath + '%'} AND id != ${tagId} AND "deletedAt" IS NULL
+          WHERE path LIKE ${oldPath + '%'} AND id != ${tagId} AND "groupId" = ${existing.groupId} AND "deletedAt" IS NULL
         `
       }
       await emitEvent(tx, 'tag.updated', { tagId, groupId: existing.groupId, slug: updated.slug, name: updated.name })

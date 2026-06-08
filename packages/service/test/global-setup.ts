@@ -52,11 +52,23 @@ export default async function setup() {
   // 生产代码本身的限流逻辑由专门的限流测试覆盖（若需要）。
   process.env.RATE_LIMIT_MAX       = '1000000'
   process.env.RATE_LIMIT_WRITE_MAX = '1000000'
+  // 测试使用 UTC+8（中国标准时间）做日切，覆盖 #148 时区修复。
+  // 必须在此设置（import 之前），因为 time.ts 的 APP_TZ_OFFSET_MIN
+  // 是模块级常量，在首次 import 时即求值。
+  process.env.APP_TZ_OFFSET_MIN    = '480'
 
   // 1. CREATE SCHEMA via raw pg client (Prisma can't create schemas)
   const admin = new Client({ connectionString: baseUrl })
   await admin.connect()
   await admin.query(`CREATE SCHEMA "${schema}"`)
+  // Install pg_trgm INTO the isolated test schema so migration 20260530000000's
+  // unqualified `gin_trgm_ops` resolves under Prisma's search_path (= this schema).
+  // We must NOT schema-qualify the opclass in the migration itself: that file is
+  // already applied on real DBs and editing it would trip Prisma drift detection.
+  // Installing into the per-run schema keeps the migration immutable and is dropped
+  // by the DROP SCHEMA CASCADE on teardown. (CI's fresh Postgres has no pre-existing
+  // pg_trgm; if a throwaway DB already has it in public, drop it there first.)
+  await admin.query(`CREATE EXTENSION IF NOT EXISTS pg_trgm WITH SCHEMA "${schema}"`)
   await admin.end()
 
   // 2. Point DATABASE_URL at the new schema and run migrations

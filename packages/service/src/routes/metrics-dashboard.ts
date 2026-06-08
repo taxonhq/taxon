@@ -17,27 +17,20 @@ import { Prisma } from '@prisma/client'
 import prisma from '../lib/db.js'
 import { bearerAuth, requireRole, getTokenId } from '../middleware/auth.js'
 import type { ApiRole } from '../middleware/auth.js'
+import { APP_TZ_OFFSET_MIN, localDayStartUTC, localDayKey } from '../lib/time.js'
 
 type AuthVars = { Variables: { tokenRole: ApiRole; tokenName: string; tokenId: string } }
 
 export const dashboardMetrics = new Hono<AuthVars>()
 
-// ── 工具：生成连续 N 天的日期序列（UTC 0 点）────────────────────
+// ── 工具：生成连续 N 天的日期序列（按 APP_TZ_OFFSET_MIN 的本地 0 点，#148）──────
 function dateRange(days: number): Date[] {
   const out: Date[] = []
-  const now = new Date()
-  now.setUTCHours(0, 0, 0, 0)
-  for (let i = days - 1; i >= 0; i--) {
-    const d = new Date(now)
-    d.setUTCDate(d.getUTCDate() - i)
-    out.push(d)
-  }
+  for (let i = days - 1; i >= 0; i--) out.push(localDayStartUTC(i))
   return out
 }
 
-function dayKey(d: Date): string {
-  return d.toISOString().slice(0, 10) // YYYY-MM-DD
-}
+const dayKey = localDayKey
 
 // ── GET /metrics/trend?period=7d ─────────────────────────────────
 // 返回最近 N 天每天的：新增标签、新增实体、审核完成数
@@ -47,32 +40,34 @@ dashboardMetrics.get('/trend', async (c) => {
   const dates = dateRange(days)
   const since = dates[0]
 
-  // Postgres date_trunc 按 UTC 日聚合
-  const tagsBuckets = await prisma.$queryRaw<{ day: Date; count: bigint }[]>`
-    SELECT date_trunc('day', "createdAt") AS day, COUNT(*)::bigint AS count
+  // 按本地时区（APP_TZ_OFFSET_MIN）日聚合：先把 timestamptz 转成 UTC 墙钟，
+  // 再加偏移得到本地墙钟，to_char 取 YYYY-MM-DD（与 JS 端 dayKey 口径一致，#148）。
+  const off = APP_TZ_OFFSET_MIN
+  const tagsBuckets = await prisma.$queryRaw<{ day: string; count: bigint }[]>`
+    SELECT to_char(("createdAt" AT TIME ZONE 'UTC') + make_interval(mins => ${off}), 'YYYY-MM-DD') AS day, COUNT(*)::bigint AS count
     FROM "EntityTag"
     WHERE "createdAt" >= ${since}
     GROUP BY day
     ORDER BY day ASC
   `
-  const entitiesBuckets = await prisma.$queryRaw<{ day: Date; count: bigint }[]>`
-    SELECT date_trunc('day', "registeredAt") AS day, COUNT(*)::bigint AS count
+  const entitiesBuckets = await prisma.$queryRaw<{ day: string; count: bigint }[]>`
+    SELECT to_char(("registeredAt" AT TIME ZONE 'UTC') + make_interval(mins => ${off}), 'YYYY-MM-DD') AS day, COUNT(*)::bigint AS count
     FROM "RegisteredEntity"
     WHERE "registeredAt" >= ${since}
     GROUP BY day
     ORDER BY day ASC
   `
-  const reviewsBuckets = await prisma.$queryRaw<{ day: Date; count: bigint }[]>`
-    SELECT date_trunc('day', "reviewedAt") AS day, COUNT(*)::bigint AS count
+  const reviewsBuckets = await prisma.$queryRaw<{ day: string; count: bigint }[]>`
+    SELECT to_char(("reviewedAt" AT TIME ZONE 'UTC') + make_interval(mins => ${off}), 'YYYY-MM-DD') AS day, COUNT(*)::bigint AS count
     FROM "EntityTagReview"
     WHERE "reviewedAt" >= ${since}
     GROUP BY day
     ORDER BY day ASC
   `
 
-  const toMap = (rows: { day: Date; count: bigint }[]) => {
+  const toMap = (rows: { day: string; count: bigint }[]) => {
     const m = new Map<string, number>()
-    for (const r of rows) m.set(dayKey(r.day), Number(r.count))
+    for (const r of rows) m.set(r.day, Number(r.count))
     return m
   }
   const tagsMap     = toMap(tagsBuckets)
@@ -95,8 +90,9 @@ dashboardMetrics.get('/trend', async (c) => {
 // ── GET /metrics/today ───────────────────────────────────────────
 // 当日新增 vs 前 7 日均值的同比变化
 dashboardMetrics.get('/today', async (c) => {
-  const todayStart = new Date(); todayStart.setUTCHours(0, 0, 0, 0)
-  const weekAgo    = new Date(todayStart); weekAgo.setUTCDate(weekAgo.getUTCDate() - 7)
+  // 按 APP_TZ_OFFSET_MIN 的本地日界（#148）
+  const todayStart = localDayStartUTC(0)
+  const weekAgo    = localDayStartUTC(7)
 
   const [tagsToday, tagsWeek, entitiesToday, entitiesWeek, auditsToday, auditsWeek] = await Promise.all([
     prisma.entityTag.count({ where: { createdAt: { gte: todayStart } } }),
@@ -193,7 +189,7 @@ dashboardMetrics.get('/reviewer-stats', async (c) => {
   const [approved, rejected, reverted] = await Promise.all([
     prisma.entityTagReview.count({ where: { ...base, fromStatus: 'pending', toStatus: 'active'   } }),
     prisma.entityTagReview.count({ where: { ...base, fromStatus: 'pending', toStatus: 'rejected' } }),
-    prisma.entityTagReview.count({ where: { ...base, note: '撤销' } }),
+    prisma.entityTagReview.count({ where: { ...base, isRevert: true } }),
   ])
 
   const totalReviews = approved + rejected

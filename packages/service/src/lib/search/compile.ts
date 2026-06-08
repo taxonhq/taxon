@@ -89,11 +89,12 @@ async function resolveRefs(refs: RefSet): Promise<Resolved> {
     const uniqIds = [...new Set(refs.descendantOf)]
     const roots = await prisma.tag.findMany({
       where: { id: { in: uniqIds }, deletedAt: null },
-      select: { id: true, path: true },
+      select: { id: true, path: true, groupId: true },
     })
     for (const root of roots) {
+      // path 仅组内唯一，子树必须限定同 groupId，避免跨分组同前缀污染（#146）
       const subtree = await prisma.tag.findMany({
-        where: { path: { startsWith: root.path }, deletedAt: null },
+        where: { groupId: root.groupId, path: { startsWith: root.path }, deletedAt: null },
         select: { id: true },
       })
       descMap.set(root.id, subtree.map(t => t.id))

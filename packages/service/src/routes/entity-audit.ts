@@ -268,7 +268,7 @@ auditRouter.openapi(undoAuditRoute, async (c) => {
       await tx.entityTagReview.create({
         data: {
           tagId: review.tagId, entityType: review.entityType, entityId: review.entityId,
-          reviewerId, fromStatus: review.toStatus, toStatus: review.fromStatus, note: '撤销',
+          reviewerId, fromStatus: review.toStatus, toStatus: review.fromStatus, note: '撤销', isRevert: true,
         },
       })
 

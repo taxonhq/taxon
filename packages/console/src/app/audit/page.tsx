@@ -30,6 +30,7 @@ import { ErrorBanner } from "@/components/ui/error-banner";
 import { PageHeader } from "@/components/ui/page-header";
 import { Pagination } from "@/components/ui/pagination";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { localDayStartUTC } from "@/lib/utils";
 
 const PAGE_SIZE_DEFAULT = 30;
 
@@ -300,8 +301,8 @@ export default function AuditPage() {
   }, []);
 
   const loadTodayStats = useCallback(() => {
-    const todayStart = new Date();
-    todayStart.setUTCHours(0, 0, 0, 0);
+    // 按 APP_TZ_OFFSET_MIN 的本地日界，与后端口径一致（#148）
+    const todayStart = localDayStartUTC(0);
     getReviewerStats({ from: todayStart.toISOString() })
       .then(s => setTodayStats(s))
       .catch(() => {}); // non-critical — silently skip if no auth token configured

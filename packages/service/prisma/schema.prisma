@@ -339,6 +339,7 @@ model EntityTagReview {
   fromStatus TagStatus
   toStatus   TagStatus
   note       String?
+  isRevert   Boolean   @default(false)  // 是否为「撤销」操作（结构化标识，取代旧的 note='撤销' 魔法字符串判定）
   reviewedAt DateTime  @default(now())
 
   @@index([tagId, entityType, entityId, reviewedAt])
