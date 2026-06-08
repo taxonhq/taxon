@@ -141,11 +141,13 @@ const getDescendantsRoute = createRoute({
 
 tagsQuery.openapi(getDescendantsRoute, async (c) => {
   const { tagId } = c.req.valid('param')
-  const tag = await prisma.tag.findUnique({ where: { id: tagId, deletedAt: null }, select: { path: true } })
+  const tag = await prisma.tag.findUnique({ where: { id: tagId, deletedAt: null }, select: { path: true, groupId: true } })
   if (!tag) return c.json({ code: 404, message: '标签不存在' }, 404)
 
+  // path 仅在分组内唯一（约束是 [groupId, slug]），必须按 groupId 限定，
+  // 否则会命中其它分组里 path 前缀相同的标签（#146）。
   const items = await prisma.tag.findMany({
-    where: { path: { startsWith: tag.path }, id: { not: tagId }, deletedAt: null },
+    where: { groupId: tag.groupId, path: { startsWith: tag.path }, id: { not: tagId }, deletedAt: null },
     include: { _count: { select: { entityTags: { where: { status: 'active' } } } } },
     orderBy: { path: 'asc' },
   })

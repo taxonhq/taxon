@@ -148,7 +148,9 @@ tagsOperations.openapi(moveTagRoute, async (c) => {
   const targetGroup = await prisma.tagGroup.findUnique({ where: { id: targetGroupId, deletedAt: null }, include: { entityRules: true } })
   if (!targetGroup) return c.json({ code: 404, message: '目标分组不存在' }, 404)
 
-  const descendants  = await prisma.tag.findMany({ where: { path: { startsWith: tag.path }, id: { not: tagId }, deletedAt: null }, select: { id: true, slug: true, name: true, path: true, depth: true } })
+  // path 仅在源分组内唯一，收集子孙必须限定源 groupId，否则会把其它分组里 path
+  // 前缀相同的标签误当作子孙一起迁移（#146）。
+  const descendants  = await prisma.tag.findMany({ where: { groupId: tag.groupId, path: { startsWith: tag.path }, id: { not: tagId }, deletedAt: null }, select: { id: true, slug: true, name: true, path: true, depth: true } })
   const allMoving    = [tag, ...descendants]
   const allMovingIds = allMoving.map(t => t.id)
 
@@ -187,12 +189,14 @@ tagsOperations.openapi(moveTagRoute, async (c) => {
     const updated = await prisma.$transaction(async (tx) => {
       const updatedTag = await tx.tag.update({ where: { id: tagId }, data: { groupId: targetGroupId, parentId: null, path: newPath, depth: 0 } })
       if (descendants.length > 0) {
-        await tx.tag.updateMany({ where: { id: { in: descendants.map(d => d.id) } }, data: { groupId: targetGroupId } })
+        const descendantIds = descendants.map(d => d.id)
+        await tx.tag.updateMany({ where: { id: { in: descendantIds } }, data: { groupId: targetGroupId } })
         // 锚定前缀替换：只换 path 开头的 oldPath，避免 REPLACE 子串全局替换损坏后代路径（#131）。
+        // 按已正确按组收集的 descendantIds 精确定位，而非 path LIKE，杜绝跨分组同前缀污染（#146）。
         // substring(path FROM len(oldPath)+1) 取后代相对 oldPath 的尾段，再拼上 newPath。
         await tx.$executeRaw`
           UPDATE "Tag" SET path = ${newPath} || substr(path, ${oldPath.length + 1}::int), depth = depth + ${depthDelta}
-          WHERE path LIKE ${oldPath + '%'} AND id != ${tagId} AND "deletedAt" IS NULL
+          WHERE id = ANY(${descendantIds})
         `
       }
       await tx.tagMoveLog.create({

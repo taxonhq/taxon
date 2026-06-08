@@ -108,11 +108,21 @@ export async function deliverOne(
         'X-Taxon-Signature': signBody(webhook.secret, body),
       },
       body,
+      // 禁止自动跟随重定向：注册期的 SSRF 校验只看字面 host，若放任 fetch
+      // 跟随 3xx，攻击者可注册公网 URL 再 302 到 169.254.169.254 / 内网绕过防护（#147）。
+      // 3xx 一律视为投递失败，不跟随。
+      redirect: 'manual',
       signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     })
     code = res.status
     respText = (await res.text().catch(() => '')).slice(0, 1000)
-    ok = res.status >= 200 && res.status < 300
+    // redirect:'manual' 下 3xx 会原样返回；明确判失败并提示，避免误当成功
+    if (res.status >= 300 && res.status < 400) {
+      respText = `redirect blocked (SSRF guard #147): ${res.status} Location=${res.headers.get('location') ?? ''}`.slice(0, 1000)
+      ok = false
+    } else {
+      ok = res.status >= 200 && res.status < 300
+    }
   } catch (e) {
     respText = `request error: ${(e as Error).message}`.slice(0, 1000)
   }

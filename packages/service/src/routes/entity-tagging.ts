@@ -403,6 +403,12 @@ taggingRouter.openapi(bulkTagRoute, async (c) => {
   }
   const allGroupIds       = [...groupInfoMap.keys()]
   const singleSelectGroups = [...groupInfoMap.values()].filter(g => !g.effectiveAllowMultiple).map(g => g.groupId)
+  // 单选组里「本次要打的那个标签」(每个单选组至多一个——validateTags 已拦输入内部多选)。
+  // 用于区分「已有标签 == 本次标签」(幂等跳过) 与「已有标签 != 本次标签」(真冲突)（#150）。
+  const singleSelectAddedTag = new Map<string, string>()
+  for (const t of tags) {
+    if (groupInfoMap.get(t.groupId)?.effectiveAllowMultiple === false) singleSelectAddedTag.set(t.groupId, t.id)
+  }
 
   // 5) 分批执行
   const errors: Array<{ entityId: string; error: string }> = []
@@ -450,10 +456,15 @@ taggingRouter.openapi(bulkTagRoute, async (c) => {
                 status: 'active',
                 tag: { groupId: { in: singleSelectGroups } },
               },
-              select: { entityId: true, tag: { select: { groupId: true } } },
+              select: { entityId: true, tagId: true, tag: { select: { groupId: true } } },
               distinct: ['entityId', 'tagId'],
             })
-            for (const c of conflicts) conflictEntityIds.add(c.entityId)
+            for (const c of conflicts) {
+              // 已有标签恰为本次要打的同一标签 → 幂等，由 skipDuplicates 静默跳过，不算冲突（#150）。
+              // 仅当实体在该单选组已有「不同」的 active 标签时才是真冲突。
+              if (c.tagId === singleSelectAddedTag.get(c.tag.groupId)) continue
+              conflictEntityIds.add(c.entityId)
+            }
           }
           for (const eid of conflictEntityIds) {
             errors.push({ entityId: eid, error: '分组不允许多选，已有 active 标签' })
