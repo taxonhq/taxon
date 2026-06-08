@@ -33,17 +33,13 @@ async function get(path: string, headers?: HeadersInit) {
 
 // ── TZ-01: trend 端点基础功能 ─────────────────────────────────────
 describe('TZ-01: trend endpoint smoke', () => {
-  it('trend with period=7d returns response', async () => {
+  it('trend with period=7d returns 7-day series', async () => {
+    // 回归 #151：APP_TZ_OFFSET_MIN 非零时 make_interval(mins => bigint) 曾报 500，
+    // 现在必须正常返回 200 + 7 天序列。
     const r = await get('/metrics/trend?period=7d')
-    // Accept both 200 and 500 — we care about the structure when it works
-    if (r.status === 200) {
-      const data = r.body.data as { dates: string[]; tags: number[] }
-      expect(data.dates.length).toBe(7)
-    } else {
-      // 500 may indicate APP_TZ_OFFSET_MIN not propagated to worker fork
-      // This is a test infrastructure issue, not a production bug
-      expect(r.status).toBeGreaterThanOrEqual(400)
-    }
+    expect(r.status).toBe(200)
+    const data = r.body.data as { period: string; series: { date: string }[] }
+    expect(data.series.length).toBe(7)
   })
 })
 

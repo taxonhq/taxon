@@ -24,7 +24,7 @@ export default function DashboardPage() {
   const [editing, setEditing] = useState(false);
 
   // 编辑态暂停自动刷新（避免数据跳变干扰拖拽）
-  const { data, loading, refreshing, refresh } = useDashboardData({
+  const { data, loading, refreshing, updatedAt, refresh } = useDashboardData({
     autoRefreshMs: 10_000,
     paused: editing,
   });
@@ -48,6 +48,8 @@ export default function DashboardPage() {
       <DashboardCanvas
         data={data}
         refreshing={refreshing}
+        reloadToken={updatedAt?.getTime() ?? 0}
+        updatedAt={updatedAt}
         onRefresh={refresh}
         onEditingChange={setEditing}
       />

@@ -44,21 +44,21 @@ dashboardMetrics.get('/trend', async (c) => {
   // 再加偏移得到本地墙钟，to_char 取 YYYY-MM-DD（与 JS 端 dayKey 口径一致，#148）。
   const off = APP_TZ_OFFSET_MIN
   const tagsBuckets = await prisma.$queryRaw<{ day: string; count: bigint }[]>`
-    SELECT to_char(("createdAt" AT TIME ZONE 'UTC') + make_interval(mins => ${off}), 'YYYY-MM-DD') AS day, COUNT(*)::bigint AS count
+    SELECT to_char(("createdAt" AT TIME ZONE 'UTC') + make_interval(mins => ${off}::int), 'YYYY-MM-DD') AS day, COUNT(*)::bigint AS count
     FROM "EntityTag"
     WHERE "createdAt" >= ${since}
     GROUP BY day
     ORDER BY day ASC
   `
   const entitiesBuckets = await prisma.$queryRaw<{ day: string; count: bigint }[]>`
-    SELECT to_char(("registeredAt" AT TIME ZONE 'UTC') + make_interval(mins => ${off}), 'YYYY-MM-DD') AS day, COUNT(*)::bigint AS count
+    SELECT to_char(("registeredAt" AT TIME ZONE 'UTC') + make_interval(mins => ${off}::int), 'YYYY-MM-DD') AS day, COUNT(*)::bigint AS count
     FROM "RegisteredEntity"
     WHERE "registeredAt" >= ${since}
     GROUP BY day
     ORDER BY day ASC
   `
   const reviewsBuckets = await prisma.$queryRaw<{ day: string; count: bigint }[]>`
-    SELECT to_char(("reviewedAt" AT TIME ZONE 'UTC') + make_interval(mins => ${off}), 'YYYY-MM-DD') AS day, COUNT(*)::bigint AS count
+    SELECT to_char(("reviewedAt" AT TIME ZONE 'UTC') + make_interval(mins => ${off}::int), 'YYYY-MM-DD') AS day, COUNT(*)::bigint AS count
     FROM "EntityTagReview"
     WHERE "reviewedAt" >= ${since}
     GROUP BY day
