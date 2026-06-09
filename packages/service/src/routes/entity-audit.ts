@@ -22,7 +22,7 @@ const listAuditRoute = createRoute({
   security: [{ BearerAuth: [] }],
   request: {
     query: PaginationQuery.extend({
-      status:        z.string().optional().openapi({ description: '状态过滤（pending/active/rejected）' }),
+      status:        z.enum(['pending', 'active', 'rejected']).optional().openapi({ description: '状态过滤，默认 pending' }),
       entityType:    z.string().optional(),
       reviewerId:    z.string().optional(),
       from:          z.string().optional().openapi({ description: 'ISO 日期，reviewedAt >=' }),

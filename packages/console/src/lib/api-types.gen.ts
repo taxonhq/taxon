@@ -4,6 +4,50 @@
  */
 
 export interface paths {
+    "/entity-types": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 列出所有已注册实体类型及计数 */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description 成功 */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            code: number;
+                            data: {
+                                /** @description 实体类型 */
+                                entityType: string;
+                                /** @description 该类型下已注册实体数 */
+                                count: number;
+                            }[];
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/entities/audit": {
         parameters: {
             query?: never;
@@ -17,8 +61,8 @@ export interface paths {
                 query?: {
                     page?: number;
                     pageSize?: number;
-                    /** @description 状态过滤（pending/active/rejected） */
-                    status?: string;
+                    /** @description 状态过滤，默认 pending */
+                    status?: "pending" | "active" | "rejected";
                     entityType?: string;
                     reviewerId?: string;
                     /** @description ISO 日期，reviewedAt >= */
@@ -864,8 +908,10 @@ export interface paths {
                         "application/json": {
                             code: number;
                             data: {
-                                /** @description 成功写入标签的实体数 */
+                                /** @description 进入插入流程的实体数（add 模式含目标标签已全部存在的 no-op） */
                                 succeeded: number;
+                                /** @description 实际写入的 EntityTag 行数（skipDuplicates 去重后；可据此识别 no-op 重跑） */
+                                inserted: number;
                                 /** @description 因冲突跳过的实体数（= errors.length） */
                                 failed: number;
                                 errors: {
@@ -4098,6 +4144,18 @@ export interface paths {
                         };
                     };
                 };
+                /** @description 参数错误 */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            code: number;
+                            message: string;
+                        };
+                    };
+                };
                 /** @description 不存在 */
                 404: {
                     headers: {
@@ -4332,8 +4390,8 @@ export interface components {
             name: string;
             /** Format: uri */
             url: string;
-            /** @description 订阅事件，可选：entity_tag.created, entity_tag.status_changed, entity_tag.deleted, tag.created, tag.updated, tag.deleted, tag.merged, tag.moved, tag_group.created, tag_group.updated, tag_group.deleted, entity.registered, entity.unregistered */
-            events: ("entity_tag.created" | "entity_tag.status_changed" | "entity_tag.deleted" | "tag.created" | "tag.updated" | "tag.deleted" | "tag.merged" | "tag.moved" | "tag_group.created" | "tag_group.updated" | "tag_group.deleted" | "entity.registered" | "entity.unregistered")[];
+            /** @description 订阅事件，可选：entity_tag.created, entity_tag.status_changed, entity_tag.deleted, entity_tag.bulk_changed, tag.created, tag.updated, tag.deleted, tag.merged, tag.moved, tag_group.created, tag_group.updated, tag_group.deleted, entity.registered, entity.unregistered */
+            events: ("entity_tag.created" | "entity_tag.status_changed" | "entity_tag.deleted" | "entity_tag.bulk_changed" | "tag.created" | "tag.updated" | "tag.deleted" | "tag.merged" | "tag.moved" | "tag_group.created" | "tag_group.updated" | "tag_group.deleted" | "entity.registered" | "entity.unregistered")[];
             /** @description entityType 白名单，空=全部 */
             scopes?: string[];
             /** @description 不传则自动生成 */
@@ -4343,7 +4401,7 @@ export interface components {
             name?: string;
             /** Format: uri */
             url?: string;
-            events?: ("entity_tag.created" | "entity_tag.status_changed" | "entity_tag.deleted" | "tag.created" | "tag.updated" | "tag.deleted" | "tag.merged" | "tag.moved" | "tag_group.created" | "tag_group.updated" | "tag_group.deleted" | "entity.registered" | "entity.unregistered")[];
+            events?: ("entity_tag.created" | "entity_tag.status_changed" | "entity_tag.deleted" | "entity_tag.bulk_changed" | "tag.created" | "tag.updated" | "tag.deleted" | "tag.merged" | "tag.moved" | "tag_group.created" | "tag_group.updated" | "tag_group.deleted" | "entity.registered" | "entity.unregistered")[];
             scopes?: string[];
             active?: boolean;
         };

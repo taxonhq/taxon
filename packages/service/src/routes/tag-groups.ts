@@ -144,6 +144,7 @@ const createGroupRoute = createRoute({
   tags: ['标签分组'],
   summary: '创建分组',
   security: [{ BearerAuth: [] }],
+  middleware: [requireRole('admin')] as const,
   request: { body: { content: { 'application/json': { schema: CreateTagGroupBody } }, required: true } },
   responses: {
     200: { content: { 'application/json': { schema: okData(TagGroupSchema) } }, description: '成功' },
@@ -152,7 +153,6 @@ const createGroupRoute = createRoute({
   },
 })
 
-tagGroups.use('/', requireRole('admin'))
 tagGroups.openapi(createGroupRoute, async (c) => {
   const { slug, name, description, entityScopes, allowMultiple, sortOrder } = c.req.valid('json')
 
@@ -185,6 +185,7 @@ const updateGroupRoute = createRoute({
   tags: ['标签分组'],
   summary: '更新分组',
   security: [{ BearerAuth: [] }],
+  middleware: [requireRole('admin')] as const,
   request: {
     params: GroupIdParam,
     body: { content: { 'application/json': { schema: UpdateTagGroupBody } }, required: true },
@@ -196,7 +197,6 @@ const updateGroupRoute = createRoute({
   },
 })
 
-tagGroups.use('/:groupId', requireRole('admin'))
 tagGroups.openapi(updateGroupRoute, async (c) => {
   const { groupId } = c.req.valid('param')
   const body = c.req.valid('json')
@@ -257,6 +257,7 @@ const deleteGroupRoute = createRoute({
   tags: ['标签分组'],
   summary: '删除分组（软删除；?permanent=true 硬删）',
   security: [{ BearerAuth: [] }],
+  middleware: [requireRole('admin')] as const,
   request: {
     params: GroupIdParam,
     query: z.object({
@@ -309,6 +310,7 @@ const restoreGroupRoute = createRoute({
   tags: ['标签分组'],
   summary: '恢复软删除分组',
   security: [{ BearerAuth: [] }],
+  middleware: [requireRole('admin')] as const,
   request: { params: GroupIdParam },
   responses: {
     200: { content: { 'application/json': { schema: okData(TagGroupSchema) } }, description: '成功' },
@@ -317,7 +319,6 @@ const restoreGroupRoute = createRoute({
   },
 })
 
-tagGroups.use('/:groupId/restore', requireRole('admin'))
 tagGroups.openapi(restoreGroupRoute, async (c) => {
   const { groupId } = c.req.valid('param')
   const group = await prisma.tagGroup.findUnique({

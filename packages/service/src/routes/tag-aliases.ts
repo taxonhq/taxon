@@ -37,6 +37,7 @@ const createAliasRoute = createRoute({
   tags: ['标签'],
   summary: '添加别名',
   security: [{ BearerAuth: [] }],
+  middleware: [requireRole('admin')] as const,
   request: {
     params: TagIdParam,
     body: { content: { 'application/json': { schema: CreateAliasBody } }, required: true },
@@ -48,7 +49,6 @@ const createAliasRoute = createRoute({
   },
 })
 
-tagAliases.use('/', requireRole('admin'))
 tagAliases.openapi(createAliasRoute, async (c) => {
   const { tagId } = c.req.valid('param')
   const { alias, source } = c.req.valid('json')
@@ -78,6 +78,7 @@ const deleteAliasRoute = createRoute({
   tags: ['标签'],
   summary: '删除别名',
   security: [{ BearerAuth: [] }],
+  middleware: [requireRole('admin')] as const,
   request: { params: AliasIdParam },
   responses: {
     200: { content: { 'application/json': { schema: OkMessage } }, description: '成功' },
@@ -85,7 +86,6 @@ const deleteAliasRoute = createRoute({
   },
 })
 
-tagAliases.use('/:aliasId', requireRole('admin'))
 tagAliases.openapi(deleteAliasRoute, async (c) => {
   const { tagId, aliasId } = c.req.valid('param')
   const alias = await prisma.tagAlias.findUnique({ where: { id: aliasId }, select: { id: true, tagId: true } })

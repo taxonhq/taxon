@@ -14,6 +14,8 @@
 export type { components as ApiSchemas } from "@/lib/api-types.gen";
 
 const BASE  = process.env.NEXT_PUBLIC_TAG_SERVICE_URL   || "http://localhost:3300";
+// 业务接口统一走版本化前缀 /v1（#154）。基础设施端点（/health）不版本化，单独直连。
+const API_PREFIX = "/v1";
 // ⚠️ NEXT_PUBLIC_ 会把 token 内联进浏览器 bundle（DevTools 可见明文）。仅限本地/可信网络，
 //    勿在公网部署填 admin token。详见 .env.example（#137）。
 const TOKEN = process.env.NEXT_PUBLIC_TAG_SERVICE_TOKEN || "";
@@ -33,7 +35,7 @@ export class ApiError extends Error {
 async function req<T>(path: string, init?: RequestInit): Promise<T> {
   let res: Response;
   try {
-    res = await fetch(`${BASE}${path}`, {
+    res = await fetch(`${BASE}${API_PREFIX}${path}`, {
       ...init,
       headers: { ...authHeaders(), ...(init?.headers ?? {}) },
     });

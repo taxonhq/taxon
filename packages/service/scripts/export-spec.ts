@@ -16,21 +16,14 @@ import { writeFileSync } from 'node:fs'
 import { resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { buildApp } from '../src/app.js'
+import { buildOpenApiSpec } from '../src/lib/openapi-doc.js'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const outPath   = resolve(__dirname, '../../..', 'openapi.json')
 
 const app  = buildApp({ silent: true })
-// getOpenAPIDocument() collects all createRoute() definitions registered on the app
-const spec = (app as any).getOpenAPIDocument({
-  openapi: '3.0.0',
-  info: {
-    title: 'Taxon Tag Service',
-    version: '1.0.0',
-    description: 'Standalone tagging microservice — tag groups, entity tagging, audit workflow',
-  },
-  security: [{ BearerAuth: [] }],
-})
+// buildOpenApiSpec() 收集全部 createRoute 定义并生成 /v1 视图（与运行时 /openapi.json 一致）
+const spec = buildOpenApiSpec(app)
 
 writeFileSync(outPath, JSON.stringify(spec, null, 2) + '\n', 'utf8')
 console.log(`✓  OpenAPI spec written to ${outPath}`)

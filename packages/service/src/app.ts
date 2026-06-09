@@ -4,10 +4,20 @@
  * Exported as a function so tests can build a fresh app per test run
  * without triggering side effects (HTTP server start, env validation, etc.)
  * that live in src/index.ts.
+ *
+ * ── 版本化（#154）────────────────────────────────────────────────────────────
+ * 全部业务路由由 buildApiRouter() 装配为一个子路由，再挂到两处：
+ *   - `/v1/*`  canonical，对外契约，OpenAPI spec 以此为准
+ *   - `/*`     向后兼容别名（保留旧的无前缀路径，给已部署集成 + console 过渡期）
+ * 路由内部的鉴权 / 限流 / 参数校验 middleware 都相对 api 根注册，因此两处挂载
+ * 自动同时生效。基础设施端点（health / metrics / docs）不版本化，直接挂在 app 上。
  */
 
+import { OpenAPIHono } from '@hono/zod-openapi'
+import { createRoute, z } from '@hono/zod-openapi'
 import { cors } from 'hono/cors'
 import { secureHeaders } from 'hono/secure-headers'
+import { timingSafeEqual } from 'crypto'
 import { bearerAuth } from './middleware/auth.js'
 import { rateLimit } from './middleware/rate-limit.js'
 import { requestIdMiddleware, getRequestId } from './middleware/request-id.js'
@@ -16,6 +26,8 @@ import prisma from './lib/db.js'
 import { createRouter } from './lib/router.js'
 import logger from './lib/logger.js'
 import { registry, httpRequestsTotal, httpRequestDuration, normalizeRoute } from './lib/metrics.js'
+import { buildOpenApiSpec } from './lib/openapi-doc.js'
+import { okData } from './lib/schemas.js'
 import { entities } from './routes/entities.js'
 import { tagGroups } from './routes/tag-groups.js'
 import { tags } from './routes/tags/index.js'
@@ -34,6 +46,132 @@ export interface AppOptions {
   version?: string
   /** Disable request logging — used by tests to keep output quiet. */
   silent?: boolean
+}
+
+// ── 业务路由装配 ──────────────────────────────────────────────────────────────
+// 所有路径相对 api 根（即 /v1 或 / 之后的部分）。鉴权 / 限流 / 参数校验都在这里
+// 注册，确保 /v1 与 / 两处挂载行为一致。
+function buildApiRouter(): OpenAPIHono {
+  const api = createRouter()
+
+  // ── 速率限制 ──────────────────────────────────────────────────
+  // 双层策略：
+  //   globalLimiter — 每 IP 300 req/min（含读），防流量风暴
+  //   writeLimiter  — 每 IP 60 req/min（仅写操作），防批量写滥用
+  // 生产建议在反向代理（Nginx / Caddy）层再加一道基于连接数的硬限制。
+  // 通过 RATE_LIMIT_MAX / RATE_LIMIT_WRITE_MAX 环境变量可覆盖默认值。
+  const PROTECTED = ['/entities/*', '/tag-groups/*', '/tags/*', '/entity-types', '/tokens', '/tokens/*', '/entity-graph/*', '/webhooks/*']
+  const WRITE_METHODS = ['POST', 'PUT', 'PATCH', 'DELETE']
+
+  const globalLimiter = rateLimit({
+    windowMs: 60_000,
+    max: Number(process.env.RATE_LIMIT_MAX) || 300,
+    label: 'global',
+  })
+  const writeLimiter = rateLimit({
+    windowMs: 60_000,
+    max: Number(process.env.RATE_LIMIT_WRITE_MAX) || 60,
+    methods: WRITE_METHODS,
+    label: 'write',
+  })
+
+  for (const path of PROTECTED) {
+    api.use(path, globalLimiter)
+    api.use(path, writeLimiter)
+  }
+
+  // ── 认证保护 ──────────────────────────────────────────────────
+  // bearerAuth：API_TOKEN 未设置且无 DB token 时跳过（本地开发/测试）
+  api.use('/entities/*',     bearerAuth)
+  api.use('/tag-groups/*',   bearerAuth)
+  api.use('/tags/*',         bearerAuth)
+  api.use('/entity-types',   bearerAuth)
+  api.use('/tokens',         bearerAuth)
+  api.use('/tokens/*',       bearerAuth)
+  api.use('/search/*',       bearerAuth)
+  api.use('/settings/*',     bearerAuth)
+  api.use('/governance/*',   bearerAuth)
+  api.use('/entity-graph/*', bearerAuth)
+  api.use('/webhooks/*',     bearerAuth)
+  api.use('/webhooks',       bearerAuth)
+
+  // ── 实体路径参数格式校验 ──────────────────────────────────────
+  api.use('/entities/:entityType', validateEntityParams)
+  api.use('/entities/:entityType/:entityId', validateEntityParams)
+  api.use('/entities/:entityType/:entityId/*', validateEntityParams)
+
+  // ── GET /entity-types（文档化，#156）──────────────────────────
+  const listEntityTypesRoute = createRoute({
+    method: 'get', path: '/entity-types',
+    tags: ['实体'],
+    summary: '列出所有已注册实体类型及计数',
+    security: [{ BearerAuth: [] }],
+    responses: {
+      200: {
+        content: { 'application/json': { schema: okData(z.array(z.object({
+          entityType: z.string().openapi({ description: '实体类型' }),
+          count:      z.number().int().openapi({ description: '该类型下已注册实体数' }),
+        }))) } },
+        description: '成功',
+      },
+    },
+  })
+  api.openapi(listEntityTypesRoute, async (c) => {
+    const rows = await prisma.registeredEntity.groupBy({
+      by: ['entityType'],
+      _count: { entityId: true },
+      orderBy: { entityType: 'asc' },
+    })
+    return c.json({
+      code: 0,
+      data: rows.map((r: { entityType: string; _count: { entityId: number } }) => ({
+        entityType: r.entityType,
+        count: r._count.entityId,
+      })),
+    }, 200)
+  })
+
+  // ── 业务路由 ──────────────────────────────────────────────────
+  api.route('/entities',   entities)
+  api.route('/tag-groups', tagGroups)
+  api.route('/tags',       tags)
+  // aliases 挂在 /tags/:tagId/aliases 下
+  api.route('/tags/:tagId/aliases', tagAliases)
+  api.route('/tokens',     tokensRouter)
+  api.route('/metrics',    dashboardMetrics)
+  api.route('/search',     searchRouter)
+  api.route('/entity-graph', entityGraphRouter)
+  api.route('/settings',    llmConfigRouter)
+  api.route('/settings',    systemConfigRouter)
+  api.route('/governance',  governanceRouter)
+  api.route('/webhooks',    webhooksRouter)
+
+  // ── Dashboard 布局配置 ────────────────────────────────────────
+  api.get('/dashboard/layout', async (c) => {
+    const cfg = await prisma.systemConfig.findUnique({ where: { key: 'dashboard-layout' } })
+    return c.json({ code: 0, data: cfg?.value ?? null })
+  })
+
+  api.put('/dashboard/layout', async (c) => {
+    const body = await c.req.json<{ layout: unknown }>()
+    // Accept either a raw array (legacy) or a versioned object { version, items }
+    const payload = body?.layout
+    const isVersioned = payload !== null && typeof payload === 'object' && !Array.isArray(payload)
+      && typeof (payload as Record<string, unknown>).version === 'number'
+      && Array.isArray((payload as Record<string, unknown>).items)
+    const isArray = Array.isArray(payload)
+    if (!isVersioned && !isArray) {
+      return c.json({ code: 400, message: 'layout 必须为数组或 { version, items } 对象' }, 400)
+    }
+    const cfg = await prisma.systemConfig.upsert({
+      where:  { key: 'dashboard-layout' },
+      create: { key: 'dashboard-layout', value: payload as object },
+      update: { value: payload as object },
+    })
+    return c.json({ code: 0, data: cfg.value })
+  })
+
+  return api
 }
 
 export function buildApp(opts: AppOptions = {}) {
@@ -105,7 +243,7 @@ export function buildApp(opts: AppOptions = {}) {
     httpRequestDuration.labels(method, route).observe(durationSec)
   })
 
-  // ── 公开端点 ────────────────────────────────────────────────────
+  // ── 公开 / 基础设施端点（不版本化）──────────────────────────────
 
   // Liveness: 进程存活即 200，不依赖 DB
   app.get('/health/live', (c) => c.json({ status: 'ok' }))
@@ -140,14 +278,27 @@ export function buildApp(opts: AppOptions = {}) {
     }
   })
 
-  // Prometheus 指标抓取端点
+  // Prometheus 指标抓取端点（#155）。
+  // 注意：这是 Prometheus 抓取格式，与 dashboard 的聚合 JSON 视图（/v1/metrics/*）
+  // 是完全不同的命名空间——版本化后二者天然分离，不再共用 /metrics 前缀。
+  // 若设置 METRICS_TOKEN，则要求 Bearer 鉴权（默认不设=开放，建议反代层限内网）。
   app.get('/metrics', async (c) => {
+    const required = process.env.METRICS_TOKEN
+    if (required) {
+      const header = c.req.header('Authorization') ?? ''
+      const presented = header.startsWith('Bearer ') ? header.slice(7) : ''
+      const a = Buffer.from(presented)
+      const b = Buffer.from(required)
+      if (a.length !== b.length || !timingSafeEqual(a, b)) {
+        return c.json({ code: 401, message: 'metrics token required' }, 401)
+      }
+    }
     const metrics = await registry.metrics()
     c.header('Content-Type', registry.contentType)
     return c.body(metrics)
   })
 
-  app.get('/', (c) => c.json({ code: 0, message: 'Taxcon OK' }))
+  app.get('/', (c) => c.json({ code: 0, message: 'Taxon OK' }))
 
   app.get('/favicon.svg', (c) => {
     c.header('Content-Type', 'image/svg+xml')
@@ -160,16 +311,13 @@ export function buildApp(opts: AppOptions = {}) {
 </svg>`)
   })
 
-  // OpenAPI 3.0 仕様を自動生成（@hono/zod-openapi が各ルートの createRoute 定義から構築）
-  app.doc('/openapi.json', {
-    openapi: '3.0.0',
-    info: {
-      title: 'Taxon Tag Service',
-      version: '1.0.0',
-      description: 'Standalone tagging microservice — tag groups, entity tagging, audit workflow',
-    },
-    security: [{ BearerAuth: [] }],
-  })
+  // ── 业务路由：/v1（canonical）+ /（向后兼容别名）──────────────────
+  const api = buildApiRouter()
+  app.route('/v1', api)
+  app.route('/',   api)
+
+  // OpenAPI 3.0 仕様：从 /v1 视图生成（见 lib/openapi-doc.ts）。
+  app.get('/openapi.json', (c) => c.json(buildOpenApiSpec(app)))
 
   app.get('/docs', (c) => {
     const defaultToken = process.env.SCALAR_BEARER_TOKEN ?? ''
@@ -188,108 +336,6 @@ export function buildApp(opts: AppOptions = {}) {
     authentication: ${authConfig},
   })</script>
 </body></html>`)
-  })
-
-  // ── 速率限制 ────────────────────────────────────────────────────
-  // 双层策略：
-  //   globalLimiter — 每 IP 300 req/min（含读），防流量风暴
-  //   writeLimiter  — 每 IP 60 req/min（仅写操作），防批量写滥用
-  // 生产建议在反向代理（Nginx / Caddy）层再加一道基于连接数的硬限制。
-  // 通过 RATE_LIMIT_MAX / RATE_LIMIT_WRITE_MAX 环境变量可覆盖默认值。
-  const PROTECTED = ['/entities/*', '/tag-groups/*', '/tags/*', '/entity-types', '/tokens', '/tokens/*', '/entity-graph/*', '/webhooks/*']
-  const WRITE_METHODS = ['POST', 'PUT', 'PATCH', 'DELETE']
-
-  const globalLimiter = rateLimit({
-    windowMs: 60_000,
-    max: Number(process.env.RATE_LIMIT_MAX) || 300,
-    label: 'global',
-  })
-  const writeLimiter = rateLimit({
-    windowMs: 60_000,
-    max: Number(process.env.RATE_LIMIT_WRITE_MAX) || 60,
-    methods: WRITE_METHODS,
-    label: 'write',
-  })
-
-  for (const path of PROTECTED) {
-    app.use(path, globalLimiter)
-    app.use(path, writeLimiter)
-  }
-
-  // ── 认证保护 ────────────────────────────────────────────────
-  // bearerAuth：API_TOKEN 未设置且无 DB token 时跳过（本地开发/测试）
-  // tokenAuth ：识别 Bearer Token 并写入角色，/tokens 路由专用
-  app.use('/entities/*',   bearerAuth)
-  app.use('/tag-groups/*', bearerAuth)
-  app.use('/tags/*',       bearerAuth)
-  app.use('/entity-types', bearerAuth)
-  app.use('/tokens',       bearerAuth)
-  app.use('/tokens/*',     bearerAuth)
-  app.use('/search/*',      bearerAuth)
-  app.use('/settings/*',    bearerAuth)
-  app.use('/governance/*',  bearerAuth)
-  app.use('/entity-graph/*', bearerAuth)
-  app.use('/webhooks/*',    bearerAuth)
-  app.use('/webhooks',      bearerAuth)
-
-  // ── 实体路径参数格式校验 ────────────────────────────────────────
-  app.use('/entities/:entityType', validateEntityParams)
-  app.use('/entities/:entityType/:entityId', validateEntityParams)
-  app.use('/entities/:entityType/:entityId/*', validateEntityParams)
-
-  // ── 业务路由 ────────────────────────────────────────────────────
-  app.get('/entity-types', async (c) => {
-    const rows = await prisma.registeredEntity.groupBy({
-      by: ['entityType'],
-      _count: { entityId: true },
-      orderBy: { entityType: 'asc' },
-    })
-    return c.json({
-      code: 0,
-      data: rows.map((r: { entityType: string; _count: { entityId: number } }) => ({
-        entityType: r.entityType,
-        count: r._count.entityId,
-      })),
-    })
-  })
-
-  app.route('/entities',   entities)
-  app.route('/tag-groups', tagGroups)
-  app.route('/tags',       tags)
-  // aliases 挂在 /tags/:tagId/aliases 下
-  app.route('/tags/:tagId/aliases', tagAliases)
-  app.route('/tokens',     tokensRouter)
-  app.route('/metrics',    dashboardMetrics)
-  app.route('/search',     searchRouter)
-  app.route('/entity-graph', entityGraphRouter)
-  app.route('/settings',    llmConfigRouter)
-  app.route('/settings',    systemConfigRouter)
-  app.route('/governance',  governanceRouter)
-  app.route('/webhooks',    webhooksRouter)
-
-  // ── Dashboard 布局配置 ──────────────────────────────────────────
-  app.get('/dashboard/layout', async (c) => {
-    const cfg = await prisma.systemConfig.findUnique({ where: { key: 'dashboard-layout' } })
-    return c.json({ code: 0, data: cfg?.value ?? null })
-  })
-
-  app.put('/dashboard/layout', async (c) => {
-    const body = await c.req.json<{ layout: unknown }>()
-    // Accept either a raw array (legacy) or a versioned object { version, items }
-    const payload = body?.layout
-    const isVersioned = payload !== null && typeof payload === 'object' && !Array.isArray(payload)
-      && typeof (payload as Record<string, unknown>).version === 'number'
-      && Array.isArray((payload as Record<string, unknown>).items)
-    const isArray = Array.isArray(payload)
-    if (!isVersioned && !isArray) {
-      return c.json({ code: 400, message: 'layout 必须为数组或 { version, items } 对象' }, 400)
-    }
-    const cfg = await prisma.systemConfig.upsert({
-      where:  { key: 'dashboard-layout' },
-      create: { key: 'dashboard-layout', value: payload as object },
-      update: { value: payload as object },
-    })
-    return c.json({ code: 0, data: cfg.value })
   })
 
   // ── 兜底错误处理 ────────────────────────────────────────────────
