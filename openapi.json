@@ -19,6 +19,686 @@
       }
     },
     "schemas": {
+      "AuditItem": {
+        "type": "object",
+        "properties": {
+          "tagId": {
+            "type": "string"
+          },
+          "entityType": {
+            "type": "string"
+          },
+          "entityId": {
+            "type": "string"
+          },
+          "source": {
+            "type": "string"
+          },
+          "confidence": {
+            "type": "number",
+            "nullable": true
+          },
+          "status": {
+            "type": "string"
+          },
+          "taggedAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "reviewedAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "string"
+              },
+              {
+                "nullable": true
+              }
+            ]
+          },
+          "reviewNote": {
+            "type": "string",
+            "nullable": true
+          },
+          "reviewerName": {
+            "type": "string",
+            "nullable": true
+          },
+          "tag": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "slug": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "group": {
+                "$ref": "#/components/schemas/TagGroupMini"
+              }
+            },
+            "required": [
+              "id",
+              "slug",
+              "name",
+              "group"
+            ]
+          }
+        },
+        "required": [
+          "tagId",
+          "entityType",
+          "entityId",
+          "source",
+          "confidence",
+          "status",
+          "taggedAt",
+          "reviewedAt",
+          "reviewNote",
+          "reviewerName",
+          "tag"
+        ]
+      },
+      "TagGroupMini": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "slug": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "slug",
+          "name"
+        ]
+      },
+      "ApiError": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "integer"
+          },
+          "message": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "message"
+        ]
+      },
+      "RegisteredEntity": {
+        "type": "object",
+        "properties": {
+          "entityType": {
+            "type": "string"
+          },
+          "entityId": {
+            "type": "string"
+          },
+          "registeredAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "metadata": {
+            "$ref": "#/components/schemas/EntityMetadata"
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/EntityTagItem"
+            }
+          }
+        },
+        "required": [
+          "entityType",
+          "entityId"
+        ]
+      },
+      "EntityMetadata": {
+        "type": "object",
+        "nullable": true,
+        "additionalProperties": {
+          "type": "string"
+        },
+        "description": "实体元数据 KV 映射。推荐字段：name（名称）、description（描述）、imageUrl（图片URL）、category（分类）。AI 标签建议功能依赖这些字段生成高质量建议。",
+        "example": {
+          "name": "宫保鸡丁",
+          "description": "经典川菜，酸甜微辣",
+          "category": "热菜"
+        }
+      },
+      "EntityTagItem": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "slug": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "groupId": {
+            "type": "string"
+          },
+          "group": {
+            "$ref": "#/components/schemas/TagGroupMini"
+          },
+          "source": {
+            "type": "string"
+          },
+          "confidence": {
+            "type": "number",
+            "nullable": true
+          },
+          "status": {
+            "type": "string"
+          },
+          "taggedAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "slug",
+          "name",
+          "groupId",
+          "group",
+          "source",
+          "confidence",
+          "status",
+          "taggedAt"
+        ]
+      },
+      "SuggestionItem": {
+        "type": "object",
+        "properties": {
+          "tagId": {
+            "type": "string",
+            "description": "标签 ID"
+          },
+          "tagSlug": {
+            "type": "string",
+            "description": "标签 slug"
+          },
+          "tagName": {
+            "type": "string",
+            "description": "标签名称"
+          },
+          "groupId": {
+            "type": "string",
+            "description": "分组 ID"
+          },
+          "groupSlug": {
+            "type": "string",
+            "description": "分组 slug"
+          },
+          "groupName": {
+            "type": "string",
+            "description": "分组名称"
+          },
+          "confidence": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1,
+            "description": "置信度 0~1"
+          },
+          "reasoning": {
+            "type": "string",
+            "description": "LLM 给出的推荐理由"
+          }
+        },
+        "required": [
+          "tagId",
+          "tagSlug",
+          "tagName",
+          "groupId",
+          "groupSlug",
+          "groupName",
+          "confidence",
+          "reasoning"
+        ]
+      },
+      "OkMessage": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "integer"
+          },
+          "message": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "message"
+        ]
+      },
+      "TagReview": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "fromStatus": {
+            "type": "string"
+          },
+          "toStatus": {
+            "type": "string"
+          },
+          "note": {
+            "type": "string",
+            "nullable": true
+          },
+          "reviewedAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "reviewer": {
+            "type": "object",
+            "nullable": true,
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "role": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "name",
+              "role"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "fromStatus",
+          "toStatus",
+          "note",
+          "reviewedAt",
+          "reviewer"
+        ]
+      },
+      "TagGroup": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "slug": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "entityScopes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "allowMultiple": {
+            "type": "boolean"
+          },
+          "sortOrder": {
+            "type": "integer"
+          },
+          "createdAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "updatedAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "deletedAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "string"
+              },
+              {
+                "nullable": true
+              }
+            ]
+          },
+          "entityRules": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/EntityRule"
+            }
+          },
+          "_count": {
+            "type": "object",
+            "properties": {
+              "tags": {
+                "type": "integer"
+              }
+            },
+            "required": [
+              "tags"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "slug",
+          "name",
+          "description",
+          "entityScopes",
+          "allowMultiple",
+          "sortOrder",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
+      "EntityRule": {
+        "type": "object",
+        "properties": {
+          "groupId": {
+            "type": "string"
+          },
+          "entityType": {
+            "type": "string"
+          },
+          "allowMultiple": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "groupId",
+          "entityType",
+          "allowMultiple"
+        ]
+      },
+      "Tag": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "groupId": {
+            "type": "string"
+          },
+          "slug": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "parentId": {
+            "type": "string",
+            "nullable": true
+          },
+          "path": {
+            "type": "string"
+          },
+          "depth": {
+            "type": "integer"
+          },
+          "sortOrder": {
+            "type": "integer"
+          },
+          "createdAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "updatedAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "deletedAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "string"
+              },
+              {
+                "nullable": true
+              }
+            ]
+          },
+          "group": {
+            "$ref": "#/components/schemas/TagGroupMini"
+          },
+          "_count": {
+            "type": "object",
+            "properties": {
+              "entityTags": {
+                "type": "integer"
+              }
+            },
+            "required": [
+              "entityTags"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "groupId",
+          "slug",
+          "name",
+          "description",
+          "parentId",
+          "path",
+          "depth",
+          "sortOrder",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
+      "TagAlias": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "tagId": {
+            "type": "string"
+          },
+          "alias": {
+            "type": "string"
+          },
+          "source": {
+            "type": "string"
+          },
+          "createdAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "tagId",
+          "alias",
+          "source",
+          "createdAt"
+        ]
+      },
+      "ApiToken": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string"
+          },
+          "scopes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "createdAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "lastUsedAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "string"
+              },
+              {
+                "nullable": true
+              }
+            ]
+          },
+          "revokedAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "string"
+              },
+              {
+                "nullable": true
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "role",
+          "scopes",
+          "createdAt",
+          "lastUsedAt",
+          "revokedAt"
+        ]
+      },
+      "CreatedToken": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ApiToken"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "token": {
+                "type": "string",
+                "description": "一次性明文 token，创建后不可再查"
+              }
+            },
+            "required": [
+              "token"
+            ]
+          }
+        ]
+      },
       "BoolExpr": {
         "anyOf": [
           {
@@ -798,113 +1478,7 @@
                         "items": {
                           "type": "array",
                           "items": {
-                            "type": "object",
-                            "properties": {
-                              "tagId": {
-                                "type": "string"
-                              },
-                              "entityType": {
-                                "type": "string"
-                              },
-                              "entityId": {
-                                "type": "string"
-                              },
-                              "source": {
-                                "type": "string"
-                              },
-                              "confidence": {
-                                "type": "number",
-                                "nullable": true
-                              },
-                              "status": {
-                                "type": "string"
-                              },
-                              "taggedAt": {
-                                "anyOf": [
-                                  {
-                                    "type": "string",
-                                    "format": "date-time"
-                                  },
-                                  {
-                                    "type": "string"
-                                  }
-                                ]
-                              },
-                              "reviewedAt": {
-                                "anyOf": [
-                                  {
-                                    "type": "string",
-                                    "format": "date-time"
-                                  },
-                                  {
-                                    "type": "string"
-                                  },
-                                  {
-                                    "nullable": true
-                                  }
-                                ]
-                              },
-                              "reviewNote": {
-                                "type": "string",
-                                "nullable": true
-                              },
-                              "reviewerName": {
-                                "type": "string",
-                                "nullable": true
-                              },
-                              "tag": {
-                                "type": "object",
-                                "properties": {
-                                  "id": {
-                                    "type": "string"
-                                  },
-                                  "slug": {
-                                    "type": "string"
-                                  },
-                                  "name": {
-                                    "type": "string"
-                                  },
-                                  "group": {
-                                    "type": "object",
-                                    "properties": {
-                                      "id": {
-                                        "type": "string"
-                                      },
-                                      "slug": {
-                                        "type": "string"
-                                      },
-                                      "name": {
-                                        "type": "string"
-                                      }
-                                    },
-                                    "required": [
-                                      "id",
-                                      "slug",
-                                      "name"
-                                    ]
-                                  }
-                                },
-                                "required": [
-                                  "id",
-                                  "slug",
-                                  "name",
-                                  "group"
-                                ]
-                              }
-                            },
-                            "required": [
-                              "tagId",
-                              "entityType",
-                              "entityId",
-                              "source",
-                              "confidence",
-                              "status",
-                              "taggedAt",
-                              "reviewedAt",
-                              "reviewNote",
-                              "reviewerName",
-                              "tag"
-                            ]
+                            "$ref": "#/components/schemas/AuditItem"
                           }
                         },
                         "total": {
@@ -938,19 +1512,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "code": {
-                      "type": "integer"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "code",
-                    "message"
-                  ]
+                  "$ref": "#/components/schemas/ApiError"
                 }
               }
             }
@@ -1067,114 +1629,7 @@
                         "items": {
                           "type": "array",
                           "items": {
-                            "type": "object",
-                            "properties": {
-                              "entityType": {
-                                "type": "string"
-                              },
-                              "entityId": {
-                                "type": "string"
-                              },
-                              "registeredAt": {
-                                "anyOf": [
-                                  {
-                                    "type": "string",
-                                    "format": "date-time"
-                                  },
-                                  {
-                                    "type": "string"
-                                  }
-                                ]
-                              },
-                              "metadata": {
-                                "type": "object",
-                                "nullable": true,
-                                "additionalProperties": {
-                                  "type": "string"
-                                },
-                                "description": "实体元数据 KV 映射。推荐字段：name（名称）、description（描述）、imageUrl（图片URL）、category（分类）。AI 标签建议功能依赖这些字段生成高质量建议。",
-                                "example": {
-                                  "name": "宫保鸡丁",
-                                  "description": "经典川菜，酸甜微辣",
-                                  "category": "热菜"
-                                }
-                              },
-                              "tags": {
-                                "type": "array",
-                                "items": {
-                                  "type": "object",
-                                  "properties": {
-                                    "id": {
-                                      "type": "string"
-                                    },
-                                    "slug": {
-                                      "type": "string"
-                                    },
-                                    "name": {
-                                      "type": "string"
-                                    },
-                                    "groupId": {
-                                      "type": "string"
-                                    },
-                                    "group": {
-                                      "type": "object",
-                                      "properties": {
-                                        "id": {
-                                          "type": "string"
-                                        },
-                                        "slug": {
-                                          "type": "string"
-                                        },
-                                        "name": {
-                                          "type": "string"
-                                        }
-                                      },
-                                      "required": [
-                                        "id",
-                                        "slug",
-                                        "name"
-                                      ]
-                                    },
-                                    "source": {
-                                      "type": "string"
-                                    },
-                                    "confidence": {
-                                      "type": "number",
-                                      "nullable": true
-                                    },
-                                    "status": {
-                                      "type": "string"
-                                    },
-                                    "taggedAt": {
-                                      "anyOf": [
-                                        {
-                                          "type": "string",
-                                          "format": "date-time"
-                                        },
-                                        {
-                                          "type": "string"
-                                        }
-                                      ]
-                                    }
-                                  },
-                                  "required": [
-                                    "id",
-                                    "slug",
-                                    "name",
-                                    "groupId",
-                                    "group",
-                                    "source",
-                                    "confidence",
-                                    "status",
-                                    "taggedAt"
-                                  ]
-                                }
-                              }
-                            },
-                            "required": [
-                              "entityType",
-                              "entityId"
-                            ]
+                            "$ref": "#/components/schemas/RegisteredEntity"
                           }
                         },
                         "total": {
@@ -1282,19 +1737,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "code": {
-                      "type": "integer"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "code",
-                    "message"
-                  ]
+                  "$ref": "#/components/schemas/ApiError"
                 }
               }
             }
@@ -1402,53 +1845,7 @@
                         "suggestions": {
                           "type": "array",
                           "items": {
-                            "type": "object",
-                            "properties": {
-                              "tagId": {
-                                "type": "string",
-                                "description": "标签 ID"
-                              },
-                              "tagSlug": {
-                                "type": "string",
-                                "description": "标签 slug"
-                              },
-                              "tagName": {
-                                "type": "string",
-                                "description": "标签名称"
-                              },
-                              "groupId": {
-                                "type": "string",
-                                "description": "分组 ID"
-                              },
-                              "groupSlug": {
-                                "type": "string",
-                                "description": "分组 slug"
-                              },
-                              "groupName": {
-                                "type": "string",
-                                "description": "分组名称"
-                              },
-                              "confidence": {
-                                "type": "number",
-                                "minimum": 0,
-                                "maximum": 1,
-                                "description": "置信度 0~1"
-                              },
-                              "reasoning": {
-                                "type": "string",
-                                "description": "LLM 给出的推荐理由"
-                              }
-                            },
-                            "required": [
-                              "tagId",
-                              "tagSlug",
-                              "tagName",
-                              "groupId",
-                              "groupSlug",
-                              "groupName",
-                              "confidence",
-                              "reasoning"
-                            ]
+                            "$ref": "#/components/schemas/SuggestionItem"
                           }
                         },
                         "model": {
@@ -1479,19 +1876,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "code": {
-                      "type": "integer"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "code",
-                    "message"
-                  ]
+                  "$ref": "#/components/schemas/ApiError"
                 }
               }
             }
@@ -1501,19 +1886,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "code": {
-                      "type": "integer"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "code",
-                    "message"
-                  ]
+                  "$ref": "#/components/schemas/ApiError"
                 }
               }
             }
@@ -1575,72 +1948,7 @@
                     "data": {
                       "type": "array",
                       "items": {
-                        "type": "object",
-                        "properties": {
-                          "id": {
-                            "type": "string"
-                          },
-                          "slug": {
-                            "type": "string"
-                          },
-                          "name": {
-                            "type": "string"
-                          },
-                          "groupId": {
-                            "type": "string"
-                          },
-                          "group": {
-                            "type": "object",
-                            "properties": {
-                              "id": {
-                                "type": "string"
-                              },
-                              "slug": {
-                                "type": "string"
-                              },
-                              "name": {
-                                "type": "string"
-                              }
-                            },
-                            "required": [
-                              "id",
-                              "slug",
-                              "name"
-                            ]
-                          },
-                          "source": {
-                            "type": "string"
-                          },
-                          "confidence": {
-                            "type": "number",
-                            "nullable": true
-                          },
-                          "status": {
-                            "type": "string"
-                          },
-                          "taggedAt": {
-                            "anyOf": [
-                              {
-                                "type": "string",
-                                "format": "date-time"
-                              },
-                              {
-                                "type": "string"
-                              }
-                            ]
-                          }
-                        },
-                        "required": [
-                          "id",
-                          "slug",
-                          "name",
-                          "groupId",
-                          "group",
-                          "source",
-                          "confidence",
-                          "status",
-                          "taggedAt"
-                        ]
+                        "$ref": "#/components/schemas/EntityTagItem"
                       }
                     }
                   },
@@ -1657,19 +1965,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "code": {
-                      "type": "integer"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "code",
-                    "message"
-                  ]
+                  "$ref": "#/components/schemas/ApiError"
                 }
               }
             }
@@ -1758,19 +2054,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "code": {
-                      "type": "integer"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "code",
-                    "message"
-                  ]
+                  "$ref": "#/components/schemas/OkMessage"
                 }
               }
             }
@@ -1780,19 +2064,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "code": {
-                      "type": "integer"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "code",
-                    "message"
-                  ]
+                  "$ref": "#/components/schemas/ApiError"
                 }
               }
             }
@@ -1802,19 +2074,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "code": {
-                      "type": "integer"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "code",
-                    "message"
-                  ]
+                  "$ref": "#/components/schemas/ApiError"
                 }
               }
             }
@@ -1900,19 +2160,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "code": {
-                      "type": "integer"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "code",
-                    "message"
-                  ]
+                  "$ref": "#/components/schemas/OkMessage"
                 }
               }
             }
@@ -1922,19 +2170,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "code": {
-                      "type": "integer"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "code",
-                    "message"
-                  ]
+                  "$ref": "#/components/schemas/ApiError"
                 }
               }
             }
@@ -1944,19 +2180,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "code": {
-                      "type": "integer"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "code",
-                    "message"
-                  ]
+                  "$ref": "#/components/schemas/ApiError"
                 }
               }
             }
@@ -1966,19 +2190,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "code": {
-                      "type": "integer"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "code",
-                    "message"
-                  ]
+                  "$ref": "#/components/schemas/ApiError"
                 }
               }
             }
@@ -1988,19 +2200,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "code": {
-                      "type": "integer"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "code",
-                    "message"
-                  ]
+                  "$ref": "#/components/schemas/ApiError"
                 }
               }
             }
@@ -2010,19 +2210,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "code": {
-                      "type": "integer"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "code",
-                    "message"
-                  ]
+                  "$ref": "#/components/schemas/ApiError"
                 }
               }
             }
@@ -2132,19 +2320,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "code": {
-                      "type": "integer"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "code",
-                    "message"
-                  ]
+                  "$ref": "#/components/schemas/ApiError"
                 }
               }
             }
@@ -2154,19 +2330,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "code": {
-                      "type": "integer"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "code",
-                    "message"
-                  ]
+                  "$ref": "#/components/schemas/ApiError"
                 }
               }
             }
@@ -2176,19 +2340,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "code": {
-                      "type": "integer"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "code",
-                    "message"
-                  ]
+                  "$ref": "#/components/schemas/ApiError"
                 }
               }
             }
@@ -2240,19 +2392,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "code": {
-                      "type": "integer"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "code",
-                    "message"
-                  ]
+                  "$ref": "#/components/schemas/OkMessage"
                 }
               }
             }
@@ -2262,19 +2402,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "code": {
-                      "type": "integer"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "code",
-                    "message"
-                  ]
+                  "$ref": "#/components/schemas/ApiError"
                 }
               }
             }
@@ -2284,19 +2412,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "code": {
-                      "type": "integer"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "code",
-                    "message"
-                  ]
+                  "$ref": "#/components/schemas/ApiError"
                 }
               }
             }
@@ -2353,61 +2469,7 @@
                     "data": {
                       "type": "array",
                       "items": {
-                        "type": "object",
-                        "properties": {
-                          "id": {
-                            "type": "string"
-                          },
-                          "fromStatus": {
-                            "type": "string"
-                          },
-                          "toStatus": {
-                            "type": "string"
-                          },
-                          "note": {
-                            "type": "string",
-                            "nullable": true
-                          },
-                          "reviewedAt": {
-                            "anyOf": [
-                              {
-                                "type": "string",
-                                "format": "date-time"
-                              },
-                              {
-                                "type": "string"
-                              }
-                            ]
-                          },
-                          "reviewer": {
-                            "type": "object",
-                            "nullable": true,
-                            "properties": {
-                              "id": {
-                                "type": "string"
-                              },
-                              "name": {
-                                "type": "string"
-                              },
-                              "role": {
-                                "type": "string"
-                              }
-                            },
-                            "required": [
-                              "id",
-                              "name",
-                              "role"
-                            ]
-                          }
-                        },
-                        "required": [
-                          "id",
-                          "fromStatus",
-                          "toStatus",
-                          "note",
-                          "reviewedAt",
-                          "reviewer"
-                        ]
+                        "$ref": "#/components/schemas/TagReview"
                       }
                     }
                   },
@@ -2424,19 +2486,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "code": {
-                      "type": "integer"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "code",
-                    "message"
-                  ]
+                  "$ref": "#/components/schemas/ApiError"
                 }
               }
             }
@@ -2601,19 +2651,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "code": {
-                      "type": "integer"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "code",
-                    "message"
-                  ]
+                  "$ref": "#/components/schemas/ApiError"
                 }
               }
             }
@@ -2623,19 +2661,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "code": {
-                      "type": "integer"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "code",
-                    "message"
-                  ]
+                  "$ref": "#/components/schemas/ApiError"
                 }
               }
             }
@@ -2645,19 +2671,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "code": {
-                      "type": "integer"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "code",
-                    "message"
-                  ]
+                  "$ref": "#/components/schemas/ApiError"
                 }
               }
             }
@@ -2709,16 +2723,14 @@
                 "type": "object",
                 "properties": {
                   "metadata": {
-                    "type": "object",
-                    "additionalProperties": {
-                      "type": "string"
-                    },
-                    "description": "实体元数据，首次注册时提供；PATCH 时传入会覆盖全量替换",
-                    "example": {
-                      "name": "宫保鸡丁",
-                      "description": "经典川菜，酸甜微辣",
-                      "category": "热菜"
-                    }
+                    "allOf": [
+                      {
+                        "$ref": "#/components/schemas/EntityMetadata"
+                      },
+                      {
+                        "description": "实体元数据，首次注册时提供；PATCH 时传入会覆盖全量替换"
+                      }
+                    ]
                   }
                 }
               }
@@ -2731,19 +2743,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "code": {
-                      "type": "integer"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "code",
-                    "message"
-                  ]
+                  "$ref": "#/components/schemas/OkMessage"
                 }
               }
             }
@@ -2793,16 +2793,14 @@
                 "type": "object",
                 "properties": {
                   "metadata": {
-                    "type": "object",
-                    "additionalProperties": {
-                      "type": "string"
-                    },
-                    "description": "实体元数据，首次注册时提供；PATCH 时传入会覆盖全量替换",
-                    "example": {
-                      "name": "宫保鸡丁",
-                      "description": "经典川菜，酸甜微辣",
-                      "category": "热菜"
-                    }
+                    "allOf": [
+                      {
+                        "$ref": "#/components/schemas/EntityMetadata"
+                      },
+                      {
+                        "description": "实体元数据，首次注册时提供；PATCH 时传入会覆盖全量替换"
+                      }
+                    ]
                   }
                 }
               }
@@ -2815,19 +2813,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "code": {
-                      "type": "integer"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "code",
-                    "message"
-                  ]
+                  "$ref": "#/components/schemas/OkMessage"
                 }
               }
             }
@@ -2837,19 +2823,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "code": {
-                      "type": "integer"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "code",
-                    "message"
-                  ]
+                  "$ref": "#/components/schemas/ApiError"
                 }
               }
             }
@@ -2896,19 +2870,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "code": {
-                      "type": "integer"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "code",
-                    "message"
-                  ]
+                  "$ref": "#/components/schemas/OkMessage"
                 }
               }
             }
@@ -2918,19 +2880,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "code": {
-                      "type": "integer"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "code",
-                    "message"
-                  ]
+                  "$ref": "#/components/schemas/ApiError"
                 }
               }
             }
@@ -2978,114 +2928,7 @@
                       "type": "integer"
                     },
                     "data": {
-                      "type": "object",
-                      "properties": {
-                        "entityType": {
-                          "type": "string"
-                        },
-                        "entityId": {
-                          "type": "string"
-                        },
-                        "registeredAt": {
-                          "anyOf": [
-                            {
-                              "type": "string",
-                              "format": "date-time"
-                            },
-                            {
-                              "type": "string"
-                            }
-                          ]
-                        },
-                        "metadata": {
-                          "type": "object",
-                          "nullable": true,
-                          "additionalProperties": {
-                            "type": "string"
-                          },
-                          "description": "实体元数据 KV 映射。推荐字段：name（名称）、description（描述）、imageUrl（图片URL）、category（分类）。AI 标签建议功能依赖这些字段生成高质量建议。",
-                          "example": {
-                            "name": "宫保鸡丁",
-                            "description": "经典川菜，酸甜微辣",
-                            "category": "热菜"
-                          }
-                        },
-                        "tags": {
-                          "type": "array",
-                          "items": {
-                            "type": "object",
-                            "properties": {
-                              "id": {
-                                "type": "string"
-                              },
-                              "slug": {
-                                "type": "string"
-                              },
-                              "name": {
-                                "type": "string"
-                              },
-                              "groupId": {
-                                "type": "string"
-                              },
-                              "group": {
-                                "type": "object",
-                                "properties": {
-                                  "id": {
-                                    "type": "string"
-                                  },
-                                  "slug": {
-                                    "type": "string"
-                                  },
-                                  "name": {
-                                    "type": "string"
-                                  }
-                                },
-                                "required": [
-                                  "id",
-                                  "slug",
-                                  "name"
-                                ]
-                              },
-                              "source": {
-                                "type": "string"
-                              },
-                              "confidence": {
-                                "type": "number",
-                                "nullable": true
-                              },
-                              "status": {
-                                "type": "string"
-                              },
-                              "taggedAt": {
-                                "anyOf": [
-                                  {
-                                    "type": "string",
-                                    "format": "date-time"
-                                  },
-                                  {
-                                    "type": "string"
-                                  }
-                                ]
-                              }
-                            },
-                            "required": [
-                              "id",
-                              "slug",
-                              "name",
-                              "groupId",
-                              "group",
-                              "source",
-                              "confidence",
-                              "status",
-                              "taggedAt"
-                            ]
-                          }
-                        }
-                      },
-                      "required": [
-                        "entityType",
-                        "entityId"
-                      ]
+                      "$ref": "#/components/schemas/RegisteredEntity"
                     }
                   },
                   "required": [
@@ -3101,19 +2944,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "code": {
-                      "type": "integer"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "code",
-                    "message"
-                  ]
+                  "$ref": "#/components/schemas/ApiError"
                 }
               }
             }
@@ -3215,114 +3046,7 @@
                         "items": {
                           "type": "array",
                           "items": {
-                            "type": "object",
-                            "properties": {
-                              "id": {
-                                "type": "string"
-                              },
-                              "slug": {
-                                "type": "string"
-                              },
-                              "name": {
-                                "type": "string"
-                              },
-                              "description": {
-                                "type": "string",
-                                "nullable": true
-                              },
-                              "entityScopes": {
-                                "type": "array",
-                                "items": {
-                                  "type": "string"
-                                }
-                              },
-                              "allowMultiple": {
-                                "type": "boolean"
-                              },
-                              "sortOrder": {
-                                "type": "integer"
-                              },
-                              "createdAt": {
-                                "anyOf": [
-                                  {
-                                    "type": "string",
-                                    "format": "date-time"
-                                  },
-                                  {
-                                    "type": "string"
-                                  }
-                                ]
-                              },
-                              "updatedAt": {
-                                "anyOf": [
-                                  {
-                                    "type": "string",
-                                    "format": "date-time"
-                                  },
-                                  {
-                                    "type": "string"
-                                  }
-                                ]
-                              },
-                              "deletedAt": {
-                                "anyOf": [
-                                  {
-                                    "type": "string",
-                                    "format": "date-time"
-                                  },
-                                  {
-                                    "type": "string"
-                                  },
-                                  {
-                                    "nullable": true
-                                  }
-                                ]
-                              },
-                              "entityRules": {
-                                "type": "array",
-                                "items": {
-                                  "type": "object",
-                                  "properties": {
-                                    "groupId": {
-                                      "type": "string"
-                                    },
-                                    "entityType": {
-                                      "type": "string"
-                                    },
-                                    "allowMultiple": {
-                                      "type": "boolean"
-                                    }
-                                  },
-                                  "required": [
-                                    "groupId",
-                                    "entityType",
-                                    "allowMultiple"
-                                  ]
-                                }
-                              },
-                              "_count": {
-                                "type": "object",
-                                "properties": {
-                                  "tags": {
-                                    "type": "integer"
-                                  }
-                                },
-                                "required": [
-                                  "tags"
-                                ]
-                              }
-                            },
-                            "required": [
-                              "id",
-                              "slug",
-                              "name",
-                              "description",
-                              "entityScopes",
-                              "allowMultiple",
-                              "sortOrder",
-                              "createdAt",
-                              "updatedAt"
-                            ]
+                            "$ref": "#/components/schemas/TagGroup"
                           }
                         },
                         "total": {
@@ -3422,114 +3146,7 @@
                       "type": "integer"
                     },
                     "data": {
-                      "type": "object",
-                      "properties": {
-                        "id": {
-                          "type": "string"
-                        },
-                        "slug": {
-                          "type": "string"
-                        },
-                        "name": {
-                          "type": "string"
-                        },
-                        "description": {
-                          "type": "string",
-                          "nullable": true
-                        },
-                        "entityScopes": {
-                          "type": "array",
-                          "items": {
-                            "type": "string"
-                          }
-                        },
-                        "allowMultiple": {
-                          "type": "boolean"
-                        },
-                        "sortOrder": {
-                          "type": "integer"
-                        },
-                        "createdAt": {
-                          "anyOf": [
-                            {
-                              "type": "string",
-                              "format": "date-time"
-                            },
-                            {
-                              "type": "string"
-                            }
-                          ]
-                        },
-                        "updatedAt": {
-                          "anyOf": [
-                            {
-                              "type": "string",
-                              "format": "date-time"
-                            },
-                            {
-                              "type": "string"
-                            }
-                          ]
-                        },
-                        "deletedAt": {
-                          "anyOf": [
-                            {
-                              "type": "string",
-                              "format": "date-time"
-                            },
-                            {
-                              "type": "string"
-                            },
-                            {
-                              "nullable": true
-                            }
-                          ]
-                        },
-                        "entityRules": {
-                          "type": "array",
-                          "items": {
-                            "type": "object",
-                            "properties": {
-                              "groupId": {
-                                "type": "string"
-                              },
-                              "entityType": {
-                                "type": "string"
-                              },
-                              "allowMultiple": {
-                                "type": "boolean"
-                              }
-                            },
-                            "required": [
-                              "groupId",
-                              "entityType",
-                              "allowMultiple"
-                            ]
-                          }
-                        },
-                        "_count": {
-                          "type": "object",
-                          "properties": {
-                            "tags": {
-                              "type": "integer"
-                            }
-                          },
-                          "required": [
-                            "tags"
-                          ]
-                        }
-                      },
-                      "required": [
-                        "id",
-                        "slug",
-                        "name",
-                        "description",
-                        "entityScopes",
-                        "allowMultiple",
-                        "sortOrder",
-                        "createdAt",
-                        "updatedAt"
-                      ]
+                      "$ref": "#/components/schemas/TagGroup"
                     }
                   },
                   "required": [
@@ -3545,19 +3162,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "code": {
-                      "type": "integer"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "code",
-                    "message"
-                  ]
+                  "$ref": "#/components/schemas/ApiError"
                 }
               }
             }
@@ -3567,19 +3172,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "code": {
-                      "type": "integer"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "code",
-                    "message"
-                  ]
+                  "$ref": "#/components/schemas/ApiError"
                 }
               }
             }
@@ -3618,114 +3211,7 @@
                       "type": "integer"
                     },
                     "data": {
-                      "type": "object",
-                      "properties": {
-                        "id": {
-                          "type": "string"
-                        },
-                        "slug": {
-                          "type": "string"
-                        },
-                        "name": {
-                          "type": "string"
-                        },
-                        "description": {
-                          "type": "string",
-                          "nullable": true
-                        },
-                        "entityScopes": {
-                          "type": "array",
-                          "items": {
-                            "type": "string"
-                          }
-                        },
-                        "allowMultiple": {
-                          "type": "boolean"
-                        },
-                        "sortOrder": {
-                          "type": "integer"
-                        },
-                        "createdAt": {
-                          "anyOf": [
-                            {
-                              "type": "string",
-                              "format": "date-time"
-                            },
-                            {
-                              "type": "string"
-                            }
-                          ]
-                        },
-                        "updatedAt": {
-                          "anyOf": [
-                            {
-                              "type": "string",
-                              "format": "date-time"
-                            },
-                            {
-                              "type": "string"
-                            }
-                          ]
-                        },
-                        "deletedAt": {
-                          "anyOf": [
-                            {
-                              "type": "string",
-                              "format": "date-time"
-                            },
-                            {
-                              "type": "string"
-                            },
-                            {
-                              "nullable": true
-                            }
-                          ]
-                        },
-                        "entityRules": {
-                          "type": "array",
-                          "items": {
-                            "type": "object",
-                            "properties": {
-                              "groupId": {
-                                "type": "string"
-                              },
-                              "entityType": {
-                                "type": "string"
-                              },
-                              "allowMultiple": {
-                                "type": "boolean"
-                              }
-                            },
-                            "required": [
-                              "groupId",
-                              "entityType",
-                              "allowMultiple"
-                            ]
-                          }
-                        },
-                        "_count": {
-                          "type": "object",
-                          "properties": {
-                            "tags": {
-                              "type": "integer"
-                            }
-                          },
-                          "required": [
-                            "tags"
-                          ]
-                        }
-                      },
-                      "required": [
-                        "id",
-                        "slug",
-                        "name",
-                        "description",
-                        "entityScopes",
-                        "allowMultiple",
-                        "sortOrder",
-                        "createdAt",
-                        "updatedAt"
-                      ]
+                      "$ref": "#/components/schemas/TagGroup"
                     }
                   },
                   "required": [
@@ -3741,19 +3227,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "code": {
-                      "type": "integer"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "code",
-                    "message"
-                  ]
+                  "$ref": "#/components/schemas/ApiError"
                 }
               }
             }
@@ -3835,114 +3309,7 @@
                       "type": "integer"
                     },
                     "data": {
-                      "type": "object",
-                      "properties": {
-                        "id": {
-                          "type": "string"
-                        },
-                        "slug": {
-                          "type": "string"
-                        },
-                        "name": {
-                          "type": "string"
-                        },
-                        "description": {
-                          "type": "string",
-                          "nullable": true
-                        },
-                        "entityScopes": {
-                          "type": "array",
-                          "items": {
-                            "type": "string"
-                          }
-                        },
-                        "allowMultiple": {
-                          "type": "boolean"
-                        },
-                        "sortOrder": {
-                          "type": "integer"
-                        },
-                        "createdAt": {
-                          "anyOf": [
-                            {
-                              "type": "string",
-                              "format": "date-time"
-                            },
-                            {
-                              "type": "string"
-                            }
-                          ]
-                        },
-                        "updatedAt": {
-                          "anyOf": [
-                            {
-                              "type": "string",
-                              "format": "date-time"
-                            },
-                            {
-                              "type": "string"
-                            }
-                          ]
-                        },
-                        "deletedAt": {
-                          "anyOf": [
-                            {
-                              "type": "string",
-                              "format": "date-time"
-                            },
-                            {
-                              "type": "string"
-                            },
-                            {
-                              "nullable": true
-                            }
-                          ]
-                        },
-                        "entityRules": {
-                          "type": "array",
-                          "items": {
-                            "type": "object",
-                            "properties": {
-                              "groupId": {
-                                "type": "string"
-                              },
-                              "entityType": {
-                                "type": "string"
-                              },
-                              "allowMultiple": {
-                                "type": "boolean"
-                              }
-                            },
-                            "required": [
-                              "groupId",
-                              "entityType",
-                              "allowMultiple"
-                            ]
-                          }
-                        },
-                        "_count": {
-                          "type": "object",
-                          "properties": {
-                            "tags": {
-                              "type": "integer"
-                            }
-                          },
-                          "required": [
-                            "tags"
-                          ]
-                        }
-                      },
-                      "required": [
-                        "id",
-                        "slug",
-                        "name",
-                        "description",
-                        "entityScopes",
-                        "allowMultiple",
-                        "sortOrder",
-                        "createdAt",
-                        "updatedAt"
-                      ]
+                      "$ref": "#/components/schemas/TagGroup"
                     }
                   },
                   "required": [
@@ -3958,19 +3325,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "code": {
-                      "type": "integer"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "code",
-                    "message"
-                  ]
+                  "$ref": "#/components/schemas/ApiError"
                 }
               }
             }
@@ -3980,19 +3335,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "code": {
-                      "type": "integer"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "code",
-                    "message"
-                  ]
+                  "$ref": "#/components/schemas/ApiError"
                 }
               }
             }
@@ -4054,19 +3397,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "code": {
-                      "type": "integer"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "code",
-                    "message"
-                  ]
+                  "$ref": "#/components/schemas/OkMessage"
                 }
               }
             }
@@ -4076,19 +3407,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "code": {
-                      "type": "integer"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "code",
-                    "message"
-                  ]
+                  "$ref": "#/components/schemas/ApiError"
                 }
               }
             }
@@ -4098,19 +3417,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "code": {
-                      "type": "integer"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "code",
-                    "message"
-                  ]
+                  "$ref": "#/components/schemas/ApiError"
                 }
               }
             }
@@ -4168,19 +3475,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "code": {
-                      "type": "integer"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "code",
-                    "message"
-                  ]
+                  "$ref": "#/components/schemas/ApiError"
                 }
               }
             }
@@ -4224,114 +3519,7 @@
                       "type": "integer"
                     },
                     "data": {
-                      "type": "object",
-                      "properties": {
-                        "id": {
-                          "type": "string"
-                        },
-                        "slug": {
-                          "type": "string"
-                        },
-                        "name": {
-                          "type": "string"
-                        },
-                        "description": {
-                          "type": "string",
-                          "nullable": true
-                        },
-                        "entityScopes": {
-                          "type": "array",
-                          "items": {
-                            "type": "string"
-                          }
-                        },
-                        "allowMultiple": {
-                          "type": "boolean"
-                        },
-                        "sortOrder": {
-                          "type": "integer"
-                        },
-                        "createdAt": {
-                          "anyOf": [
-                            {
-                              "type": "string",
-                              "format": "date-time"
-                            },
-                            {
-                              "type": "string"
-                            }
-                          ]
-                        },
-                        "updatedAt": {
-                          "anyOf": [
-                            {
-                              "type": "string",
-                              "format": "date-time"
-                            },
-                            {
-                              "type": "string"
-                            }
-                          ]
-                        },
-                        "deletedAt": {
-                          "anyOf": [
-                            {
-                              "type": "string",
-                              "format": "date-time"
-                            },
-                            {
-                              "type": "string"
-                            },
-                            {
-                              "nullable": true
-                            }
-                          ]
-                        },
-                        "entityRules": {
-                          "type": "array",
-                          "items": {
-                            "type": "object",
-                            "properties": {
-                              "groupId": {
-                                "type": "string"
-                              },
-                              "entityType": {
-                                "type": "string"
-                              },
-                              "allowMultiple": {
-                                "type": "boolean"
-                              }
-                            },
-                            "required": [
-                              "groupId",
-                              "entityType",
-                              "allowMultiple"
-                            ]
-                          }
-                        },
-                        "_count": {
-                          "type": "object",
-                          "properties": {
-                            "tags": {
-                              "type": "integer"
-                            }
-                          },
-                          "required": [
-                            "tags"
-                          ]
-                        }
-                      },
-                      "required": [
-                        "id",
-                        "slug",
-                        "name",
-                        "description",
-                        "entityScopes",
-                        "allowMultiple",
-                        "sortOrder",
-                        "createdAt",
-                        "updatedAt"
-                      ]
+                      "$ref": "#/components/schemas/TagGroup"
                     }
                   },
                   "required": [
@@ -4347,19 +3535,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "code": {
-                      "type": "integer"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "code",
-                    "message"
-                  ]
+                  "$ref": "#/components/schemas/ApiError"
                 }
               }
             }
@@ -4369,19 +3545,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "code": {
-                      "type": "integer"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "code",
-                    "message"
-                  ]
+                  "$ref": "#/components/schemas/ApiError"
                 }
               }
             }
@@ -4462,117 +3626,7 @@
                         "items": {
                           "type": "array",
                           "items": {
-                            "type": "object",
-                            "properties": {
-                              "id": {
-                                "type": "string"
-                              },
-                              "groupId": {
-                                "type": "string"
-                              },
-                              "slug": {
-                                "type": "string"
-                              },
-                              "name": {
-                                "type": "string"
-                              },
-                              "description": {
-                                "type": "string",
-                                "nullable": true
-                              },
-                              "parentId": {
-                                "type": "string",
-                                "nullable": true
-                              },
-                              "path": {
-                                "type": "string"
-                              },
-                              "depth": {
-                                "type": "integer"
-                              },
-                              "sortOrder": {
-                                "type": "integer"
-                              },
-                              "createdAt": {
-                                "anyOf": [
-                                  {
-                                    "type": "string",
-                                    "format": "date-time"
-                                  },
-                                  {
-                                    "type": "string"
-                                  }
-                                ]
-                              },
-                              "updatedAt": {
-                                "anyOf": [
-                                  {
-                                    "type": "string",
-                                    "format": "date-time"
-                                  },
-                                  {
-                                    "type": "string"
-                                  }
-                                ]
-                              },
-                              "deletedAt": {
-                                "anyOf": [
-                                  {
-                                    "type": "string",
-                                    "format": "date-time"
-                                  },
-                                  {
-                                    "type": "string"
-                                  },
-                                  {
-                                    "nullable": true
-                                  }
-                                ]
-                              },
-                              "group": {
-                                "type": "object",
-                                "properties": {
-                                  "id": {
-                                    "type": "string"
-                                  },
-                                  "slug": {
-                                    "type": "string"
-                                  },
-                                  "name": {
-                                    "type": "string"
-                                  }
-                                },
-                                "required": [
-                                  "id",
-                                  "slug",
-                                  "name"
-                                ]
-                              },
-                              "_count": {
-                                "type": "object",
-                                "properties": {
-                                  "entityTags": {
-                                    "type": "integer"
-                                  }
-                                },
-                                "required": [
-                                  "entityTags"
-                                ]
-                              }
-                            },
-                            "required": [
-                              "id",
-                              "groupId",
-                              "slug",
-                              "name",
-                              "description",
-                              "parentId",
-                              "path",
-                              "depth",
-                              "sortOrder",
-                              "createdAt",
-                              "updatedAt"
-                            ]
+                            "$ref": "#/components/schemas/Tag"
                           }
                         },
                         "total": {
@@ -4606,19 +3660,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "code": {
-                      "type": "integer"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "code",
-                    "message"
-                  ]
+                  "$ref": "#/components/schemas/ApiError"
                 }
               }
             }
@@ -4698,23 +3740,7 @@
                     "data": {
                       "type": "array",
                       "items": {
-                        "type": "object",
-                        "properties": {
-                          "groupId": {
-                            "type": "string"
-                          },
-                          "entityType": {
-                            "type": "string"
-                          },
-                          "allowMultiple": {
-                            "type": "boolean"
-                          }
-                        },
-                        "required": [
-                          "groupId",
-                          "entityType",
-                          "allowMultiple"
-                        ]
+                        "$ref": "#/components/schemas/EntityRule"
                       }
                     }
                   },
@@ -4731,19 +3757,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "code": {
-                      "type": "integer"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "code",
-                    "message"
-                  ]
+                  "$ref": "#/components/schemas/ApiError"
                 }
               }
             }
@@ -4795,117 +3809,7 @@
                       "type": "object",
                       "properties": {
                         "tag": {
-                          "type": "object",
-                          "properties": {
-                            "id": {
-                              "type": "string"
-                            },
-                            "groupId": {
-                              "type": "string"
-                            },
-                            "slug": {
-                              "type": "string"
-                            },
-                            "name": {
-                              "type": "string"
-                            },
-                            "description": {
-                              "type": "string",
-                              "nullable": true
-                            },
-                            "parentId": {
-                              "type": "string",
-                              "nullable": true
-                            },
-                            "path": {
-                              "type": "string"
-                            },
-                            "depth": {
-                              "type": "integer"
-                            },
-                            "sortOrder": {
-                              "type": "integer"
-                            },
-                            "createdAt": {
-                              "anyOf": [
-                                {
-                                  "type": "string",
-                                  "format": "date-time"
-                                },
-                                {
-                                  "type": "string"
-                                }
-                              ]
-                            },
-                            "updatedAt": {
-                              "anyOf": [
-                                {
-                                  "type": "string",
-                                  "format": "date-time"
-                                },
-                                {
-                                  "type": "string"
-                                }
-                              ]
-                            },
-                            "deletedAt": {
-                              "anyOf": [
-                                {
-                                  "type": "string",
-                                  "format": "date-time"
-                                },
-                                {
-                                  "type": "string"
-                                },
-                                {
-                                  "nullable": true
-                                }
-                              ]
-                            },
-                            "group": {
-                              "type": "object",
-                              "properties": {
-                                "id": {
-                                  "type": "string"
-                                },
-                                "slug": {
-                                  "type": "string"
-                                },
-                                "name": {
-                                  "type": "string"
-                                }
-                              },
-                              "required": [
-                                "id",
-                                "slug",
-                                "name"
-                              ]
-                            },
-                            "_count": {
-                              "type": "object",
-                              "properties": {
-                                "entityTags": {
-                                  "type": "integer"
-                                }
-                              },
-                              "required": [
-                                "entityTags"
-                              ]
-                            }
-                          },
-                          "required": [
-                            "id",
-                            "groupId",
-                            "slug",
-                            "name",
-                            "description",
-                            "parentId",
-                            "path",
-                            "depth",
-                            "sortOrder",
-                            "createdAt",
-                            "updatedAt"
-                          ]
+                          "$ref": "#/components/schemas/Tag"
                         },
                         "matchedBy": {
                           "type": "string",
@@ -4935,19 +3839,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "code": {
-                      "type": "integer"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "code",
-                    "message"
-                  ]
+                  "$ref": "#/components/schemas/ApiError"
                 }
               }
             }
@@ -4957,19 +3849,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "code": {
-                      "type": "integer"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "code",
-                    "message"
-                  ]
+                  "$ref": "#/components/schemas/ApiError"
                 }
               }
             }
@@ -5053,117 +3933,7 @@
                         "items": {
                           "type": "array",
                           "items": {
-                            "type": "object",
-                            "properties": {
-                              "id": {
-                                "type": "string"
-                              },
-                              "groupId": {
-                                "type": "string"
-                              },
-                              "slug": {
-                                "type": "string"
-                              },
-                              "name": {
-                                "type": "string"
-                              },
-                              "description": {
-                                "type": "string",
-                                "nullable": true
-                              },
-                              "parentId": {
-                                "type": "string",
-                                "nullable": true
-                              },
-                              "path": {
-                                "type": "string"
-                              },
-                              "depth": {
-                                "type": "integer"
-                              },
-                              "sortOrder": {
-                                "type": "integer"
-                              },
-                              "createdAt": {
-                                "anyOf": [
-                                  {
-                                    "type": "string",
-                                    "format": "date-time"
-                                  },
-                                  {
-                                    "type": "string"
-                                  }
-                                ]
-                              },
-                              "updatedAt": {
-                                "anyOf": [
-                                  {
-                                    "type": "string",
-                                    "format": "date-time"
-                                  },
-                                  {
-                                    "type": "string"
-                                  }
-                                ]
-                              },
-                              "deletedAt": {
-                                "anyOf": [
-                                  {
-                                    "type": "string",
-                                    "format": "date-time"
-                                  },
-                                  {
-                                    "type": "string"
-                                  },
-                                  {
-                                    "nullable": true
-                                  }
-                                ]
-                              },
-                              "group": {
-                                "type": "object",
-                                "properties": {
-                                  "id": {
-                                    "type": "string"
-                                  },
-                                  "slug": {
-                                    "type": "string"
-                                  },
-                                  "name": {
-                                    "type": "string"
-                                  }
-                                },
-                                "required": [
-                                  "id",
-                                  "slug",
-                                  "name"
-                                ]
-                              },
-                              "_count": {
-                                "type": "object",
-                                "properties": {
-                                  "entityTags": {
-                                    "type": "integer"
-                                  }
-                                },
-                                "required": [
-                                  "entityTags"
-                                ]
-                              }
-                            },
-                            "required": [
-                              "id",
-                              "groupId",
-                              "slug",
-                              "name",
-                              "description",
-                              "parentId",
-                              "path",
-                              "depth",
-                              "sortOrder",
-                              "createdAt",
-                              "updatedAt"
-                            ]
+                            "$ref": "#/components/schemas/Tag"
                           }
                         },
                         "total": {
@@ -5259,117 +4029,7 @@
                       "type": "integer"
                     },
                     "data": {
-                      "type": "object",
-                      "properties": {
-                        "id": {
-                          "type": "string"
-                        },
-                        "groupId": {
-                          "type": "string"
-                        },
-                        "slug": {
-                          "type": "string"
-                        },
-                        "name": {
-                          "type": "string"
-                        },
-                        "description": {
-                          "type": "string",
-                          "nullable": true
-                        },
-                        "parentId": {
-                          "type": "string",
-                          "nullable": true
-                        },
-                        "path": {
-                          "type": "string"
-                        },
-                        "depth": {
-                          "type": "integer"
-                        },
-                        "sortOrder": {
-                          "type": "integer"
-                        },
-                        "createdAt": {
-                          "anyOf": [
-                            {
-                              "type": "string",
-                              "format": "date-time"
-                            },
-                            {
-                              "type": "string"
-                            }
-                          ]
-                        },
-                        "updatedAt": {
-                          "anyOf": [
-                            {
-                              "type": "string",
-                              "format": "date-time"
-                            },
-                            {
-                              "type": "string"
-                            }
-                          ]
-                        },
-                        "deletedAt": {
-                          "anyOf": [
-                            {
-                              "type": "string",
-                              "format": "date-time"
-                            },
-                            {
-                              "type": "string"
-                            },
-                            {
-                              "nullable": true
-                            }
-                          ]
-                        },
-                        "group": {
-                          "type": "object",
-                          "properties": {
-                            "id": {
-                              "type": "string"
-                            },
-                            "slug": {
-                              "type": "string"
-                            },
-                            "name": {
-                              "type": "string"
-                            }
-                          },
-                          "required": [
-                            "id",
-                            "slug",
-                            "name"
-                          ]
-                        },
-                        "_count": {
-                          "type": "object",
-                          "properties": {
-                            "entityTags": {
-                              "type": "integer"
-                            }
-                          },
-                          "required": [
-                            "entityTags"
-                          ]
-                        }
-                      },
-                      "required": [
-                        "id",
-                        "groupId",
-                        "slug",
-                        "name",
-                        "description",
-                        "parentId",
-                        "path",
-                        "depth",
-                        "sortOrder",
-                        "createdAt",
-                        "updatedAt"
-                      ]
+                      "$ref": "#/components/schemas/Tag"
                     }
                   },
                   "required": [
@@ -5385,19 +4045,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "code": {
-                      "type": "integer"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "code",
-                    "message"
-                  ]
+                  "$ref": "#/components/schemas/ApiError"
                 }
               }
             }
@@ -5407,19 +4055,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "code": {
-                      "type": "integer"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "code",
-                    "message"
-                  ]
+                  "$ref": "#/components/schemas/ApiError"
                 }
               }
             }
@@ -5429,19 +4065,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "code": {
-                      "type": "integer"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "code",
-                    "message"
-                  ]
+                  "$ref": "#/components/schemas/ApiError"
                 }
               }
             }
@@ -5480,117 +4104,7 @@
                       "type": "integer"
                     },
                     "data": {
-                      "type": "object",
-                      "properties": {
-                        "id": {
-                          "type": "string"
-                        },
-                        "groupId": {
-                          "type": "string"
-                        },
-                        "slug": {
-                          "type": "string"
-                        },
-                        "name": {
-                          "type": "string"
-                        },
-                        "description": {
-                          "type": "string",
-                          "nullable": true
-                        },
-                        "parentId": {
-                          "type": "string",
-                          "nullable": true
-                        },
-                        "path": {
-                          "type": "string"
-                        },
-                        "depth": {
-                          "type": "integer"
-                        },
-                        "sortOrder": {
-                          "type": "integer"
-                        },
-                        "createdAt": {
-                          "anyOf": [
-                            {
-                              "type": "string",
-                              "format": "date-time"
-                            },
-                            {
-                              "type": "string"
-                            }
-                          ]
-                        },
-                        "updatedAt": {
-                          "anyOf": [
-                            {
-                              "type": "string",
-                              "format": "date-time"
-                            },
-                            {
-                              "type": "string"
-                            }
-                          ]
-                        },
-                        "deletedAt": {
-                          "anyOf": [
-                            {
-                              "type": "string",
-                              "format": "date-time"
-                            },
-                            {
-                              "type": "string"
-                            },
-                            {
-                              "nullable": true
-                            }
-                          ]
-                        },
-                        "group": {
-                          "type": "object",
-                          "properties": {
-                            "id": {
-                              "type": "string"
-                            },
-                            "slug": {
-                              "type": "string"
-                            },
-                            "name": {
-                              "type": "string"
-                            }
-                          },
-                          "required": [
-                            "id",
-                            "slug",
-                            "name"
-                          ]
-                        },
-                        "_count": {
-                          "type": "object",
-                          "properties": {
-                            "entityTags": {
-                              "type": "integer"
-                            }
-                          },
-                          "required": [
-                            "entityTags"
-                          ]
-                        }
-                      },
-                      "required": [
-                        "id",
-                        "groupId",
-                        "slug",
-                        "name",
-                        "description",
-                        "parentId",
-                        "path",
-                        "depth",
-                        "sortOrder",
-                        "createdAt",
-                        "updatedAt"
-                      ]
+                      "$ref": "#/components/schemas/Tag"
                     }
                   },
                   "required": [
@@ -5606,19 +4120,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "code": {
-                      "type": "integer"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "code",
-                    "message"
-                  ]
+                  "$ref": "#/components/schemas/ApiError"
                 }
               }
             }
@@ -5695,117 +4197,7 @@
                       "type": "integer"
                     },
                     "data": {
-                      "type": "object",
-                      "properties": {
-                        "id": {
-                          "type": "string"
-                        },
-                        "groupId": {
-                          "type": "string"
-                        },
-                        "slug": {
-                          "type": "string"
-                        },
-                        "name": {
-                          "type": "string"
-                        },
-                        "description": {
-                          "type": "string",
-                          "nullable": true
-                        },
-                        "parentId": {
-                          "type": "string",
-                          "nullable": true
-                        },
-                        "path": {
-                          "type": "string"
-                        },
-                        "depth": {
-                          "type": "integer"
-                        },
-                        "sortOrder": {
-                          "type": "integer"
-                        },
-                        "createdAt": {
-                          "anyOf": [
-                            {
-                              "type": "string",
-                              "format": "date-time"
-                            },
-                            {
-                              "type": "string"
-                            }
-                          ]
-                        },
-                        "updatedAt": {
-                          "anyOf": [
-                            {
-                              "type": "string",
-                              "format": "date-time"
-                            },
-                            {
-                              "type": "string"
-                            }
-                          ]
-                        },
-                        "deletedAt": {
-                          "anyOf": [
-                            {
-                              "type": "string",
-                              "format": "date-time"
-                            },
-                            {
-                              "type": "string"
-                            },
-                            {
-                              "nullable": true
-                            }
-                          ]
-                        },
-                        "group": {
-                          "type": "object",
-                          "properties": {
-                            "id": {
-                              "type": "string"
-                            },
-                            "slug": {
-                              "type": "string"
-                            },
-                            "name": {
-                              "type": "string"
-                            }
-                          },
-                          "required": [
-                            "id",
-                            "slug",
-                            "name"
-                          ]
-                        },
-                        "_count": {
-                          "type": "object",
-                          "properties": {
-                            "entityTags": {
-                              "type": "integer"
-                            }
-                          },
-                          "required": [
-                            "entityTags"
-                          ]
-                        }
-                      },
-                      "required": [
-                        "id",
-                        "groupId",
-                        "slug",
-                        "name",
-                        "description",
-                        "parentId",
-                        "path",
-                        "depth",
-                        "sortOrder",
-                        "createdAt",
-                        "updatedAt"
-                      ]
+                      "$ref": "#/components/schemas/Tag"
                     }
                   },
                   "required": [
@@ -5821,19 +4213,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "code": {
-                      "type": "integer"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "code",
-                    "message"
-                  ]
+                  "$ref": "#/components/schemas/ApiError"
                 }
               }
             }
@@ -5843,19 +4223,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "code": {
-                      "type": "integer"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "code",
-                    "message"
-                  ]
+                  "$ref": "#/components/schemas/ApiError"
                 }
               }
             }
@@ -5865,19 +4233,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "code": {
-                      "type": "integer"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "code",
-                    "message"
-                  ]
+                  "$ref": "#/components/schemas/ApiError"
                 }
               }
             }
@@ -5939,19 +4295,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "code": {
-                      "type": "integer"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "code",
-                    "message"
-                  ]
+                  "$ref": "#/components/schemas/OkMessage"
                 }
               }
             }
@@ -5961,19 +4305,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "code": {
-                      "type": "integer"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "code",
-                    "message"
-                  ]
+                  "$ref": "#/components/schemas/ApiError"
                 }
               }
             }
@@ -5983,19 +4315,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "code": {
-                      "type": "integer"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "code",
-                    "message"
-                  ]
+                  "$ref": "#/components/schemas/ApiError"
                 }
               }
             }
@@ -6039,117 +4359,7 @@
                         "items": {
                           "type": "array",
                           "items": {
-                            "type": "object",
-                            "properties": {
-                              "id": {
-                                "type": "string"
-                              },
-                              "groupId": {
-                                "type": "string"
-                              },
-                              "slug": {
-                                "type": "string"
-                              },
-                              "name": {
-                                "type": "string"
-                              },
-                              "description": {
-                                "type": "string",
-                                "nullable": true
-                              },
-                              "parentId": {
-                                "type": "string",
-                                "nullable": true
-                              },
-                              "path": {
-                                "type": "string"
-                              },
-                              "depth": {
-                                "type": "integer"
-                              },
-                              "sortOrder": {
-                                "type": "integer"
-                              },
-                              "createdAt": {
-                                "anyOf": [
-                                  {
-                                    "type": "string",
-                                    "format": "date-time"
-                                  },
-                                  {
-                                    "type": "string"
-                                  }
-                                ]
-                              },
-                              "updatedAt": {
-                                "anyOf": [
-                                  {
-                                    "type": "string",
-                                    "format": "date-time"
-                                  },
-                                  {
-                                    "type": "string"
-                                  }
-                                ]
-                              },
-                              "deletedAt": {
-                                "anyOf": [
-                                  {
-                                    "type": "string",
-                                    "format": "date-time"
-                                  },
-                                  {
-                                    "type": "string"
-                                  },
-                                  {
-                                    "nullable": true
-                                  }
-                                ]
-                              },
-                              "group": {
-                                "type": "object",
-                                "properties": {
-                                  "id": {
-                                    "type": "string"
-                                  },
-                                  "slug": {
-                                    "type": "string"
-                                  },
-                                  "name": {
-                                    "type": "string"
-                                  }
-                                },
-                                "required": [
-                                  "id",
-                                  "slug",
-                                  "name"
-                                ]
-                              },
-                              "_count": {
-                                "type": "object",
-                                "properties": {
-                                  "entityTags": {
-                                    "type": "integer"
-                                  }
-                                },
-                                "required": [
-                                  "entityTags"
-                                ]
-                              }
-                            },
-                            "required": [
-                              "id",
-                              "groupId",
-                              "slug",
-                              "name",
-                              "description",
-                              "parentId",
-                              "path",
-                              "depth",
-                              "sortOrder",
-                              "createdAt",
-                              "updatedAt"
-                            ]
+                            "$ref": "#/components/schemas/Tag"
                           }
                         },
                         "total": {
@@ -6175,19 +4385,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "code": {
-                      "type": "integer"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "code",
-                    "message"
-                  ]
+                  "$ref": "#/components/schemas/ApiError"
                 }
               }
             }
@@ -6265,19 +4463,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "code": {
-                      "type": "integer"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "code",
-                    "message"
-                  ]
+                  "$ref": "#/components/schemas/ApiError"
                 }
               }
             }
@@ -6321,117 +4507,7 @@
                       "type": "integer"
                     },
                     "data": {
-                      "type": "object",
-                      "properties": {
-                        "id": {
-                          "type": "string"
-                        },
-                        "groupId": {
-                          "type": "string"
-                        },
-                        "slug": {
-                          "type": "string"
-                        },
-                        "name": {
-                          "type": "string"
-                        },
-                        "description": {
-                          "type": "string",
-                          "nullable": true
-                        },
-                        "parentId": {
-                          "type": "string",
-                          "nullable": true
-                        },
-                        "path": {
-                          "type": "string"
-                        },
-                        "depth": {
-                          "type": "integer"
-                        },
-                        "sortOrder": {
-                          "type": "integer"
-                        },
-                        "createdAt": {
-                          "anyOf": [
-                            {
-                              "type": "string",
-                              "format": "date-time"
-                            },
-                            {
-                              "type": "string"
-                            }
-                          ]
-                        },
-                        "updatedAt": {
-                          "anyOf": [
-                            {
-                              "type": "string",
-                              "format": "date-time"
-                            },
-                            {
-                              "type": "string"
-                            }
-                          ]
-                        },
-                        "deletedAt": {
-                          "anyOf": [
-                            {
-                              "type": "string",
-                              "format": "date-time"
-                            },
-                            {
-                              "type": "string"
-                            },
-                            {
-                              "nullable": true
-                            }
-                          ]
-                        },
-                        "group": {
-                          "type": "object",
-                          "properties": {
-                            "id": {
-                              "type": "string"
-                            },
-                            "slug": {
-                              "type": "string"
-                            },
-                            "name": {
-                              "type": "string"
-                            }
-                          },
-                          "required": [
-                            "id",
-                            "slug",
-                            "name"
-                          ]
-                        },
-                        "_count": {
-                          "type": "object",
-                          "properties": {
-                            "entityTags": {
-                              "type": "integer"
-                            }
-                          },
-                          "required": [
-                            "entityTags"
-                          ]
-                        }
-                      },
-                      "required": [
-                        "id",
-                        "groupId",
-                        "slug",
-                        "name",
-                        "description",
-                        "parentId",
-                        "path",
-                        "depth",
-                        "sortOrder",
-                        "createdAt",
-                        "updatedAt"
-                      ]
+                      "$ref": "#/components/schemas/Tag"
                     }
                   },
                   "required": [
@@ -6447,19 +4523,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "code": {
-                      "type": "integer"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "code",
-                    "message"
-                  ]
+                  "$ref": "#/components/schemas/ApiError"
                 }
               }
             }
@@ -6469,19 +4533,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "code": {
-                      "type": "integer"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "code",
-                    "message"
-                  ]
+                  "$ref": "#/components/schemas/ApiError"
                 }
               }
             }
@@ -6576,19 +4628,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "code": {
-                      "type": "integer"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "code",
-                    "message"
-                  ]
+                  "$ref": "#/components/schemas/ApiError"
                 }
               }
             }
@@ -6598,19 +4638,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "code": {
-                      "type": "integer"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "code",
-                    "message"
-                  ]
+                  "$ref": "#/components/schemas/ApiError"
                 }
               }
             }
@@ -6620,19 +4648,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "code": {
-                      "type": "integer"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "code",
-                    "message"
-                  ]
+                  "$ref": "#/components/schemas/ApiError"
                 }
               }
             }
@@ -6702,117 +4718,7 @@
                       "type": "object",
                       "properties": {
                         "tag": {
-                          "type": "object",
-                          "properties": {
-                            "id": {
-                              "type": "string"
-                            },
-                            "groupId": {
-                              "type": "string"
-                            },
-                            "slug": {
-                              "type": "string"
-                            },
-                            "name": {
-                              "type": "string"
-                            },
-                            "description": {
-                              "type": "string",
-                              "nullable": true
-                            },
-                            "parentId": {
-                              "type": "string",
-                              "nullable": true
-                            },
-                            "path": {
-                              "type": "string"
-                            },
-                            "depth": {
-                              "type": "integer"
-                            },
-                            "sortOrder": {
-                              "type": "integer"
-                            },
-                            "createdAt": {
-                              "anyOf": [
-                                {
-                                  "type": "string",
-                                  "format": "date-time"
-                                },
-                                {
-                                  "type": "string"
-                                }
-                              ]
-                            },
-                            "updatedAt": {
-                              "anyOf": [
-                                {
-                                  "type": "string",
-                                  "format": "date-time"
-                                },
-                                {
-                                  "type": "string"
-                                }
-                              ]
-                            },
-                            "deletedAt": {
-                              "anyOf": [
-                                {
-                                  "type": "string",
-                                  "format": "date-time"
-                                },
-                                {
-                                  "type": "string"
-                                },
-                                {
-                                  "nullable": true
-                                }
-                              ]
-                            },
-                            "group": {
-                              "type": "object",
-                              "properties": {
-                                "id": {
-                                  "type": "string"
-                                },
-                                "slug": {
-                                  "type": "string"
-                                },
-                                "name": {
-                                  "type": "string"
-                                }
-                              },
-                              "required": [
-                                "id",
-                                "slug",
-                                "name"
-                              ]
-                            },
-                            "_count": {
-                              "type": "object",
-                              "properties": {
-                                "entityTags": {
-                                  "type": "integer"
-                                }
-                              },
-                              "required": [
-                                "entityTags"
-                              ]
-                            }
-                          },
-                          "required": [
-                            "id",
-                            "groupId",
-                            "slug",
-                            "name",
-                            "description",
-                            "parentId",
-                            "path",
-                            "depth",
-                            "sortOrder",
-                            "createdAt",
-                            "updatedAt"
-                          ]
+                          "$ref": "#/components/schemas/Tag"
                         },
                         "tagsMoved": {
                           "type": "integer"
@@ -6837,19 +4743,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "code": {
-                      "type": "integer"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "code",
-                    "message"
-                  ]
+                  "$ref": "#/components/schemas/ApiError"
                 }
               }
             }
@@ -6859,19 +4753,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "code": {
-                      "type": "integer"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "code",
-                    "message"
-                  ]
+                  "$ref": "#/components/schemas/ApiError"
                 }
               }
             }
@@ -6881,19 +4763,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "code": {
-                      "type": "integer"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "code",
-                    "message"
-                  ]
+                  "$ref": "#/components/schemas/ApiError"
                 }
               }
             }
@@ -6934,39 +4804,7 @@
                     "data": {
                       "type": "array",
                       "items": {
-                        "type": "object",
-                        "properties": {
-                          "id": {
-                            "type": "string"
-                          },
-                          "tagId": {
-                            "type": "string"
-                          },
-                          "alias": {
-                            "type": "string"
-                          },
-                          "source": {
-                            "type": "string"
-                          },
-                          "createdAt": {
-                            "anyOf": [
-                              {
-                                "type": "string",
-                                "format": "date-time"
-                              },
-                              {
-                                "type": "string"
-                              }
-                            ]
-                          }
-                        },
-                        "required": [
-                          "id",
-                          "tagId",
-                          "alias",
-                          "source",
-                          "createdAt"
-                        ]
+                        "$ref": "#/components/schemas/TagAlias"
                       }
                     }
                   },
@@ -6983,19 +4821,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "code": {
-                      "type": "integer"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "code",
-                    "message"
-                  ]
+                  "$ref": "#/components/schemas/ApiError"
                 }
               }
             }
@@ -7066,39 +4892,7 @@
                       "type": "integer"
                     },
                     "data": {
-                      "type": "object",
-                      "properties": {
-                        "id": {
-                          "type": "string"
-                        },
-                        "tagId": {
-                          "type": "string"
-                        },
-                        "alias": {
-                          "type": "string"
-                        },
-                        "source": {
-                          "type": "string"
-                        },
-                        "createdAt": {
-                          "anyOf": [
-                            {
-                              "type": "string",
-                              "format": "date-time"
-                            },
-                            {
-                              "type": "string"
-                            }
-                          ]
-                        }
-                      },
-                      "required": [
-                        "id",
-                        "tagId",
-                        "alias",
-                        "source",
-                        "createdAt"
-                      ]
+                      "$ref": "#/components/schemas/TagAlias"
                     }
                   },
                   "required": [
@@ -7114,19 +4908,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "code": {
-                      "type": "integer"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "code",
-                    "message"
-                  ]
+                  "$ref": "#/components/schemas/ApiError"
                 }
               }
             }
@@ -7136,19 +4918,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "code": {
-                      "type": "integer"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "code",
-                    "message"
-                  ]
+                  "$ref": "#/components/schemas/ApiError"
                 }
               }
             }
@@ -7195,19 +4965,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "code": {
-                      "type": "integer"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "code",
-                    "message"
-                  ]
+                  "$ref": "#/components/schemas/OkMessage"
                 }
               }
             }
@@ -7217,19 +4975,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "code": {
-                      "type": "integer"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "code",
-                    "message"
-                  ]
+                  "$ref": "#/components/schemas/ApiError"
                 }
               }
             }
@@ -7262,72 +5008,7 @@
                     "data": {
                       "type": "array",
                       "items": {
-                        "type": "object",
-                        "properties": {
-                          "id": {
-                            "type": "string"
-                          },
-                          "name": {
-                            "type": "string"
-                          },
-                          "role": {
-                            "type": "string"
-                          },
-                          "scopes": {
-                            "type": "array",
-                            "items": {
-                              "type": "string"
-                            }
-                          },
-                          "createdAt": {
-                            "anyOf": [
-                              {
-                                "type": "string",
-                                "format": "date-time"
-                              },
-                              {
-                                "type": "string"
-                              }
-                            ]
-                          },
-                          "lastUsedAt": {
-                            "anyOf": [
-                              {
-                                "type": "string",
-                                "format": "date-time"
-                              },
-                              {
-                                "type": "string"
-                              },
-                              {
-                                "nullable": true
-                              }
-                            ]
-                          },
-                          "revokedAt": {
-                            "anyOf": [
-                              {
-                                "type": "string",
-                                "format": "date-time"
-                              },
-                              {
-                                "type": "string"
-                              },
-                              {
-                                "nullable": true
-                              }
-                            ]
-                          }
-                        },
-                        "required": [
-                          "id",
-                          "name",
-                          "role",
-                          "scopes",
-                          "createdAt",
-                          "lastUsedAt",
-                          "revokedAt"
-                        ]
+                        "$ref": "#/components/schemas/ApiToken"
                       }
                     }
                   },
@@ -7400,77 +5081,7 @@
                       "type": "integer"
                     },
                     "data": {
-                      "type": "object",
-                      "properties": {
-                        "id": {
-                          "type": "string"
-                        },
-                        "name": {
-                          "type": "string"
-                        },
-                        "role": {
-                          "type": "string"
-                        },
-                        "scopes": {
-                          "type": "array",
-                          "items": {
-                            "type": "string"
-                          }
-                        },
-                        "createdAt": {
-                          "anyOf": [
-                            {
-                              "type": "string",
-                              "format": "date-time"
-                            },
-                            {
-                              "type": "string"
-                            }
-                          ]
-                        },
-                        "lastUsedAt": {
-                          "anyOf": [
-                            {
-                              "type": "string",
-                              "format": "date-time"
-                            },
-                            {
-                              "type": "string"
-                            },
-                            {
-                              "nullable": true
-                            }
-                          ]
-                        },
-                        "revokedAt": {
-                          "anyOf": [
-                            {
-                              "type": "string",
-                              "format": "date-time"
-                            },
-                            {
-                              "type": "string"
-                            },
-                            {
-                              "nullable": true
-                            }
-                          ]
-                        },
-                        "token": {
-                          "type": "string",
-                          "description": "一次性明文 token，创建后不可再查"
-                        }
-                      },
-                      "required": [
-                        "id",
-                        "name",
-                        "role",
-                        "scopes",
-                        "createdAt",
-                        "lastUsedAt",
-                        "revokedAt",
-                        "token"
-                      ]
+                      "$ref": "#/components/schemas/CreatedToken"
                     }
                   },
                   "required": [
@@ -7486,19 +5097,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "code": {
-                      "type": "integer"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "code",
-                    "message"
-                  ]
+                  "$ref": "#/components/schemas/ApiError"
                 }
               }
             }
@@ -7534,19 +5133,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "code": {
-                      "type": "integer"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "code",
-                    "message"
-                  ]
+                  "$ref": "#/components/schemas/OkMessage"
                 }
               }
             }
@@ -7556,19 +5143,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "code": {
-                      "type": "integer"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "code",
-                    "message"
-                  ]
+                  "$ref": "#/components/schemas/ApiError"
                 }
               }
             }
@@ -7891,72 +5466,7 @@
                               "tags": {
                                 "type": "array",
                                 "items": {
-                                  "type": "object",
-                                  "properties": {
-                                    "id": {
-                                      "type": "string"
-                                    },
-                                    "slug": {
-                                      "type": "string"
-                                    },
-                                    "name": {
-                                      "type": "string"
-                                    },
-                                    "groupId": {
-                                      "type": "string"
-                                    },
-                                    "group": {
-                                      "type": "object",
-                                      "properties": {
-                                        "id": {
-                                          "type": "string"
-                                        },
-                                        "slug": {
-                                          "type": "string"
-                                        },
-                                        "name": {
-                                          "type": "string"
-                                        }
-                                      },
-                                      "required": [
-                                        "id",
-                                        "slug",
-                                        "name"
-                                      ]
-                                    },
-                                    "source": {
-                                      "type": "string"
-                                    },
-                                    "confidence": {
-                                      "type": "number",
-                                      "nullable": true
-                                    },
-                                    "status": {
-                                      "type": "string"
-                                    },
-                                    "taggedAt": {
-                                      "anyOf": [
-                                        {
-                                          "type": "string",
-                                          "format": "date-time"
-                                        },
-                                        {
-                                          "type": "string"
-                                        }
-                                      ]
-                                    }
-                                  },
-                                  "required": [
-                                    "id",
-                                    "slug",
-                                    "name",
-                                    "groupId",
-                                    "group",
-                                    "source",
-                                    "confidence",
-                                    "status",
-                                    "taggedAt"
-                                  ]
+                                  "$ref": "#/components/schemas/EntityTagItem"
                                 }
                               }
                             },
@@ -8100,19 +5610,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "code": {
-                      "type": "integer"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "code",
-                    "message"
-                  ]
+                  "$ref": "#/components/schemas/ApiError"
                 }
               }
             }
@@ -8387,19 +5885,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "code": {
-                      "type": "integer"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "code",
-                    "message"
-                  ]
+                  "$ref": "#/components/schemas/ApiError"
                 }
               }
             }
@@ -8409,19 +5895,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "code": {
-                      "type": "integer"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "code",
-                    "message"
-                  ]
+                  "$ref": "#/components/schemas/ApiError"
                 }
               }
             }
@@ -8527,19 +6001,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "code": {
-                      "type": "integer"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "code",
-                    "message"
-                  ]
+                  "$ref": "#/components/schemas/ApiError"
                 }
               }
             }
@@ -8549,19 +6011,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "code": {
-                      "type": "integer"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "code",
-                    "message"
-                  ]
+                  "$ref": "#/components/schemas/ApiError"
                 }
               }
             }
@@ -8722,19 +6172,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "code": {
-                      "type": "integer"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "code",
-                    "message"
-                  ]
+                  "$ref": "#/components/schemas/ApiError"
                 }
               }
             }
@@ -8801,19 +6239,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "code": {
-                      "type": "integer"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "code",
-                    "message"
-                  ]
+                  "$ref": "#/components/schemas/ApiError"
                 }
               }
             }
@@ -8823,19 +6249,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "code": {
-                      "type": "integer"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "code",
-                    "message"
-                  ]
+                  "$ref": "#/components/schemas/ApiError"
                 }
               }
             }
@@ -8903,19 +6317,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "code": {
-                      "type": "integer"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "code",
-                    "message"
-                  ]
+                  "$ref": "#/components/schemas/ApiError"
                 }
               }
             }
@@ -8925,19 +6327,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "code": {
-                      "type": "integer"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "code",
-                    "message"
-                  ]
+                  "$ref": "#/components/schemas/ApiError"
                 }
               }
             }
@@ -8947,19 +6337,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "code": {
-                      "type": "integer"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "code",
-                    "message"
-                  ]
+                  "$ref": "#/components/schemas/ApiError"
                 }
               }
             }
@@ -9030,19 +6408,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "code": {
-                      "type": "integer"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "code",
-                    "message"
-                  ]
+                  "$ref": "#/components/schemas/ApiError"
                 }
               }
             }
@@ -9220,19 +6586,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "code": {
-                      "type": "integer"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "code",
-                    "message"
-                  ]
+                  "$ref": "#/components/schemas/ApiError"
                 }
               }
             }
@@ -9302,19 +6656,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "code": {
-                      "type": "integer"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "code",
-                    "message"
-                  ]
+                  "$ref": "#/components/schemas/OkMessage"
                 }
               }
             }
@@ -9324,19 +6666,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "code": {
-                      "type": "integer"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "code",
-                    "message"
-                  ]
+                  "$ref": "#/components/schemas/ApiError"
                 }
               }
             }
@@ -9431,19 +6761,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "code": {
-                      "type": "integer"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "code",
-                    "message"
-                  ]
+                  "$ref": "#/components/schemas/ApiError"
                 }
               }
             }
@@ -9501,19 +6819,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "code": {
-                      "type": "integer"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "code",
-                    "message"
-                  ]
+                  "$ref": "#/components/schemas/ApiError"
                 }
               }
             }
@@ -9579,19 +6885,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "code": {
-                      "type": "integer"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "code",
-                    "message"
-                  ]
+                  "$ref": "#/components/schemas/ApiError"
                 }
               }
             }
@@ -9601,19 +6895,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "code": {
-                      "type": "integer"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "code",
-                    "message"
-                  ]
+                  "$ref": "#/components/schemas/ApiError"
                 }
               }
             }
@@ -9647,19 +6929,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "code": {
-                      "type": "integer"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "code",
-                    "message"
-                  ]
+                  "$ref": "#/components/schemas/OkMessage"
                 }
               }
             }
@@ -9669,19 +6939,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "code": {
-                      "type": "integer"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "code",
-                    "message"
-                  ]
+                  "$ref": "#/components/schemas/ApiError"
                 }
               }
             }
@@ -9750,19 +7008,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "code": {
-                      "type": "integer"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "code",
-                    "message"
-                  ]
+                  "$ref": "#/components/schemas/ApiError"
                 }
               }
             }
@@ -9807,19 +7053,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "code": {
-                      "type": "integer"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "code",
-                    "message"
-                  ]
+                  "$ref": "#/components/schemas/OkMessage"
                 }
               }
             }
@@ -9829,19 +7063,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "code": {
-                      "type": "integer"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "code",
-                    "message"
-                  ]
+                  "$ref": "#/components/schemas/ApiError"
                 }
               }
             }
