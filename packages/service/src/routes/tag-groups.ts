@@ -1,7 +1,7 @@
 import { createRoute, z } from '@hono/zod-openapi'
 import { createRouter } from '../lib/router.js'
 import prisma from '../lib/db.js'
-import { parsePagination } from '../lib/pagination.js'
+import { parsePagination, parseBool } from '../lib/pagination.js'
 import { isPrismaError } from '../lib/errors.js'
 import logger from '../lib/logger.js'
 import { requireRole } from '../middleware/auth.js'
@@ -38,9 +38,9 @@ const listGroupsRoute = createRoute({
 tagGroups.openapi(listGroupsRoute, async (c) => {
   const { page, pageSize, skip, take } = parsePagination(c.req.query())
   const scopes = c.req.queries('scope') ?? []
-  const withPreviewTags = c.req.query('withPreviewTags') === 'true'
+  const withPreviewTags = parseBool(c.req.query('withPreviewTags'))
   const previewSize = Math.min(20, Math.max(1, parseInt(c.req.query('previewSize') || '20')))
-  const onlyDeleted = c.req.query('onlyDeleted') === 'true'
+  const onlyDeleted = parseBool(c.req.query('onlyDeleted'))
 
   const where = {
     ...(onlyDeleted ? { deletedAt: { not: null } } : { deletedAt: null }),
@@ -274,8 +274,8 @@ const deleteGroupRoute = createRoute({
 
 tagGroups.openapi(deleteGroupRoute, async (c) => {
   const { groupId } = c.req.valid('param')
-  const force     = c.req.query('force')     === 'true' || c.req.query('force')     === '1'
-  const permanent = c.req.query('permanent') === 'true' || c.req.query('permanent') === '1'
+  const force     = parseBool(c.req.query('force'))
+  const permanent = parseBool(c.req.query('permanent'))
 
   if (permanent) {
     // Hard delete — works whether group is already soft-deleted or still active
@@ -363,7 +363,7 @@ const listGroupTagsRoute = createRoute({
 tagGroups.openapi(listGroupTagsRoute, async (c) => {
   const { groupId } = c.req.valid('param')
   const { page, pageSize, skip, take } = parsePagination(c.req.query())
-  const onlyDeleted = c.req.query('onlyDeleted') === 'true'
+  const onlyDeleted = parseBool(c.req.query('onlyDeleted'))
 
   // Allow browsing deleted group's tags (e.g., restoring individual tags)
   const groupExists = await prisma.tagGroup.findUnique({ where: { id: groupId }, select: { id: true } })

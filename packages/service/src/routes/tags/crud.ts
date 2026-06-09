@@ -8,6 +8,7 @@ import { createRoute, z } from '@hono/zod-openapi'
 import { createRouter } from '../../lib/router.js'
 import prisma from '../../lib/db.js'
 import { generateSlug } from '../../lib/slug.js'
+import { parseBool } from '../../lib/pagination.js'
 import { isPrismaError } from '../../lib/errors.js'
 import logger from '../../lib/logger.js'
 import { requireRole } from '../../middleware/auth.js'
@@ -195,8 +196,8 @@ const deleteTagRoute = createRoute({
 
 tagsCrud.openapi(deleteTagRoute, async (c) => {
   const { tagId } = c.req.valid('param')
-  const force     = c.req.query('force')     === 'true' || c.req.query('force')     === '1'
-  const permanent = c.req.query('permanent') === 'true' || c.req.query('permanent') === '1'
+  const force     = parseBool(c.req.query('force'))
+  const permanent = parseBool(c.req.query('permanent'))
 
   if (permanent) {
     const tag = await prisma.tag.findUnique({ where: { id: tagId }, select: { id: true, groupId: true, slug: true, name: true } })

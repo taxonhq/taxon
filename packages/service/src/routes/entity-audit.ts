@@ -4,6 +4,7 @@ import { Prisma, TagStatus } from '@prisma/client'
 import type { Prisma as PrismaTypes } from '@prisma/client'
 import prisma from '../lib/db.js'
 import { requireRole, getTokenId } from '../middleware/auth.js'
+import { parsePagination, parseBool } from '../lib/pagination.js'
 import { incAuditGauge, decAuditGauge } from '../lib/metrics.js'
 import {
   AuditItemSchema, RegisteredEntitySchema,
@@ -48,9 +49,7 @@ auditRouter.openapi(listAuditRoute, async (c) => {
   const rawMax       = c.req.query('maxConfidence')
   const minConf      = rawMin != null ? Number(rawMin) : undefined
   const maxConf      = rawMax != null ? Number(rawMax) : undefined
-  const page         = Math.max(1, parseInt(c.req.query('page') || '1'))
-  const pageSize     = Math.min(100, Math.max(1, parseInt(c.req.query('pageSize') || '20')))
-  const skip         = (page - 1) * pageSize
+  const { page, pageSize, skip } = parsePagination(c.req.query())
 
   if (!VALID_STATUSES.has(statusParam))
     return c.json({ code: 400, message: `status 无效，可选值：${[...VALID_STATUSES].join(', ')}` }, 400)
@@ -139,9 +138,7 @@ auditRouter.openapi(listEntitiesRoute, async (c) => {
 
   // ── 标签过滤模式 ────────────────────────────────────────────────
   if (tagIds.length > 0 || q) {
-    const page     = Math.max(1, parseInt(c.req.query('page') || '1'))
-    const pageSize = Math.min(100, Math.max(1, parseInt(c.req.query('pageSize') || '20')))
-    const offset   = (page - 1) * pageSize
+    const { page, pageSize, skip: offset } = parsePagination(c.req.query())
 
     const allTagsClause = tagIds.length > 0
       ? Prisma.sql`AND "entityId" IN (
@@ -170,10 +167,8 @@ auditRouter.openapi(listEntitiesRoute, async (c) => {
 
   // ── 分页列表模式 ────────────────────────────────────────────────
   const search   = c.req.query('search')?.trim() || undefined
-  const page     = Math.max(1, parseInt(c.req.query('page') || '1'))
-  const pageSize = Math.min(100, Math.max(1, parseInt(c.req.query('pageSize') || '20')))
-  const withTags = c.req.query('withTags') === 'true'
-  const skip     = (page - 1) * pageSize
+  const { page, pageSize, skip } = parsePagination(c.req.query())
+  const withTags = parseBool(c.req.query('withTags'))
   const where    = { entityType, ...(search ? { entityId: { contains: search } } : {}) }
   const total    = await prisma.registeredEntity.count({ where })
 
