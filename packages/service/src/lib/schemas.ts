@@ -20,11 +20,11 @@ export const DateTimeStr = z.string().datetime().or(z.string())  // ISO 8601
 export const OkMessage = z.object({
   code:    z.number().int(),
   message: z.string(),
-})
+}).openapi('OkMessage')
 export const ApiError = z.object({
   code:    z.number().int(),
   message: z.string(),
-})
+}).openapi('ApiError')
 export const okData = <T extends z.ZodTypeAny>(data: T) =>
   z.object({ code: z.number().int(), data })
 
@@ -47,7 +47,7 @@ export const EntityRuleSchema = z.object({
   groupId:       z.string(),
   entityType:    z.string(),
   allowMultiple: z.boolean(),
-})
+}).openapi('EntityRule')
 
 export const TagGroupSchema = z.object({
   id:            z.string(),
@@ -62,7 +62,7 @@ export const TagGroupSchema = z.object({
   deletedAt:     DateTimeStr.nullable().optional(),
   entityRules:   z.array(EntityRuleSchema).optional(),
   _count:        z.object({ tags: z.number().int() }).optional(),
-})
+}).openapi('TagGroup')
 
 // Request bodies
 export const CreateTagGroupBody = z.object({
@@ -97,13 +97,13 @@ export const TagAliasSchema = z.object({
   alias:     z.string(),
   source:    z.string(),
   createdAt: DateTimeStr,
-})
+}).openapi('TagAlias')
 
 export const TagGroupMiniSchema = z.object({
   id:   z.string(),
   slug: z.string(),
   name: z.string(),
-})
+}).openapi('TagGroupMini')
 
 export const TagSchema = z.object({
   id:          z.string(),
@@ -120,7 +120,7 @@ export const TagSchema = z.object({
   deletedAt:   DateTimeStr.nullable().optional(),
   group:       TagGroupMiniSchema.optional(),
   _count:      z.object({ entityTags: z.number().int() }).optional(),
-})
+}).openapi('Tag')
 
 export const TagTreeNodeSchema: z.ZodType<{
   id: string; groupId: string; slug: string; name: string
@@ -132,7 +132,7 @@ export const TagTreeNodeSchema: z.ZodType<{
   TagSchema.extend({
     aliases:  z.array(TagAliasSchema).optional(),
     children: z.array(TagTreeNodeSchema),
-  })
+  }).openapi('TagTreeNode')  // 显式命名，避免 .extend() 继承 Tag 的 refId
 )
 
 // Request bodies
@@ -179,7 +179,7 @@ export const EntityTagItemSchema = z.object({
   confidence: z.number().nullable(),
   status:     z.string(),
   taggedAt:   DateTimeStr,
-})
+}).openapi('EntityTagItem')
 
 // metadata: 业务方自定义的实体元数据，string 值的 KV map
 // 推荐字段（AI suggest 依赖）：
@@ -189,7 +189,7 @@ export const EntityTagItemSchema = z.object({
 //   - category: 实体分类（如菜系、业态）
 // 设计为 Record<string,string> 而非任意 JSON，便于 LLM prompt 序列化且不引入嵌套复杂度
 export const EntityMetadata = z.record(z.string(), z.string())
-  .openapi({
+  .openapi('EntityMetadata', {
     description: '实体元数据 KV 映射。推荐字段：name（名称）、description（描述）、imageUrl（图片URL）、category（分类）。AI 标签建议功能依赖这些字段生成高质量建议。',
     example: { name: '宫保鸡丁', description: '经典川菜，酸甜微辣', category: '热菜' },
   })
@@ -200,7 +200,7 @@ export const RegisteredEntitySchema = z.object({
   registeredAt: DateTimeStr.optional(),  // タグフィルタパスでは返さない場合がある
   metadata:     EntityMetadata.nullable().optional(),
   tags:         z.array(EntityTagItemSchema).optional(),
-})
+}).openapi('RegisteredEntity')
 
 // POST /entities/:type/:id 注册 / PATCH 更新 body
 export const RegisterEntityBody = z.object({
@@ -278,7 +278,7 @@ export const AuditItemSchema = z.object({
     name:  z.string(),
     group: TagGroupMiniSchema,
   }),
-})
+}).openapi('AuditItem')
 
 // Tag review history
 export const TagReviewSchema = z.object({
@@ -288,7 +288,7 @@ export const TagReviewSchema = z.object({
   note:        z.string().nullable(),
   reviewedAt:  DateTimeStr,
   reviewer:    z.object({ id: z.string(), name: z.string(), role: z.string() }).nullable(),
-})
+}).openapi('TagReview')
 
 // ── Search schemas ────────────────────────────────────────────────────────────
 // 布尔表达式 DSL：leaf 描述"该实体存在至少一条符合条件的 EntityTag"，
@@ -483,7 +483,7 @@ export const SuggestionItem = z.object({
   groupName:  z.string().openapi({ description: '分组名称' }),
   confidence: z.number().min(0).max(1).openapi({ description: '置信度 0~1' }),
   reasoning:  z.string().openapi({ description: 'LLM 给出的推荐理由' }),
-})
+}).openapi('SuggestionItem')
 
 export const SuggestData = z.object({
   suggestions:  z.array(SuggestionItem),
@@ -518,7 +518,7 @@ export const ApiTokenSchema = z.object({
   createdAt:  DateTimeStr,
   lastUsedAt: DateTimeStr.nullable(),
   revokedAt:  DateTimeStr.nullable(),
-})
+}).openapi('ApiToken')
 
 export const CreateTokenBody = z.object({
   name:      z.string().min(1).max(100),
@@ -526,9 +526,10 @@ export const CreateTokenBody = z.object({
   scopes:    z.array(z.string()).default([]),
 })
 
+// 显式命名，避免 .extend() 继承 ApiToken 的 refId 造成组件名冲突
 export const CreatedTokenSchema = ApiTokenSchema.extend({
   token: z.string().describe('一次性明文 token，创建后不可再查'),
-})
+}).openapi('CreatedToken')
 
 // ── Type exports ──────────────────────────────────────────────────────────────
 export type CreateTagGroupInput    = z.infer<typeof CreateTagGroupBody>

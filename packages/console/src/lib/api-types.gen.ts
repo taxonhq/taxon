@@ -89,28 +89,7 @@ export interface paths {
                         "application/json": {
                             code: number;
                             data: {
-                                items: {
-                                    tagId: string;
-                                    entityType: string;
-                                    entityId: string;
-                                    source: string;
-                                    confidence: number | null;
-                                    status: string;
-                                    taggedAt: string;
-                                    reviewedAt: string | unknown;
-                                    reviewNote: string | null;
-                                    reviewerName: string | null;
-                                    tag: {
-                                        id: string;
-                                        slug: string;
-                                        name: string;
-                                        group: {
-                                            id: string;
-                                            slug: string;
-                                            name: string;
-                                        };
-                                    };
-                                }[];
+                                items: components["schemas"]["AuditItem"][];
                                 total: number;
                                 page: number;
                                 pageSize: number;
@@ -124,10 +103,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": {
-                            code: number;
-                            message: string;
-                        };
+                        "application/json": components["schemas"]["ApiError"];
                     };
                 };
             };
@@ -178,37 +154,7 @@ export interface paths {
                         "application/json": {
                             code: number;
                             data: {
-                                items: {
-                                    entityType: string;
-                                    entityId: string;
-                                    registeredAt?: string;
-                                    /**
-                                     * @description 实体元数据 KV 映射。推荐字段：name（名称）、description（描述）、imageUrl（图片URL）、category（分类）。AI 标签建议功能依赖这些字段生成高质量建议。
-                                     * @example {
-                                     *       "name": "宫保鸡丁",
-                                     *       "description": "经典川菜，酸甜微辣",
-                                     *       "category": "热菜"
-                                     *     }
-                                     */
-                                    metadata?: {
-                                        [key: string]: string;
-                                    } | null;
-                                    tags?: {
-                                        id: string;
-                                        slug: string;
-                                        name: string;
-                                        groupId: string;
-                                        group: {
-                                            id: string;
-                                            slug: string;
-                                            name: string;
-                                        };
-                                        source: string;
-                                        confidence: number | null;
-                                        status: string;
-                                        taggedAt: string;
-                                    }[];
-                                }[];
+                                items: components["schemas"]["RegisteredEntity"][];
                                 total: number;
                                 page: number;
                                 pageSize: number;
@@ -273,10 +219,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": {
-                            code: number;
-                            message: string;
-                        };
+                        "application/json": components["schemas"]["ApiError"];
                     };
                 };
             };
@@ -349,24 +292,7 @@ export interface paths {
                         "application/json": {
                             code: number;
                             data: {
-                                suggestions: {
-                                    /** @description 标签 ID */
-                                    tagId: string;
-                                    /** @description 标签 slug */
-                                    tagSlug: string;
-                                    /** @description 标签名称 */
-                                    tagName: string;
-                                    /** @description 分组 ID */
-                                    groupId: string;
-                                    /** @description 分组 slug */
-                                    groupSlug: string;
-                                    /** @description 分组名称 */
-                                    groupName: string;
-                                    /** @description 置信度 0~1 */
-                                    confidence: number;
-                                    /** @description LLM 给出的推荐理由 */
-                                    reasoning: string;
-                                }[];
+                                suggestions: components["schemas"]["SuggestionItem"][];
                                 /** @description 实际生效的模型（带 provider 前缀） */
                                 model: string;
                                 /** @description 自动写入的 pending EntityTag 数量（apply=true 时有值） */
@@ -381,10 +307,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": {
-                            code: number;
-                            message: string;
-                        };
+                        "application/json": components["schemas"]["ApiError"];
                     };
                 };
                 /** @description LLM 未配置或调用失败 */
@@ -393,10 +316,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": {
-                            code: number;
-                            message: string;
-                        };
+                        "application/json": components["schemas"]["ApiError"];
                     };
                 };
             };
@@ -437,21 +357,7 @@ export interface paths {
                     content: {
                         "application/json": {
                             code: number;
-                            data: {
-                                id: string;
-                                slug: string;
-                                name: string;
-                                groupId: string;
-                                group: {
-                                    id: string;
-                                    slug: string;
-                                    name: string;
-                                };
-                                source: string;
-                                confidence: number | null;
-                                status: string;
-                                taggedAt: string;
-                            }[];
+                            data: components["schemas"]["EntityTagItem"][];
                         };
                     };
                 };
@@ -461,10 +367,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": {
-                            code: number;
-                            message: string;
-                        };
+                        "application/json": components["schemas"]["ApiError"];
                     };
                 };
             };
@@ -502,10 +405,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": {
-                            code: number;
-                            message: string;
-                        };
+                        "application/json": components["schemas"]["OkMessage"];
                     };
                 };
                 /** @description 参数错误 */
@@ -514,10 +414,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": {
-                            code: number;
-                            message: string;
-                        };
+                        "application/json": components["schemas"]["ApiError"];
                     };
                 };
                 /** @description 标签不合法 */
@@ -526,10 +423,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": {
-                            code: number;
-                            message: string;
-                        };
+                        "application/json": components["schemas"]["ApiError"];
                     };
                 };
             };
@@ -582,10 +476,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": {
-                            code: number;
-                            message: string;
-                        };
+                        "application/json": components["schemas"]["OkMessage"];
                     };
                 };
                 /** @description 参数错误 */
@@ -594,10 +485,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": {
-                            code: number;
-                            message: string;
-                        };
+                        "application/json": components["schemas"]["ApiError"];
                     };
                 };
                 /** @description 权限不足 */
@@ -606,10 +494,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": {
-                            code: number;
-                            message: string;
-                        };
+                        "application/json": components["schemas"]["ApiError"];
                     };
                 };
                 /** @description 标签不存在 */
@@ -618,10 +503,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": {
-                            code: number;
-                            message: string;
-                        };
+                        "application/json": components["schemas"]["ApiError"];
                     };
                 };
                 /** @description 已打标 */
@@ -630,10 +512,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": {
-                            code: number;
-                            message: string;
-                        };
+                        "application/json": components["schemas"]["ApiError"];
                     };
                 };
                 /** @description 不允许多选 */
@@ -642,10 +521,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": {
-                            code: number;
-                            message: string;
-                        };
+                        "application/json": components["schemas"]["ApiError"];
                     };
                 };
             };
@@ -670,10 +546,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": {
-                            code: number;
-                            message: string;
-                        };
+                        "application/json": components["schemas"]["OkMessage"];
                     };
                 };
                 /** @description 权限不足 */
@@ -682,10 +555,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": {
-                            code: number;
-                            message: string;
-                        };
+                        "application/json": components["schemas"]["ApiError"];
                     };
                 };
                 /** @description 关联不存在 */
@@ -694,10 +564,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": {
-                            code: number;
-                            message: string;
-                        };
+                        "application/json": components["schemas"]["ApiError"];
                     };
                 };
             };
@@ -746,10 +613,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": {
-                            code: number;
-                            message: string;
-                        };
+                        "application/json": components["schemas"]["ApiError"];
                     };
                 };
                 /** @description 权限不足（需要 reviewer 或更高） */
@@ -758,10 +622,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": {
-                            code: number;
-                            message: string;
-                        };
+                        "application/json": components["schemas"]["ApiError"];
                     };
                 };
                 /** @description 关联不存在 */
@@ -770,10 +631,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": {
-                            code: number;
-                            message: string;
-                        };
+                        "application/json": components["schemas"]["ApiError"];
                     };
                 };
             };
@@ -809,18 +667,7 @@ export interface paths {
                     content: {
                         "application/json": {
                             code: number;
-                            data: {
-                                id: string;
-                                fromStatus: string;
-                                toStatus: string;
-                                note: string | null;
-                                reviewedAt: string;
-                                reviewer: {
-                                    id: string;
-                                    name: string;
-                                    role: string;
-                                } | null;
-                            }[];
+                            data: components["schemas"]["TagReview"][];
                         };
                     };
                 };
@@ -830,10 +677,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": {
-                            code: number;
-                            message: string;
-                        };
+                        "application/json": components["schemas"]["ApiError"];
                     };
                 };
             };
@@ -928,10 +772,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": {
-                            code: number;
-                            message: string;
-                        };
+                        "application/json": components["schemas"]["ApiError"];
                     };
                 };
                 /** @description 权限不足（需 writer） */
@@ -940,10 +781,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": {
-                            code: number;
-                            message: string;
-                        };
+                        "application/json": components["schemas"]["ApiError"];
                     };
                 };
                 /** @description 标签不合法（全局校验失败） */
@@ -952,10 +790,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": {
-                            code: number;
-                            message: string;
-                        };
+                        "application/json": components["schemas"]["ApiError"];
                     };
                 };
             };
@@ -996,37 +831,7 @@ export interface paths {
                     content: {
                         "application/json": {
                             code: number;
-                            data: {
-                                entityType: string;
-                                entityId: string;
-                                registeredAt?: string;
-                                /**
-                                 * @description 实体元数据 KV 映射。推荐字段：name（名称）、description（描述）、imageUrl（图片URL）、category（分类）。AI 标签建议功能依赖这些字段生成高质量建议。
-                                 * @example {
-                                 *       "name": "宫保鸡丁",
-                                 *       "description": "经典川菜，酸甜微辣",
-                                 *       "category": "热菜"
-                                 *     }
-                                 */
-                                metadata?: {
-                                    [key: string]: string;
-                                } | null;
-                                tags?: {
-                                    id: string;
-                                    slug: string;
-                                    name: string;
-                                    groupId: string;
-                                    group: {
-                                        id: string;
-                                        slug: string;
-                                        name: string;
-                                    };
-                                    source: string;
-                                    confidence: number | null;
-                                    status: string;
-                                    taggedAt: string;
-                                }[];
-                            };
+                            data: components["schemas"]["RegisteredEntity"];
                         };
                     };
                 };
@@ -1036,10 +841,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": {
-                            code: number;
-                            message: string;
-                        };
+                        "application/json": components["schemas"]["ApiError"];
                     };
                 };
             };
@@ -1064,17 +866,7 @@ export interface paths {
             requestBody?: {
                 content: {
                     "application/json": {
-                        /**
-                         * @description 实体元数据，首次注册时提供；PATCH 时传入会覆盖全量替换
-                         * @example {
-                         *       "name": "宫保鸡丁",
-                         *       "description": "经典川菜，酸甜微辣",
-                         *       "category": "热菜"
-                         *     }
-                         */
-                        metadata?: {
-                            [key: string]: string;
-                        };
+                        metadata?: components["schemas"]["EntityMetadata"] & unknown;
                     };
                 };
             };
@@ -1085,10 +877,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": {
-                            code: number;
-                            message: string;
-                        };
+                        "application/json": components["schemas"]["OkMessage"];
                     };
                 };
             };
@@ -1114,10 +903,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": {
-                            code: number;
-                            message: string;
-                        };
+                        "application/json": components["schemas"]["OkMessage"];
                     };
                 };
                 /** @description 未注册 */
@@ -1126,10 +912,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": {
-                            code: number;
-                            message: string;
-                        };
+                        "application/json": components["schemas"]["ApiError"];
                     };
                 };
             };
@@ -1155,17 +938,7 @@ export interface paths {
             requestBody: {
                 content: {
                     "application/json": {
-                        /**
-                         * @description 实体元数据，首次注册时提供；PATCH 时传入会覆盖全量替换
-                         * @example {
-                         *       "name": "宫保鸡丁",
-                         *       "description": "经典川菜，酸甜微辣",
-                         *       "category": "热菜"
-                         *     }
-                         */
-                        metadata?: {
-                            [key: string]: string;
-                        };
+                        metadata?: components["schemas"]["EntityMetadata"] & unknown;
                     };
                 };
             };
@@ -1176,10 +949,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": {
-                            code: number;
-                            message: string;
-                        };
+                        "application/json": components["schemas"]["OkMessage"];
                     };
                 };
                 /** @description 实体未注册 */
@@ -1188,10 +958,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": {
-                            code: number;
-                            message: string;
-                        };
+                        "application/json": components["schemas"]["ApiError"];
                     };
                 };
             };
@@ -1233,26 +1000,7 @@ export interface paths {
                         "application/json": {
                             code: number;
                             data: {
-                                items: {
-                                    id: string;
-                                    slug: string;
-                                    name: string;
-                                    description: string | null;
-                                    entityScopes: string[];
-                                    allowMultiple: boolean;
-                                    sortOrder: number;
-                                    createdAt: string;
-                                    updatedAt: string;
-                                    deletedAt?: string | unknown;
-                                    entityRules?: {
-                                        groupId: string;
-                                        entityType: string;
-                                        allowMultiple: boolean;
-                                    }[];
-                                    _count?: {
-                                        tags: number;
-                                    };
-                                }[];
+                                items: components["schemas"]["TagGroup"][];
                                 total: number;
                                 page: number;
                                 pageSize: number;
@@ -1295,26 +1043,7 @@ export interface paths {
                     content: {
                         "application/json": {
                             code: number;
-                            data: {
-                                id: string;
-                                slug: string;
-                                name: string;
-                                description: string | null;
-                                entityScopes: string[];
-                                allowMultiple: boolean;
-                                sortOrder: number;
-                                createdAt: string;
-                                updatedAt: string;
-                                deletedAt?: string | unknown;
-                                entityRules?: {
-                                    groupId: string;
-                                    entityType: string;
-                                    allowMultiple: boolean;
-                                }[];
-                                _count?: {
-                                    tags: number;
-                                };
-                            };
+                            data: components["schemas"]["TagGroup"];
                         };
                     };
                 };
@@ -1324,10 +1053,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": {
-                            code: number;
-                            message: string;
-                        };
+                        "application/json": components["schemas"]["ApiError"];
                     };
                 };
                 /** @description 冲突 */
@@ -1336,10 +1062,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": {
-                            code: number;
-                            message: string;
-                        };
+                        "application/json": components["schemas"]["ApiError"];
                     };
                 };
             };
@@ -1378,26 +1101,7 @@ export interface paths {
                     content: {
                         "application/json": {
                             code: number;
-                            data: {
-                                id: string;
-                                slug: string;
-                                name: string;
-                                description: string | null;
-                                entityScopes: string[];
-                                allowMultiple: boolean;
-                                sortOrder: number;
-                                createdAt: string;
-                                updatedAt: string;
-                                deletedAt?: string | unknown;
-                                entityRules?: {
-                                    groupId: string;
-                                    entityType: string;
-                                    allowMultiple: boolean;
-                                }[];
-                                _count?: {
-                                    tags: number;
-                                };
-                            };
+                            data: components["schemas"]["TagGroup"];
                         };
                     };
                 };
@@ -1407,10 +1111,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": {
-                            code: number;
-                            message: string;
-                        };
+                        "application/json": components["schemas"]["ApiError"];
                     };
                 };
             };
@@ -1440,10 +1141,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": {
-                            code: number;
-                            message: string;
-                        };
+                        "application/json": components["schemas"]["OkMessage"];
                     };
                 };
                 /** @description 不存在 */
@@ -1452,10 +1150,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": {
-                            code: number;
-                            message: string;
-                        };
+                        "application/json": components["schemas"]["ApiError"];
                     };
                 };
                 /** @description 有关联数据 */
@@ -1464,10 +1159,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": {
-                            code: number;
-                            message: string;
-                        };
+                        "application/json": components["schemas"]["ApiError"];
                     };
                 };
             };
@@ -1506,26 +1198,7 @@ export interface paths {
                     content: {
                         "application/json": {
                             code: number;
-                            data: {
-                                id: string;
-                                slug: string;
-                                name: string;
-                                description: string | null;
-                                entityScopes: string[];
-                                allowMultiple: boolean;
-                                sortOrder: number;
-                                createdAt: string;
-                                updatedAt: string;
-                                deletedAt?: string | unknown;
-                                entityRules?: {
-                                    groupId: string;
-                                    entityType: string;
-                                    allowMultiple: boolean;
-                                }[];
-                                _count?: {
-                                    tags: number;
-                                };
-                            };
+                            data: components["schemas"]["TagGroup"];
                         };
                     };
                 };
@@ -1535,10 +1208,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": {
-                            code: number;
-                            message: string;
-                        };
+                        "application/json": components["schemas"]["ApiError"];
                     };
                 };
                 /** @description 冲突 */
@@ -1547,10 +1217,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": {
-                            code: number;
-                            message: string;
-                        };
+                        "application/json": components["schemas"]["ApiError"];
                     };
                 };
             };
@@ -1595,10 +1262,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": {
-                            code: number;
-                            message: string;
-                        };
+                        "application/json": components["schemas"]["ApiError"];
                     };
                 };
             };
@@ -1641,26 +1305,7 @@ export interface paths {
                     content: {
                         "application/json": {
                             code: number;
-                            data: {
-                                id: string;
-                                slug: string;
-                                name: string;
-                                description: string | null;
-                                entityScopes: string[];
-                                allowMultiple: boolean;
-                                sortOrder: number;
-                                createdAt: string;
-                                updatedAt: string;
-                                deletedAt?: string | unknown;
-                                entityRules?: {
-                                    groupId: string;
-                                    entityType: string;
-                                    allowMultiple: boolean;
-                                }[];
-                                _count?: {
-                                    tags: number;
-                                };
-                            };
+                            data: components["schemas"]["TagGroup"];
                         };
                     };
                 };
@@ -1670,10 +1315,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": {
-                            code: number;
-                            message: string;
-                        };
+                        "application/json": components["schemas"]["ApiError"];
                     };
                 };
                 /** @description slug 或 name 冲突 */
@@ -1682,10 +1324,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": {
-                            code: number;
-                            message: string;
-                        };
+                        "application/json": components["schemas"]["ApiError"];
                     };
                 };
             };
@@ -1730,28 +1369,7 @@ export interface paths {
                         "application/json": {
                             code: number;
                             data: {
-                                items: {
-                                    id: string;
-                                    groupId: string;
-                                    slug: string;
-                                    name: string;
-                                    description: string | null;
-                                    parentId: string | null;
-                                    path: string;
-                                    depth: number;
-                                    sortOrder: number;
-                                    createdAt: string;
-                                    updatedAt: string;
-                                    deletedAt?: string | unknown;
-                                    group?: {
-                                        id: string;
-                                        slug: string;
-                                        name: string;
-                                    };
-                                    _count?: {
-                                        entityTags: number;
-                                    };
-                                }[];
+                                items: components["schemas"]["Tag"][];
                                 total: number;
                                 page: number;
                                 pageSize: number;
@@ -1765,10 +1383,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": {
-                            code: number;
-                            message: string;
-                        };
+                        "application/json": components["schemas"]["ApiError"];
                     };
                 };
             };
@@ -1819,11 +1434,7 @@ export interface paths {
                     content: {
                         "application/json": {
                             code: number;
-                            data: {
-                                groupId: string;
-                                entityType: string;
-                                allowMultiple: boolean;
-                            }[];
+                            data: components["schemas"]["EntityRule"][];
                         };
                     };
                 };
@@ -1833,10 +1444,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": {
-                            code: number;
-                            message: string;
-                        };
+                        "application/json": components["schemas"]["ApiError"];
                     };
                 };
             };
@@ -1879,28 +1487,7 @@ export interface paths {
                         "application/json": {
                             code: number;
                             data: {
-                                tag: {
-                                    id: string;
-                                    groupId: string;
-                                    slug: string;
-                                    name: string;
-                                    description: string | null;
-                                    parentId: string | null;
-                                    path: string;
-                                    depth: number;
-                                    sortOrder: number;
-                                    createdAt: string;
-                                    updatedAt: string;
-                                    deletedAt?: string | unknown;
-                                    group?: {
-                                        id: string;
-                                        slug: string;
-                                        name: string;
-                                    };
-                                    _count?: {
-                                        entityTags: number;
-                                    };
-                                };
+                                tag: components["schemas"]["Tag"];
                                 /** @enum {string} */
                                 matchedBy: "name" | "slug" | "alias";
                             };
@@ -1913,10 +1500,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": {
-                            code: number;
-                            message: string;
-                        };
+                        "application/json": components["schemas"]["ApiError"];
                     };
                 };
                 /** @description 未找到 */
@@ -1925,10 +1509,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": {
-                            code: number;
-                            message: string;
-                        };
+                        "application/json": components["schemas"]["ApiError"];
                     };
                 };
             };
@@ -1975,28 +1556,7 @@ export interface paths {
                         "application/json": {
                             code: number;
                             data: {
-                                items: {
-                                    id: string;
-                                    groupId: string;
-                                    slug: string;
-                                    name: string;
-                                    description: string | null;
-                                    parentId: string | null;
-                                    path: string;
-                                    depth: number;
-                                    sortOrder: number;
-                                    createdAt: string;
-                                    updatedAt: string;
-                                    deletedAt?: string | unknown;
-                                    group?: {
-                                        id: string;
-                                        slug: string;
-                                        name: string;
-                                    };
-                                    _count?: {
-                                        entityTags: number;
-                                    };
-                                }[];
+                                items: components["schemas"]["Tag"][];
                                 total: number;
                                 page: number;
                                 pageSize: number;
@@ -2037,28 +1597,7 @@ export interface paths {
                     content: {
                         "application/json": {
                             code: number;
-                            data: {
-                                id: string;
-                                groupId: string;
-                                slug: string;
-                                name: string;
-                                description: string | null;
-                                parentId: string | null;
-                                path: string;
-                                depth: number;
-                                sortOrder: number;
-                                createdAt: string;
-                                updatedAt: string;
-                                deletedAt?: string | unknown;
-                                group?: {
-                                    id: string;
-                                    slug: string;
-                                    name: string;
-                                };
-                                _count?: {
-                                    entityTags: number;
-                                };
-                            };
+                            data: components["schemas"]["Tag"];
                         };
                     };
                 };
@@ -2068,10 +1607,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": {
-                            code: number;
-                            message: string;
-                        };
+                        "application/json": components["schemas"]["ApiError"];
                     };
                 };
                 /** @description 分组不存在 */
@@ -2080,10 +1616,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": {
-                            code: number;
-                            message: string;
-                        };
+                        "application/json": components["schemas"]["ApiError"];
                     };
                 };
                 /** @description 冲突 */
@@ -2092,10 +1625,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": {
-                            code: number;
-                            message: string;
-                        };
+                        "application/json": components["schemas"]["ApiError"];
                     };
                 };
             };
@@ -2134,28 +1664,7 @@ export interface paths {
                     content: {
                         "application/json": {
                             code: number;
-                            data: {
-                                id: string;
-                                groupId: string;
-                                slug: string;
-                                name: string;
-                                description: string | null;
-                                parentId: string | null;
-                                path: string;
-                                depth: number;
-                                sortOrder: number;
-                                createdAt: string;
-                                updatedAt: string;
-                                deletedAt?: string | unknown;
-                                group?: {
-                                    id: string;
-                                    slug: string;
-                                    name: string;
-                                };
-                                _count?: {
-                                    entityTags: number;
-                                };
-                            };
+                            data: components["schemas"]["Tag"];
                         };
                     };
                 };
@@ -2165,10 +1674,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": {
-                            code: number;
-                            message: string;
-                        };
+                        "application/json": components["schemas"]["ApiError"];
                     };
                 };
             };
@@ -2198,10 +1704,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": {
-                            code: number;
-                            message: string;
-                        };
+                        "application/json": components["schemas"]["OkMessage"];
                     };
                 };
                 /** @description 不存在 */
@@ -2210,10 +1713,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": {
-                            code: number;
-                            message: string;
-                        };
+                        "application/json": components["schemas"]["ApiError"];
                     };
                 };
                 /** @description 有关联数据 */
@@ -2222,10 +1722,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": {
-                            code: number;
-                            message: string;
-                        };
+                        "application/json": components["schemas"]["ApiError"];
                     };
                 };
             };
@@ -2263,28 +1760,7 @@ export interface paths {
                     content: {
                         "application/json": {
                             code: number;
-                            data: {
-                                id: string;
-                                groupId: string;
-                                slug: string;
-                                name: string;
-                                description: string | null;
-                                parentId: string | null;
-                                path: string;
-                                depth: number;
-                                sortOrder: number;
-                                createdAt: string;
-                                updatedAt: string;
-                                deletedAt?: string | unknown;
-                                group?: {
-                                    id: string;
-                                    slug: string;
-                                    name: string;
-                                };
-                                _count?: {
-                                    entityTags: number;
-                                };
-                            };
+                            data: components["schemas"]["Tag"];
                         };
                     };
                 };
@@ -2294,10 +1770,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": {
-                            code: number;
-                            message: string;
-                        };
+                        "application/json": components["schemas"]["ApiError"];
                     };
                 };
                 /** @description 不存在 */
@@ -2306,10 +1779,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": {
-                            code: number;
-                            message: string;
-                        };
+                        "application/json": components["schemas"]["ApiError"];
                     };
                 };
                 /** @description 冲突 */
@@ -2318,10 +1788,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": {
-                            code: number;
-                            message: string;
-                        };
+                        "application/json": components["schemas"]["ApiError"];
                     };
                 };
             };
@@ -2357,28 +1824,7 @@ export interface paths {
                         "application/json": {
                             code: number;
                             data: {
-                                items: {
-                                    id: string;
-                                    groupId: string;
-                                    slug: string;
-                                    name: string;
-                                    description: string | null;
-                                    parentId: string | null;
-                                    path: string;
-                                    depth: number;
-                                    sortOrder: number;
-                                    createdAt: string;
-                                    updatedAt: string;
-                                    deletedAt?: string | unknown;
-                                    group?: {
-                                        id: string;
-                                        slug: string;
-                                        name: string;
-                                    };
-                                    _count?: {
-                                        entityTags: number;
-                                    };
-                                }[];
+                                items: components["schemas"]["Tag"][];
                                 total: number;
                             };
                         };
@@ -2390,10 +1836,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": {
-                            code: number;
-                            message: string;
-                        };
+                        "application/json": components["schemas"]["ApiError"];
                     };
                 };
             };
@@ -2449,10 +1892,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": {
-                            code: number;
-                            message: string;
-                        };
+                        "application/json": components["schemas"]["ApiError"];
                     };
                 };
             };
@@ -2495,28 +1935,7 @@ export interface paths {
                     content: {
                         "application/json": {
                             code: number;
-                            data: {
-                                id: string;
-                                groupId: string;
-                                slug: string;
-                                name: string;
-                                description: string | null;
-                                parentId: string | null;
-                                path: string;
-                                depth: number;
-                                sortOrder: number;
-                                createdAt: string;
-                                updatedAt: string;
-                                deletedAt?: string | unknown;
-                                group?: {
-                                    id: string;
-                                    slug: string;
-                                    name: string;
-                                };
-                                _count?: {
-                                    entityTags: number;
-                                };
-                            };
+                            data: components["schemas"]["Tag"];
                         };
                     };
                 };
@@ -2526,10 +1945,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": {
-                            code: number;
-                            message: string;
-                        };
+                        "application/json": components["schemas"]["ApiError"];
                     };
                 };
                 /** @description slug 或 name 冲突 */
@@ -2538,10 +1954,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": {
-                            code: number;
-                            message: string;
-                        };
+                        "application/json": components["schemas"]["ApiError"];
                     };
                 };
             };
@@ -2604,10 +2017,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": {
-                            code: number;
-                            message: string;
-                        };
+                        "application/json": components["schemas"]["ApiError"];
                     };
                 };
                 /** @description 标签不存在 */
@@ -2616,10 +2026,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": {
-                            code: number;
-                            message: string;
-                        };
+                        "application/json": components["schemas"]["ApiError"];
                     };
                 };
                 /** @description 冲突（如源标签有子节点） */
@@ -2628,10 +2035,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": {
-                            code: number;
-                            message: string;
-                        };
+                        "application/json": components["schemas"]["ApiError"];
                     };
                 };
             };
@@ -2681,28 +2085,7 @@ export interface paths {
                         "application/json": {
                             code: number;
                             data: {
-                                tag: {
-                                    id: string;
-                                    groupId: string;
-                                    slug: string;
-                                    name: string;
-                                    description: string | null;
-                                    parentId: string | null;
-                                    path: string;
-                                    depth: number;
-                                    sortOrder: number;
-                                    createdAt: string;
-                                    updatedAt: string;
-                                    deletedAt?: string | unknown;
-                                    group?: {
-                                        id: string;
-                                        slug: string;
-                                        name: string;
-                                    };
-                                    _count?: {
-                                        entityTags: number;
-                                    };
-                                };
+                                tag: components["schemas"]["Tag"];
                                 tagsMoved: number;
                             };
                         };
@@ -2714,10 +2097,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": {
-                            code: number;
-                            message: string;
-                        };
+                        "application/json": components["schemas"]["ApiError"];
                     };
                 };
                 /** @description 不存在 */
@@ -2726,10 +2106,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": {
-                            code: number;
-                            message: string;
-                        };
+                        "application/json": components["schemas"]["ApiError"];
                     };
                 };
                 /** @description 冲突 */
@@ -2738,10 +2115,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": {
-                            code: number;
-                            message: string;
-                        };
+                        "application/json": components["schemas"]["ApiError"];
                     };
                 };
             };
@@ -2780,13 +2154,7 @@ export interface paths {
                     content: {
                         "application/json": {
                             code: number;
-                            data: {
-                                id: string;
-                                tagId: string;
-                                alias: string;
-                                source: string;
-                                createdAt: string;
-                            }[];
+                            data: components["schemas"]["TagAlias"][];
                         };
                     };
                 };
@@ -2796,10 +2164,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": {
-                            code: number;
-                            message: string;
-                        };
+                        "application/json": components["schemas"]["ApiError"];
                     };
                 };
             };
@@ -2837,13 +2202,7 @@ export interface paths {
                     content: {
                         "application/json": {
                             code: number;
-                            data: {
-                                id: string;
-                                tagId: string;
-                                alias: string;
-                                source: string;
-                                createdAt: string;
-                            };
+                            data: components["schemas"]["TagAlias"];
                         };
                     };
                 };
@@ -2853,10 +2212,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": {
-                            code: number;
-                            message: string;
-                        };
+                        "application/json": components["schemas"]["ApiError"];
                     };
                 };
                 /** @description 别名冲突 */
@@ -2865,10 +2221,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": {
-                            code: number;
-                            message: string;
-                        };
+                        "application/json": components["schemas"]["ApiError"];
                     };
                 };
             };
@@ -2909,10 +2262,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": {
-                            code: number;
-                            message: string;
-                        };
+                        "application/json": components["schemas"]["OkMessage"];
                     };
                 };
                 /** @description 不存在 */
@@ -2921,10 +2271,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": {
-                            code: number;
-                            message: string;
-                        };
+                        "application/json": components["schemas"]["ApiError"];
                     };
                 };
             };
@@ -2959,15 +2306,7 @@ export interface paths {
                     content: {
                         "application/json": {
                             code: number;
-                            data: {
-                                id: string;
-                                name: string;
-                                role: string;
-                                scopes: string[];
-                                createdAt: string;
-                                lastUsedAt: string | unknown;
-                                revokedAt: string | unknown;
-                            }[];
+                            data: components["schemas"]["ApiToken"][];
                         };
                     };
                 };
@@ -3005,17 +2344,7 @@ export interface paths {
                     content: {
                         "application/json": {
                             code: number;
-                            data: {
-                                id: string;
-                                name: string;
-                                role: string;
-                                scopes: string[];
-                                createdAt: string;
-                                lastUsedAt: string | unknown;
-                                revokedAt: string | unknown;
-                                /** @description 一次性明文 token，创建后不可再查 */
-                                token: string;
-                            };
+                            data: components["schemas"]["CreatedToken"];
                         };
                     };
                 };
@@ -3025,10 +2354,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": {
-                            code: number;
-                            message: string;
-                        };
+                        "application/json": components["schemas"]["ApiError"];
                     };
                 };
             };
@@ -3067,10 +2393,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": {
-                            code: number;
-                            message: string;
-                        };
+                        "application/json": components["schemas"]["OkMessage"];
                     };
                 };
                 /** @description 不存在 */
@@ -3079,10 +2402,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": {
-                            code: number;
-                            message: string;
-                        };
+                        "application/json": components["schemas"]["ApiError"];
                     };
                 };
             };
@@ -3182,21 +2502,7 @@ export interface paths {
                                     entityType: string;
                                     entityId: string;
                                     registeredAt: string;
-                                    tags?: {
-                                        id: string;
-                                        slug: string;
-                                        name: string;
-                                        groupId: string;
-                                        group: {
-                                            id: string;
-                                            slug: string;
-                                            name: string;
-                                        };
-                                        source: string;
-                                        confidence: number | null;
-                                        status: string;
-                                        taggedAt: string;
-                                    }[];
+                                    tags?: components["schemas"]["EntityTagItem"][];
                                 }[];
                                 total: number;
                                 page: number;
@@ -3222,10 +2528,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": {
-                            code: number;
-                            message: string;
-                        };
+                        "application/json": components["schemas"]["ApiError"];
                     };
                 };
             };
@@ -3335,10 +2638,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": {
-                            code: number;
-                            message: string;
-                        };
+                        "application/json": components["schemas"]["ApiError"];
                     };
                 };
                 /** @description 分组不存在 */
@@ -3347,10 +2647,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": {
-                            code: number;
-                            message: string;
-                        };
+                        "application/json": components["schemas"]["ApiError"];
                     };
                 };
             };
@@ -3428,10 +2725,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": {
-                            code: number;
-                            message: string;
-                        };
+                        "application/json": components["schemas"]["ApiError"];
                     };
                 };
                 /** @description LLM 调用失败 */
@@ -3440,10 +2734,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": {
-                            code: number;
-                            message: string;
-                        };
+                        "application/json": components["schemas"]["ApiError"];
                     };
                 };
             };
@@ -3546,10 +2837,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": {
-                            code: number;
-                            message: string;
-                        };
+                        "application/json": components["schemas"]["ApiError"];
                     };
                 };
             };
@@ -3598,10 +2886,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": {
-                            code: number;
-                            message: string;
-                        };
+                        "application/json": components["schemas"]["ApiError"];
                     };
                 };
                 /** @description 服务器错误 */
@@ -3610,10 +2895,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": {
-                            code: number;
-                            message: string;
-                        };
+                        "application/json": components["schemas"]["ApiError"];
                     };
                 };
             };
@@ -3667,10 +2949,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": {
-                            code: number;
-                            message: string;
-                        };
+                        "application/json": components["schemas"]["ApiError"];
                     };
                 };
                 /** @description 节点不存在 */
@@ -3679,10 +2958,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": {
-                            code: number;
-                            message: string;
-                        };
+                        "application/json": components["schemas"]["ApiError"];
                     };
                 };
                 /** @description 服务器错误 */
@@ -3691,10 +2967,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": {
-                            code: number;
-                            message: string;
-                        };
+                        "application/json": components["schemas"]["ApiError"];
                     };
                 };
             };
@@ -3749,10 +3022,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": {
-                            code: number;
-                            message: string;
-                        };
+                        "application/json": components["schemas"]["ApiError"];
                     };
                 };
             };
@@ -3858,10 +3128,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": {
-                            code: number;
-                            message: string;
-                        };
+                        "application/json": components["schemas"]["ApiError"];
                     };
                 };
             };
@@ -3924,10 +3191,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": {
-                            code: number;
-                            message: string;
-                        };
+                        "application/json": components["schemas"]["OkMessage"];
                     };
                 };
                 /** @description 参数错误 */
@@ -3936,10 +3200,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": {
-                            code: number;
-                            message: string;
-                        };
+                        "application/json": components["schemas"]["ApiError"];
                     };
                 };
             };
@@ -4015,10 +3276,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": {
-                            code: number;
-                            message: string;
-                        };
+                        "application/json": components["schemas"]["ApiError"];
                     };
                 };
             };
@@ -4066,10 +3324,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": {
-                            code: number;
-                            message: string;
-                        };
+                        "application/json": components["schemas"]["ApiError"];
                     };
                 };
             };
@@ -4094,10 +3349,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": {
-                            code: number;
-                            message: string;
-                        };
+                        "application/json": components["schemas"]["OkMessage"];
                     };
                 };
                 /** @description 不存在 */
@@ -4106,10 +3358,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": {
-                            code: number;
-                            message: string;
-                        };
+                        "application/json": components["schemas"]["ApiError"];
                     };
                 };
             };
@@ -4150,10 +3399,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": {
-                            code: number;
-                            message: string;
-                        };
+                        "application/json": components["schemas"]["ApiError"];
                     };
                 };
                 /** @description 不存在 */
@@ -4162,10 +3408,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": {
-                            code: number;
-                            message: string;
-                        };
+                        "application/json": components["schemas"]["ApiError"];
                     };
                 };
             };
@@ -4211,10 +3454,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": {
-                            code: number;
-                            message: string;
-                        };
+                        "application/json": components["schemas"]["ApiError"];
                     };
                 };
             };
@@ -4255,10 +3495,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": {
-                            code: number;
-                            message: string;
-                        };
+                        "application/json": components["schemas"]["OkMessage"];
                     };
                 };
                 /** @description 投递不存在 */
@@ -4267,10 +3504,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": {
-                            code: number;
-                            message: string;
-                        };
+                        "application/json": components["schemas"]["ApiError"];
                     };
                 };
             };
@@ -4285,6 +3519,155 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        AuditItem: {
+            tagId: string;
+            entityType: string;
+            entityId: string;
+            source: string;
+            confidence: number | null;
+            status: string;
+            taggedAt: string;
+            reviewedAt: string | unknown;
+            reviewNote: string | null;
+            reviewerName: string | null;
+            tag: {
+                id: string;
+                slug: string;
+                name: string;
+                group: components["schemas"]["TagGroupMini"];
+            };
+        };
+        TagGroupMini: {
+            id: string;
+            slug: string;
+            name: string;
+        };
+        ApiError: {
+            code: number;
+            message: string;
+        };
+        RegisteredEntity: {
+            entityType: string;
+            entityId: string;
+            registeredAt?: string;
+            metadata?: components["schemas"]["EntityMetadata"];
+            tags?: components["schemas"]["EntityTagItem"][];
+        };
+        /**
+         * @description 实体元数据 KV 映射。推荐字段：name（名称）、description（描述）、imageUrl（图片URL）、category（分类）。AI 标签建议功能依赖这些字段生成高质量建议。
+         * @example {
+         *       "name": "宫保鸡丁",
+         *       "description": "经典川菜，酸甜微辣",
+         *       "category": "热菜"
+         *     }
+         */
+        EntityMetadata: {
+            [key: string]: string;
+        } | null;
+        EntityTagItem: {
+            id: string;
+            slug: string;
+            name: string;
+            groupId: string;
+            group: components["schemas"]["TagGroupMini"];
+            source: string;
+            confidence: number | null;
+            status: string;
+            taggedAt: string;
+        };
+        SuggestionItem: {
+            /** @description 标签 ID */
+            tagId: string;
+            /** @description 标签 slug */
+            tagSlug: string;
+            /** @description 标签名称 */
+            tagName: string;
+            /** @description 分组 ID */
+            groupId: string;
+            /** @description 分组 slug */
+            groupSlug: string;
+            /** @description 分组名称 */
+            groupName: string;
+            /** @description 置信度 0~1 */
+            confidence: number;
+            /** @description LLM 给出的推荐理由 */
+            reasoning: string;
+        };
+        OkMessage: {
+            code: number;
+            message: string;
+        };
+        TagReview: {
+            id: string;
+            fromStatus: string;
+            toStatus: string;
+            note: string | null;
+            reviewedAt: string;
+            reviewer: {
+                id: string;
+                name: string;
+                role: string;
+            } | null;
+        };
+        TagGroup: {
+            id: string;
+            slug: string;
+            name: string;
+            description: string | null;
+            entityScopes: string[];
+            allowMultiple: boolean;
+            sortOrder: number;
+            createdAt: string;
+            updatedAt: string;
+            deletedAt?: string | unknown;
+            entityRules?: components["schemas"]["EntityRule"][];
+            _count?: {
+                tags: number;
+            };
+        };
+        EntityRule: {
+            groupId: string;
+            entityType: string;
+            allowMultiple: boolean;
+        };
+        Tag: {
+            id: string;
+            groupId: string;
+            slug: string;
+            name: string;
+            description: string | null;
+            parentId: string | null;
+            path: string;
+            depth: number;
+            sortOrder: number;
+            createdAt: string;
+            updatedAt: string;
+            deletedAt?: string | unknown;
+            group?: components["schemas"]["TagGroupMini"];
+            _count?: {
+                entityTags: number;
+            };
+        };
+        TagAlias: {
+            id: string;
+            tagId: string;
+            alias: string;
+            source: string;
+            createdAt: string;
+        };
+        ApiToken: {
+            id: string;
+            name: string;
+            role: string;
+            scopes: string[];
+            createdAt: string;
+            lastUsedAt: string | unknown;
+            revokedAt: string | unknown;
+        };
+        CreatedToken: components["schemas"]["ApiToken"] & {
+            /** @description 一次性明文 token，创建后不可再查 */
+            token: string;
+        };
         /** @description 标签布尔表达式（缺省=全集） */
         BoolExpr: {
             tag: string;
