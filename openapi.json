@@ -3,7 +3,7 @@
   "info": {
     "title": "Taxon Tag Service",
     "version": "1.0.0",
-    "description": "Standalone tagging microservice — tag groups, entity tagging, audit workflow"
+    "description": "Standalone tagging microservice — tag groups, entity tagging, audit workflow.\n\n## 统一响应信封\n所有业务接口返回统一信封：\n- 成功：`{ \"code\": 0, \"data\": ... }`（或仅 `{ \"code\": 0, \"message\": \"...\" }`）\n- 失败：`{ \"code\": <httpStatus>, \"message\": \"...\" }`\n\n## 错误码约定\n`code` 与 HTTP 状态码一致：`400` 参数/结构不合法 · `401` 未认证 · `403` 权限不足 · `404` 资源不存在 · `409` 冲突（重名/在用）· `422` 业务校验失败（如分组不允许多选）· `429` 触发限流 · `500` 服务内部错误。\n\n## 版本\n当前版本 `v1`，所有业务路径以 `/v1` 为前缀（见 servers）。基础设施端点（`/health`、`/metrics`、`/openapi.json`、`/docs`）不版本化。"
   },
   "security": [
     {
@@ -620,6 +620,60 @@
     "parameters": {}
   },
   "paths": {
+    "/entity-types": {
+      "get": {
+        "tags": [
+          "实体"
+        ],
+        "summary": "列出所有已注册实体类型及计数",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "entityType": {
+                            "type": "string",
+                            "description": "实体类型"
+                          },
+                          "count": {
+                            "type": "integer",
+                            "description": "该类型下已注册实体数"
+                          }
+                        },
+                        "required": [
+                          "entityType",
+                          "count"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "data"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/entities/audit": {
       "get": {
         "tags": [
@@ -658,10 +712,15 @@
           {
             "schema": {
               "type": "string",
-              "description": "状态过滤（pending/active/rejected）"
+              "enum": [
+                "pending",
+                "active",
+                "rejected"
+              ],
+              "description": "状态过滤，默认 pending"
             },
             "required": false,
-            "description": "状态过滤（pending/active/rejected）",
+            "description": "状态过滤，默认 pending",
             "name": "status",
             "in": "query"
           },
@@ -9790,5 +9849,11 @@
         }
       }
     }
-  }
+  },
+  "servers": [
+    {
+      "url": "/v1",
+      "description": "API v1 (current)"
+    }
+  ]
 }

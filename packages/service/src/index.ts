@@ -67,6 +67,6 @@ if (IS_PROD && process.env.NEXT_PUBLIC_TAG_SERVICE_TOKEN) {
 const PORT = Number(process.env.PORT) || 3300
 
 serve({ fetch: app.fetch, port: PORT }, (info) => {
-  logger.info(`Taxcon running on http://localhost:${info.port}`)
+  logger.info(`Taxon running on http://localhost:${info.port}`)
   logger.info(`  docs: http://localhost:${info.port}/docs`)
 })

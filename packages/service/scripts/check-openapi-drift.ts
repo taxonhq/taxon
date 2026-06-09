@@ -18,20 +18,14 @@ import { readFileSync, existsSync } from 'node:fs'
 import { resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { buildApp } from '../src/app.js'
+import { buildOpenApiSpec } from '../src/lib/openapi-doc.js'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const specPath   = resolve(__dirname, '../../..', 'openapi.json')
 
 const app  = buildApp({ silent: true })
-const spec = (app as any).getOpenAPIDocument({
-  openapi: '3.0.0',
-  info: {
-    title: 'Taxon Tag Service',
-    version: '1.0.0',
-    description: 'Standalone tagging microservice — tag groups, entity tagging, audit workflow',
-  },
-  security: [{ BearerAuth: [] }],
-})
+// 必须与 export-spec.ts / 运行时 /openapi.json 走同一生成逻辑（/v1 视图）
+const spec = buildOpenApiSpec(app)
 
 const currentJson = JSON.stringify(spec, null, 2) + '\n'
 

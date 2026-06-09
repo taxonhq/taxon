@@ -15,12 +15,12 @@ const listTokensRoute = createRoute({
   tags: ['Token 管理'],
   summary: '列出所有 Token',
   security: [{ BearerAuth: [] }],
+  middleware: [requireRole('admin')] as const,
   responses: {
     200: { content: { 'application/json': { schema: okData(z.array(ApiTokenSchema)) } }, description: '成功' },
   },
 })
 
-tokensRouter.use('/', requireRole('admin'))
 tokensRouter.openapi(listTokensRoute, async (c) => {
   const tokens = await prisma.apiToken.findMany({
     select: { id: true, name: true, role: true, scopes: true, createdAt: true, lastUsedAt: true, revokedAt: true },
@@ -35,6 +35,7 @@ const createTokenRoute = createRoute({
   tags: ['Token 管理'],
   summary: '创建 Token（一次性返回明文）',
   security: [{ BearerAuth: [] }],
+  middleware: [requireRole('admin')] as const,
   request: { body: { content: { 'application/json': { schema: CreateTokenBody } }, required: true } },
   responses: {
     200: { content: { 'application/json': { schema: okData(CreatedTokenSchema) } }, description: '成功，token 字段仅此一次可见' },
@@ -61,6 +62,7 @@ const revokeTokenRoute = createRoute({
   tags: ['Token 管理'],
   summary: '撤销 Token',
   security: [{ BearerAuth: [] }],
+  middleware: [requireRole('admin')] as const,
   request: { params: z.object({ id: z.string().min(1) }) },
   responses: {
     200: { content: { 'application/json': { schema: OkMessage } }, description: '成功' },
@@ -68,7 +70,6 @@ const revokeTokenRoute = createRoute({
   },
 })
 
-tokensRouter.use('/:id', requireRole('admin'))
 tokensRouter.openapi(revokeTokenRoute, async (c) => {
   const { id } = c.req.valid('param')
   try {

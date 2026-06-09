@@ -104,6 +104,15 @@ All endpoints return:
 - Success: `{ code: 0, data: ... }`
 - Error: `{ code: <statusCode>, message: "..." }`
 
+### API Versioning (#154)
+
+All **business** routes are served under the `/v1` prefix (canonical, e.g. `/v1/tag-groups`, `/v1/entities/...`). The OpenAPI spec carries the version in `servers[].url = /v1` (path keys themselves are unprefixed), generated via `src/lib/openapi-doc.ts` — both the runtime `/openapi.json` and `scripts/export-spec.ts` go through it, so the committed `openapi.json` stays in sync.
+
+- **Infrastructure endpoints are NOT versioned**: `/health*`, `/metrics` (Prometheus scrape), `/openapi.json`, `/docs`, `/`, `/favicon.svg`.
+- **Backward-compat alias**: the same router is also mounted at the root `/` so legacy unprefixed paths keep working during transition. New integrations should use `/v1`. The console calls `/v1` via `API_PREFIX` in `packages/console/src/lib/api.ts`.
+- The whole API is assembled in `buildApiRouter()` in `src/app.ts` (auth/rate-limit/param-validation middleware live there, relative to the api root, so both mounts behave identically).
+- Prometheus `/metrics` can be gated with the `METRICS_TOKEN` env var (Bearer); dashboard aggregate metrics are a separate namespace at `/v1/metrics/*`.
+
 ### API Endpoints
 
 | Method | Path | Description |
