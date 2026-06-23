@@ -13,6 +13,7 @@
 import { createHmac } from 'node:crypto'
 import type { Prisma } from '@prisma/client'
 import prisma from './db.js'
+import { isPrismaError } from './errors.js'
 import logger from './logger.js'
 
 // 指数退避（秒）：约 1m → 5m → 30m → 2h → 6h → 24h，共 6 次重试后判定 failed。
@@ -208,7 +209,12 @@ export function startWebhookWorker(intervalMs = 5_000): () => void {
         logger.debug({ ...r }, 'webhook worker tick')
       }
     } catch (e) {
-      logger.error({ err: e }, 'webhook worker error')
+      if (isPrismaError(e, 'P1017')) {
+        logger.warn({ err: e }, 'webhook worker: DB connection lost, reconnecting')
+        prisma.$connect().catch(() => {})
+      } else {
+        logger.error({ err: e }, 'webhook worker error')
+      }
     } finally {
       running = false
     }
